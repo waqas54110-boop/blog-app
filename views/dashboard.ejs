@@ -1,0 +1,66 @@
+<%- include('partials/header') %>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">Dashboard</h2>
+  <a href="/posts/new" class="btn btn-primary">+ Write Post</a>
+</div>
+
+<div class="row g-3 mb-4">
+  <% [
+    ['Posts', stats.posts],
+    ['Total views', stats.views],
+    ['Comments', stats.comments],
+    ['Registered users', stats.users]
+  ].forEach(s => { %>
+    <div class="col-6 col-lg-3">
+      <div class="card border-0 shadow-sm text-center">
+        <div class="card-body">
+          <div class="display-6 fw-bold text-primary"><%= s[1] %></div>
+          <div class="text-body-secondary"><%= s[0] %></div>
+        </div>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<div class="card border-0 shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Category</th>
+          <th class="text-end">Views</th>
+          <th class="text-end">Likes</th>
+          <th class="text-end">Comments</th>
+          <th>Date</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% if (posts.length === 0) { %>
+          <tr><td colspan="7" class="text-center text-body-secondary py-4">No posts yet.</td></tr>
+        <% } %>
+        <% posts.forEach(p => { %>
+          <tr>
+            <td><a href="/posts/<%= p.id %>" class="text-decoration-none"><%= p.title %></a></td>
+            <td><span class="badge text-bg-primary"><%= p.category %></span></td>
+            <td class="text-end"><%= p.views %></td>
+            <td class="text-end"><%= p.likes %></td>
+            <td class="text-end"><%= p.comments %></td>
+            <td><%= new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></td>
+            <td class="text-end text-nowrap">
+              <a href="/posts/<%= p.id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
+              <form action="/posts/<%= p.id %>/delete" method="POST" class="d-inline"
+                    onsubmit="return confirm('Delete this post permanently?')">
+                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

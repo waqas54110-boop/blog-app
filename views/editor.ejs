@@ -1,0 +1,62 @@
+<%- include('partials/header') %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-9">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <h2 class="mb-4"><%= heading %></h2>
+
+        <% if (error) { %>
+          <div class="alert alert-danger"><%= error %></div>
+        <% } %>
+
+        <form action="<%= action %>" method="POST">
+          <div class="mb-3">
+            <label for="title" class="form-label">Title</label>
+            <input type="text" class="form-control" id="title" name="title" maxlength="200"
+                   value="<%= form.title || '' %>" required>
+          </div>
+
+          <div class="row">
+            <div class="col-md-5 mb-3">
+              <label for="category" class="form-label">Category</label>
+              <select class="form-select" id="category" name="category">
+                <% categories.forEach(c => { %>
+                  <option value="<%= c %>" <%= form.category === c ? 'selected' : '' %>><%= c %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col-md-7 mb-3">
+              <label for="cover_url" class="form-label">Cover image URL <span class="text-body-secondary">(optional)</span></label>
+              <input type="url" class="form-control" id="cover_url" name="cover_url"
+                     value="<%= form.cover_url || '' %>" placeholder="https://...">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="excerpt" class="form-label">Short summary <span class="text-body-secondary">(optional)</span></label>
+            <input type="text" class="form-control" id="excerpt" name="excerpt" maxlength="300"
+                   value="<%= form.excerpt || '' %>" placeholder="One or two lines shown on the home page">
+          </div>
+
+          <div class="mb-2">
+            <label for="content" class="form-label">Content (Markdown supported)</label>
+            <textarea class="form-control font-monospace" id="content" name="content" rows="16" required><%= form.content || '' %></textarea>
+          </div>
+          <div class="form-text mb-4">
+            Examples: <code># Heading</code>, <code>**bold**</code>, <code>*italic*</code>,
+            <code>[link](https://...)</code>, <code>![alt](https://image-url)</code>, <code>- list item</code>,
+            <code>&gt; quote</code>, <code>`code`</code>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <a href="/dashboard" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

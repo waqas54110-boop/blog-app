@@ -1,0 +1,416 @@
+const express = require('express');
+const { marked } = require('marked');
+const sanitizeHtml = require('sanitize-html');
+const pool = require('../db');
+
+const router = express.Router();
+const PER_PAGE = 6;
+const CATEGORIES = [
+  'Cricket',
+  'Video Editing',
+  'AI & ML',
+  'Freelancing',
+  'Web Development',
+  'Content Creation',
+  'General',
+];
+
+// ---------- Helpers ----------
+const requireLogin = (req, res, next) => {
+  if (!req.session.user) return res.redirect('/login');
+  next();
+};
+
+const requireAdmin = (req, res, next) => {
+  if (!req.session.user) return res.redirect('/login');
+  if (req.session.user.role !== 'admin') {
+    return res.status(403).render('404', {
+      title: 'Not allowed',
+      message: 'Only the blog owner can do this.',
+    });
+  }
+  next();
+};
+
+const toId = (v) => {
+  const n = parseInt(v, 10);
+  return Number.isInteger(n) ? n : null;
+};
+
+const renderMarkdown = (md) =>
+  sanitizeHtml(marked.parse(md), {
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'img']),
+    allowedAttributes: { ...sanitizeHtml.defaults.allowedAttributes, img: ['src', 'alt'] },
+    allowedSchemes: ['http', 'https'],
+  });
+
+const makePreview = (post) => {
+  if (post.excerpt) return post.excerpt;
+  const plain = post.content.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#*_`>~]/g, '');
+  return plain.length > 130 ? plain.substring(0, 130) + '...' : plain;
+};
+
+const validatePost = (body) => {
+  const title = (body.title || '').trim();
+  const excerpt = (body.excerpt || '').trim();
+  const content = (body.content || '').trim();
+  const category = body.category;
+  const cover = (body.cover_url || '').trim();
+
+  let error = null;
+  if (!title || !content) error = 'Title and content are required.';
+  else if (title.length > 200) error = 'Title must be 200 characters or less.';
+  else if (excerpt.length > 300) error = 'Summary must be 300 characters or less.';
+  else if (!CATEGORIES.includes(category)) error = 'Please choose a valid category.';
+  else if (cover && !/^https?:\/\/\S+$/i.test(cover)) error = 'Cover image must be a valid http(s) URL.';
+
+  return {
+    error,
+    data: { title, excerpt: excerpt || null, content, category, cover_url: cover || null },
+  };
+};
+
+// ---------- HOME ----------
+router.get('/', async (req, res) => {
+  const q = (req.query.q || '').trim();
+  const category = (req.query.category || '').trim();
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const offset = (page - 1) * PER_PAGE;
+
+  const where = `
+    WHERE ($1::text = '' OR p.title ILIKE '%' || $1::text || '%' OR p.content ILIKE '%' || $1::text || '%')
+      AND ($2::text = '' OR p.category = $2::text)`;
+
+  try {
+    const [postsResult, countResult, catResult, popularResult] = await Promise.all([
+      pool.query(
+        `SELECT p.id, p.title, p.excerpt, p.content, p.category, p.cover_url, p.views, p.created_at,
+                u.username,
+                (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id)::int AS like_count,
+                (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)::int AS comment_count
+         FROM posts p JOIN users u ON u.id = p.user_id
+         ${where}
+         ORDER BY p.created_at DESC
+         LIMIT $3 OFFSET $4`,
+        [q, category, PER_PAGE, offset]
+      ),
+      pool.query(`SELECT COUNT(*)::int AS total FROM posts p ${where}`, [q, category]),
+      pool.query('SELECT category, COUNT(*)::int AS total FROM posts GROUP BY category ORDER BY total DESC'),
+      pool.query('SELECT id, title, views FROM posts ORDER BY views DESC, created_at DESC LIMIT 5'),
+    ]);
+
+    const totalPosts = countResult.rows[0].total;
+    const posts = postsResult.rows.map((p) => ({ ...p, preview: makePreview(p) }));
+
+    res.render('index', {
+      title: 'My Blog',
+      posts,
+      categories: catResult.rows,
+      popular: popularResult.rows,
+      totalPosts,
+      totalPages: Math.max(Math.ceil(totalPosts / PER_PAGE), 1),
+      page,
+      q,
+      category,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- ABOUT ----------
+router.get('/about', (req, res) => {
+  res.render('about', { title: 'About' });
+});
+
+// ---------- BOOKMARKS (reader) ----------
+router.get('/bookmarks', requireLogin, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT p.id, p.title, p.category, p.created_at, u.username
+       FROM bookmarks b
+       JOIN posts p ON p.id = b.post_id
+       JOIN users u ON u.id = p.user_id
+       WHERE b.user_id = $1
+       ORDER BY b.created_at DESC`,
+      [req.session.user.id]
+    );
+    res.render('bookmarks', { title: 'My Bookmarks', posts: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- DASHBOARD (admin) ----------
+router.get('/dashboard', requireAdmin, async (req, res) => {
+  try {
+    const [stats, list] = await Promise.all([
+      pool.query(`SELECT
+        (SELECT COUNT(*) FROM posts)::int AS posts,
+        (SELECT COALESCE(SUM(views), 0) FROM posts)::int AS views,
+        (SELECT COUNT(*) FROM comments)::int AS comments,
+        (SELECT COUNT(*) FROM users)::int AS users`),
+      pool.query(`SELECT p.id, p.title, p.category, p.views, p.created_at,
+        (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id)::int AS likes,
+        (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)::int AS comments
+        FROM posts p ORDER BY p.created_at DESC`),
+    ]);
+    res.render('dashboard', { title: 'Dashboard', stats: stats.rows[0], posts: list.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- NEW POST (admin) ----------
+router.get('/posts/new', requireAdmin, (req, res) => {
+  res.render('editor', {
+    title: 'Write a Post',
+    heading: 'Write a New Post',
+    action: '/posts',
+    error: null,
+    categories: CATEGORIES,
+    form: {},
+  });
+});
+
+router.post('/posts', requireAdmin, async (req, res) => {
+  const { error, data } = validatePost(req.body);
+  if (error) {
+    return res.render('editor', {
+      title: 'Write a Post',
+      heading: 'Write a New Post',
+      action: '/posts',
+      error,
+      categories: CATEGORIES,
+      form: req.body,
+    });
+  }
+
+  try {
+    const result = await pool.query(
+      `INSERT INTO posts (user_id, title, excerpt, content, category, cover_url)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      [req.session.user.id, data.title, data.excerpt, data.content, data.category, data.cover_url]
+    );
+    res.redirect('/posts/' + result.rows[0].id);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- EDIT POST (admin) ----------
+router.get('/posts/:id/edit', requireAdmin, async (req, res) => {
+  const id = toId(req.params.id);
+  if (!id) return res.status(404).render('404', { title: 'Not Found' });
+
+  try {
+    const result = await pool.query('SELECT * FROM posts WHERE id = $1', [id]);
+    const post = result.rows[0];
+    if (!post) return res.status(404).render('404', { title: 'Not Found' });
+
+    res.render('editor', {
+      title: 'Edit Post',
+      heading: 'Edit Post',
+      action: `/posts/${id}/edit`,
+      error: null,
+      categories: CATEGORIES,
+      form: post,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
+  const id = toId(req.params.id);
+  if (!id) return res.status(404).render('404', { title: 'Not Found' });
+
+  const { error, data } = validatePost(req.body);
+  if (error) {
+    return res.render('editor', {
+      title: 'Edit Post',
+      heading: 'Edit Post',
+      action: `/posts/${id}/edit`,
+      error,
+      categories: CATEGORIES,
+      form: req.body,
+    });
+  }
+
+  try {
+    await pool.query(
+      `UPDATE posts
+       SET title = $1, excerpt = $2, content = $3, category = $4, cover_url = $5
+       WHERE id = $6`,
+      [data.title, data.excerpt, data.content, data.category, data.cover_url, id]
+    );
+    res.redirect('/posts/' + id);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- SINGLE POST ----------
+router.get('/posts/:id', async (req, res) => {
+  const id = toId(req.params.id);
+  if (!id) return res.status(404).render('404', { title: 'Not Found' });
+
+  const uid = req.session.user ? req.session.user.id : null;
+
+  try {
+    // Views sirf readers ke count hote hain (admin ke nahi)
+    if (!res.locals.isAdmin) {
+      await pool.query('UPDATE posts SET views = views + 1 WHERE id = $1', [id]);
+    }
+
+    const result = await pool.query(
+      `SELECT p.*, u.username,
+              (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id)::int AS like_count,
+              EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $2::int) AS liked,
+              EXISTS (SELECT 1 FROM bookmarks b WHERE b.post_id = p.id AND b.user_id = $2::int) AS bookmarked
+       FROM posts p JOIN users u ON u.id = p.user_id
+       WHERE p.id = $1`,
+      [id, uid]
+    );
+    const post = result.rows[0];
+    if (!post) return res.status(404).render('404', { title: 'Not Found' });
+
+    const [related, comments] = await Promise.all([
+      pool.query(
+        `SELECT id, title, created_at FROM posts
+         WHERE category = $1 AND id <> $2
+         ORDER BY created_at DESC LIMIT 3`,
+        [post.category, post.id]
+      ),
+      pool.query(
+        `SELECT c.id, c.body, c.created_at, c.user_id, u.username
+         FROM comments c JOIN users u ON u.id = c.user_id
+         WHERE c.post_id = $1
+         ORDER BY c.created_at ASC`,
+        [id]
+      ),
+    ]);
+
+    const words = post.content.trim().split(/\s+/).length;
+
+    res.render('post', {
+      title: post.title,
+      post,
+      contentHtml: renderMarkdown(post.content),
+      related: related.rows,
+      comments: comments.rows,
+      readingTime: Math.max(Math.ceil(words / 200), 1),
+      commentError: req.query.commentError || null,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- DELETE POST (admin) ----------
+router.post('/posts/:id/delete', requireAdmin, async (req, res) => {
+  const id = toId(req.params.id);
+  if (!id) return res.redirect('/dashboard');
+
+  try {
+    await pool.query('DELETE FROM posts WHERE id = $1', [id]);
+    res.redirect('/dashboard');
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- LIKE toggle ----------
+router.post('/posts/:id/like', requireLogin, async (req, res) => {
+  const id = toId(req.params.id);
+  if (!id) return res.redirect('/');
+  const uid = req.session.user.id;
+
+  try {
+    const del = await pool.query('DELETE FROM likes WHERE post_id = $1 AND user_id = $2', [id, uid]);
+    if (del.rowCount === 0) {
+      await pool.query(
+        'INSERT INTO likes (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [id, uid]
+      );
+    }
+  } catch (err) {
+    console.error(err);
+    return res.redirect('/');
+  }
+  res.redirect('/posts/' + id);
+});
+
+// ---------- BOOKMARK toggle ----------
+router.post('/posts/:id/bookmark', requireLogin, async (req, res) => {
+  const id = toId(req.params.id);
+  if (!id) return res.redirect('/');
+  const uid = req.session.user.id;
+
+  try {
+    const del = await pool.query('DELETE FROM bookmarks WHERE post_id = $1 AND user_id = $2', [id, uid]);
+    if (del.rowCount === 0) {
+      await pool.query(
+        'INSERT INTO bookmarks (post_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+        [id, uid]
+      );
+    }
+  } catch (err) {
+    console.error(err);
+    return res.redirect('/');
+  }
+  res.redirect('/posts/' + id);
+});
+
+// ---------- COMMENTS ----------
+router.post('/posts/:id/comments', requireLogin, async (req, res) => {
+  const id = toId(req.params.id);
+  if (!id) return res.redirect('/');
+
+  const body = (req.body.body || '').trim();
+  if (!body || body.length > 1000) {
+    const msg = encodeURIComponent('Comment must be between 1 and 1000 characters.');
+    return res.redirect(`/posts/${id}?commentError=${msg}#comments`);
+  }
+
+  try {
+    await pool.query(
+      'INSERT INTO comments (post_id, user_id, body) VALUES ($1, $2, $3)',
+      [id, req.session.user.id, body]
+    );
+  } catch (err) {
+    console.error(err);
+    return res.redirect('/');
+  }
+  res.redirect(`/posts/${id}#comments`);
+});
+
+router.post('/comments/:id/delete', requireLogin, async (req, res) => {
+  const id = toId(req.params.id);
+  if (!id) return res.redirect('/');
+
+  const { id: uid, role } = req.session.user;
+
+  try {
+    // Admin sab ke comments delete kar sakta hai, reader sirf apne
+    const result = await pool.query(
+      `DELETE FROM comments WHERE id = $1 AND ($3 = 'admin' OR user_id = $2) RETURNING post_id`,
+      [id, uid, role]
+    );
+    const postId = result.rows[0] ? result.rows[0].post_id : null;
+    res.redirect(postId ? `/posts/${postId}#comments` : '/');
+  } catch (err) {
+    console.error(err);
+    res.redirect('/');
+  }
+});
+
+module.exports = router;

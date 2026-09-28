@@ -1,0 +1,31 @@
+<%- include('partials/header') %>
+
+<h2 class="mb-4">My Bookmarks</h2>
+
+<% if (posts.length === 0) { %>
+  <div class="text-center py-5">
+    <p class="text-body-secondary">You have not saved any posts yet.</p>
+    <a href="/" class="btn btn-primary">Browse posts</a>
+  </div>
+<% } else { %>
+  <div class="list-group shadow-sm">
+    <% posts.forEach(p => { %>
+      <a href="/posts/<%= p.id %>" class="list-group-item list-group-item-action">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h6 class="mb-1"><%= p.title %></h6>
+            <small class="text-body-secondary">by <%= p.username %></small>
+          </div>
+          <div class="text-end">
+            <span class="badge text-bg-primary"><%= p.category %></span>
+            <div class="small text-body-secondary mt-1">
+              <%= new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %>
+            </div>
+          </div>
+        </div>
+      </a>
+    <% }) %>
+  </div>
+<% } %>
+
+<%- include('partials/footer') %>
