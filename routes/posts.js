@@ -82,12 +82,39 @@ const toId = (v) => {
   return Number.isInteger(n) ? n : null;
 };
 
+// Post mein sirf apni uploaded video (/video/5) aur YouTube embed allowed hain; baaqi sab kuch (script, iframe wagaira) saaf ho jata hai.
+const YT_EMBED = /^https:\/\/www\.youtube(-nocookie)?\.com\/embed\/[\w-]{11}(\?[\w=&-]*)?$/;
+const OWN_VIDEO = /^\/video\/\d{1,9}$/;
+
 const renderMarkdown = (md) =>
   sanitizeHtml(marked.parse(md), {
-    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'img']),
-    allowedAttributes: { ...sanitizeHtml.defaults.allowedAttributes, img: ['src', 'alt'] },
+    allowedTags: sanitizeHtml.defaults.allowedTags.concat(['h1', 'h2', 'img', 'video', 'iframe']),
+    allowedAttributes: {
+      ...sanitizeHtml.defaults.allowedAttributes,
+      img: ['src', 'alt'],
+      video: ['src', 'controls', 'preload', 'playsinline', 'class'],
+      iframe: ['src', 'title', 'allowfullscreen', 'loading', 'class'],
+    },
     allowedSchemes: ['http', 'https'],
+    allowedIframeHostnames: ['www.youtube.com', 'www.youtube-nocookie.com'],
+    transformTags: {
+      video: (tagName, attribs) => ({
+        tagName: 'video',
+        attribs: { src: attribs.src, controls: 'controls', preload: 'metadata', playsinline: 'playsinline', class: 'post-video' },
+      }),
+      iframe: (tagName, attribs) => ({
+        tagName: 'iframe',
+        attribs: { src: attribs.src, title: attribs.title || 'Video', loading: 'lazy', allowfullscreen: 'allowfullscreen', class: 'post-embed' },
+      }),
+    },
+    exclusiveFilter: (frame) =>
+      (frame.tag === 'video' && !OWN_VIDEO.test(frame.attribs.src || '')) ||
+      (frame.tag === 'iframe' && !YT_EMBED.test(frame.attribs.src || '')),
   });
+
+// Preview/email/RSS ke liye markdown + HTML tags (video/iframe) hata kar sada text
+const stripMarkup = (text) =>
+  String(text).replace(/<[^>]*>/g, ' ').replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#*_`>~]/g, '').replace(/\s+/g, ' ').trim();
 
 const parseTags = (raw) => {
   if (!raw) return [];
@@ -120,7 +147,7 @@ const readingTimeOf = (content) =>
 
 const makePreview = (post) => {
   if (post.excerpt) return post.excerpt;
-  const plain = post.content.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#*_`>~]/g, '');
+  const plain = stripMarkup(post.content);
   return plain.length > 130 ? plain.substring(0, 130) + '...' : plain;
 };
 
@@ -278,7 +305,7 @@ router.get('/rss.xml', async (req, res) => {
       <link>${baseUrl}/posts/${p.slug}</link>
       <guid>${baseUrl}/posts/${p.slug}</guid>
       <pubDate>${new Date(p.created_at).toUTCString()}</pubDate>
-      <description>${esc(p.excerpt || p.content.slice(0, 200))}</description>
+      <description>${esc(p.excerpt || stripMarkup(p.content).slice(0, 200))}</description>
     </item>`).join('');
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
@@ -305,7 +332,7 @@ router.get('/sitemap.xml', async (req, res) => {
       `SELECT p.id, p.slug, p.publish_at AS created_at FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC`
     );
     const baseUrl = baseUrlOf(req);
-    const staticUrls = ['', '/about', '/leaderboard', '/community'];
+    const staticUrls = ['', '/about', '/leaderboard', '/community', '/hire'];
 
     const staticXml = staticUrls.map((u) => `
   <url><loc>${baseUrl}${u}</loc></url>`).join('');

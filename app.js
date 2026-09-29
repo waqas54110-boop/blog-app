@@ -15,6 +15,7 @@ const postsRouter = require('./routes/posts');
 const engageRouter = require('./routes/engage');
 const uploadsRouter = require('./routes/uploads');
 const growthRouter = require('./routes/growth');
+const hireRouter = require('./routes/hire');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -36,9 +37,10 @@ const limiter = (windowMinutes, limit, message, opts = {}) =>
     ...opts,
   });
 
-// Uploaded images (/img/...) is global limit mein count nahi hoti: ek page par kai images hoti hain
+// Uploaded images/videos (/img/..., /video/...) is global limit mein count nahi hoti:
+// ek page par kai images hoti hain aur video har seek par chhoti requests bhejti hai
 app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try again.', {
-  skip: (req) => req.path.startsWith('/img/'),
+  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/'),
 }));
 app.post(['/login', '/signup'], limiter(15, 15, 'Too many login/signup attempts. Please try again in 15 minutes.'));
 app.post('/subscribe', limiter(60, 6, 'Too many subscribe attempts. Please try again later.'));
@@ -46,6 +48,9 @@ app.post('/posts/:id/comments', limiter(5, 10, 'You are commenting too fast. Ple
 app.post('/forgot-password', limiter(60, 5, 'Too many reset requests. Please try again in an hour.'));
 app.post('/reset-password/:token', limiter(15, 10, 'Too many attempts. Please try again in a few minutes.'));
 app.post('/upload-image', limiter(10, 40, 'Too many uploads. Please wait a few minutes.'));
+app.post('/upload-video', limiter(30, 10, 'Too many video uploads. Please wait a while.'));
+// Galat form (400) count nahi hota, taake insaan ki typing ghalti par block na ho
+app.post('/hire', limiter(60, 5, 'Too many messages sent. Please try again in an hour.', { skipFailedRequests: true }));
 app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
@@ -53,6 +58,12 @@ app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again
 app.post(
   '/upload-image',
   express.raw({ type: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], limit: '6mb' })
+);
+
+// Video upload: body seedhi video bytes (CSRF token header x-csrf-token mein). Ye bhi csrf se pehle.
+app.post(
+  '/upload-video',
+  express.raw({ type: ['video/mp4', 'video/webm'], limit: config.videoMaxMb + 'mb' })
 );
 
 // Push subscribe/unsubscribe JSON bhejte hain (CSRF token header x-csrf-token mein)
@@ -85,6 +96,7 @@ app.use(async (req, res, next) => {
   res.locals.facebookUrl = config.facebookUrl;
   res.locals.whatsappChannelUrl = config.whatsappChannelUrl;
   res.locals.siteName = config.siteName;
+  res.locals.videoMaxMb = config.videoMaxMb;
 
   // Open Graph defaults (post page inhein override karta hai)
   const base = config.siteUrl || `${req.protocol}://${req.get('host')}`;
@@ -115,6 +127,17 @@ app.use(async (req, res, next) => {
   } catch (err) {
     console.error('locals middleware:', err.message);
   }
+
+  // Owner ke liye: kitni nayi "Hire Me" inquiries abhi parhi nahi (alag try: migration_v6 na chali ho to baaqi site na ruke)
+  res.locals.newInquiries = 0;
+  if (res.locals.isAdmin) {
+    try {
+      const q = await pool.query("SELECT COUNT(*)::int AS c FROM inquiries WHERE status = 'new'");
+      res.locals.newInquiries = q.rows[0].c;
+    } catch (err) {
+      console.error('inquiries count:', err.message);
+    }
+  }
   next();
 });
 
@@ -125,6 +148,7 @@ app.use('/', postsRouter);
 app.use('/', engageRouter);
 app.use('/', uploadsRouter);
 app.use('/', growthRouter);
+app.use('/', hireRouter);
 app.use('/', authRouter);
 
 app.use((req, res) => {
@@ -133,7 +157,10 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   if (err.type === 'entity.too.large') {
-    return res.status(413).json({ error: 'Image is too large (max 5 MB).' });
+    const isVideo = req.path === '/upload-video';
+    return res.status(413).json({
+      error: isVideo ? `Video is too large (max ${config.videoMaxMb} MB).` : 'Image is too large (max 5 MB).',
+    });
   }
   console.error(err);
   if (res.headersSent) return next(err);

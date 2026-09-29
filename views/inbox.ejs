@@ -1,0 +1,69 @@
+<%- include('partials/header') %>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">📥 Inbox <span class="text-body-secondary fs-6">(Hire Me inquiries)</span></h2>
+  <a href="/dashboard" class="btn btn-outline-secondary btn-sm">← Dashboard</a>
+</div>
+
+<ul class="nav nav-pills mb-3">
+  <% [['all', 'All', total], ['new', 'New', count.new], ['replied', 'Replied', count.replied], ['closed', 'Closed', count.closed]].forEach(t => { %>
+    <li class="nav-item">
+      <a class="nav-link <%= filter === t[0] ? 'active' : '' %>" href="/inbox<%= t[0] === 'all' ? '' : '?status=' + t[0] %>">
+        <%= t[1] %> <span class="badge <%= filter === t[0] ? 'bg-light text-dark' : 'bg-secondary' %>"><%= t[2] %></span>
+      </a>
+    </li>
+  <% }) %>
+</ul>
+
+<% if (inquiries.length === 0) { %>
+  <div class="card border-0 shadow-sm"><div class="card-body text-center text-body-secondary py-5">
+    Is filter mein koi inquiry nahi.
+  </div></div>
+<% } %>
+
+<% inquiries.forEach(q => { %>
+  <div class="card border-0 shadow-sm mb-3 <%= q.status === 'new' ? 'notif-unread' : '' %>">
+    <div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between gap-2 mb-2">
+        <div>
+          <strong><%= q.name %></strong>
+          <a href="mailto:<%= q.email %>" class="ms-1"><%= q.email %></a>
+        </div>
+        <div class="text-body-secondary small">
+          <%= new Date(q.created_at).toLocaleString('en-GB', { timeZone: tz, dateStyle: 'medium', timeStyle: 'short' }) %>
+        </div>
+      </div>
+
+      <div class="mb-2">
+        <span class="badge text-bg-primary"><%= q.service %></span>
+        <% if (q.budget) { %><span class="badge text-bg-light border"><%= q.budget %></span><% } %>
+        <span class="badge <%= q.status === 'new' ? 'text-bg-danger' : q.status === 'replied' ? 'text-bg-success' : 'text-bg-secondary' %>"><%= q.status %></span>
+      </div>
+
+      <p class="comment-body mb-3"><%= q.message %></p>
+
+      <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-sm btn-primary"
+           href="mailto:<%= q.email %>?subject=<%= encodeURIComponent('Re: ' + q.service + ' project') %>">✉️ Reply by email</a>
+
+        <% [['replied', 'Mark replied'], ['closed', 'Close'], ['new', 'Reopen']].filter(a => a[0] !== q.status).forEach(a => { %>
+          <form action="/inbox/<%= q.id %>/status" method="POST" class="mb-0">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="status" value="<%= a[0] %>">
+            <input type="hidden" name="filter" value="<%= filter %>">
+            <button type="submit" class="btn btn-sm btn-outline-secondary"><%= a[1] %></button>
+          </form>
+        <% }) %>
+
+        <form action="/inbox/<%= q.id %>/delete" method="POST" class="mb-0 ms-auto"
+              onsubmit="return confirm('Ye inquiry hamesha ke liye delete kar dein?');">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="filter" value="<%= filter %>">
+          <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+        </form>
+      </div>
+    </div>
+  </div>
+<% }) %>
+
+<%- include('partials/footer') %>

@@ -87,9 +87,15 @@
           <div class="mb-2">
             <div class="d-flex justify-content-between align-items-center mb-1">
               <label for="content" class="form-label mb-0">Content (Markdown supported)</label>
-              <button type="button" class="btn btn-sm btn-outline-secondary" id="insertImageBtn">Insert image</button>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="insertImageBtn">Insert image</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="insertVideoBtn">Insert video</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="insertYoutubeBtn">YouTube</button>
+              </div>
             </div>
             <input type="file" id="contentFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+            <input type="file" id="videoFile" accept="video/mp4,video/webm" hidden>
+            <div class="form-text mb-1" id="videoStatus">Video: MP4 ya WebM, max <%= locals.videoMaxMb || 30 %> MB. Bari video ke liye YouTube par upload karke "YouTube" button se link daalein.</div>
             <textarea class="form-control font-monospace" id="content" name="content" rows="16" required><%= form.content || '' %></textarea>
           </div>
           <div class="form-text mb-4">
@@ -217,6 +223,71 @@
         content.focus(); content.selectionStart = content.selectionEnd = pos + md.length;
       } catch (e) { alert(e.message); }
       insertBtn.disabled = false; insertBtn.textContent = label; contentFile.value = '';
+    });
+
+    // ----- Cursor par text daalne ka helper -----
+    function insertAtCursor(md) {
+      var pos = content.selectionStart != null ? content.selectionStart : content.value.length;
+      content.value = content.value.slice(0, pos) + md + content.value.slice(content.selectionEnd || pos);
+      content.focus(); content.selectionStart = content.selectionEnd = pos + md.length;
+    }
+
+    // ----- Video upload (progress ke saath) -----
+    var VIDEO_MAX = <%= locals.videoMaxMb || 30 %> * 1024 * 1024;
+    var videoFile = document.getElementById('videoFile');
+    var videoBtn = document.getElementById('insertVideoBtn');
+    var videoStatus = document.getElementById('videoStatus');
+    var videoHint = videoStatus.textContent;
+
+    function uploadVideo(file) {
+      return new Promise(function (resolve, reject) {
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload-video');
+        xhr.setRequestHeader('Content-Type', file.type);
+        xhr.setRequestHeader('x-csrf-token', csrf);
+        xhr.upload.onprogress = function (e) {
+          if (e.lengthComputable) videoStatus.textContent = 'Uploading video... ' + Math.round(e.loaded / e.total * 100) + '%';
+        };
+        xhr.onload = function () {
+          var data = {};
+          try { data = JSON.parse(xhr.responseText); } catch (e) {}
+          if (xhr.status >= 200 && xhr.status < 300 && data.url) resolve(data.url);
+          else reject(new Error(data.error || 'Video upload nahi hui (' + xhr.status + ').'));
+        };
+        xhr.onerror = function () { reject(new Error('Network error. Dobara try karein.')); };
+        xhr.send(file);
+      });
+    }
+
+    videoBtn.addEventListener('click', function () { videoFile.click(); });
+    videoFile.addEventListener('change', async function () {
+      var f = videoFile.files[0];
+      if (!f) return;
+      if (f.type !== 'video/mp4' && f.type !== 'video/webm') {
+        videoStatus.textContent = 'Sirf MP4 ya WebM video chalti hai (iPhone .mov ko pehle MP4 mein export karein).';
+        videoFile.value = ''; return;
+      }
+      if (f.size > VIDEO_MAX) {
+        videoStatus.textContent = 'Video ' + Math.round(f.size / 1048576) + ' MB ki hai; hadd ' + Math.round(VIDEO_MAX / 1048576) + ' MB hai. Chhoti karein ya YouTube use karein.';
+        videoFile.value = ''; return;
+      }
+      videoBtn.disabled = true;
+      try {
+        var url = await uploadVideo(f);
+        insertAtCursor('\n\n<video src="' + url + '" controls></video>\n\n');
+        videoStatus.textContent = 'Video daal di gayi. Post save karna na bhoolein.';
+      } catch (e) { videoStatus.textContent = e.message; }
+      videoBtn.disabled = false; videoFile.value = '';
+    });
+
+    // ----- YouTube link se embed -----
+    document.getElementById('insertYoutubeBtn').addEventListener('click', function () {
+      var link = prompt('YouTube video ka link paste karein:');
+      if (!link) return;
+      var m = link.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/))([\w-]{11})/);
+      if (!m) { alert('Ye YouTube ka sahi link nahi lagta.'); return; }
+      insertAtCursor('\n\n<iframe src="https://www.youtube-nocookie.com/embed/' + m[1] + '" title="YouTube video"></iframe>\n\n');
+      videoStatus.textContent = videoHint;
     });
   })();
 </script>

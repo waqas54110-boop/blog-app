@@ -8,4 +8,10 @@ module.exports = {
   siteName: process.env.SITE_NAME || 'My Blog',
   timezone: process.env.SITE_TIMEZONE || 'Asia/Karachi',      // scheduled posts is timezone mein
   defaultOgImage: process.env.DEFAULT_OG_IMAGE || '',
+  // Video upload ki hadd (MB). Videos database mein save hoti hain, is liye chhoti rakhein (max 100)
+  videoMaxMb: Math.min(Math.max(parseInt(process.env.VIDEO_MAX_MB, 10) || 30, 1), 100),
+  // "Hire Me" page: services ki list (comma se alag) aur inquiry kis email par aaye (khali = admin ki email)
+  hireServices: (process.env.HIRE_SERVICES || 'Video Editing, Web Development, Odoo Customization, Content Creation, Other')
+    .split(',').map((s) => s.trim()).filter(Boolean).slice(0, 10),
+  inquiryEmail: process.env.INQUIRY_EMAIL || '',
 };

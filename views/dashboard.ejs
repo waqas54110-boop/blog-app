@@ -3,6 +3,7 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2 class="mb-0">Dashboard</h2>
   <div class="d-flex gap-2">
+    <a href="/inbox" class="btn btn-outline-primary">📥 Inbox<% if (locals.newInquiries > 0) { %> <span class="badge bg-danger"><%= newInquiries %></span><% } %></a>
     <a href="/analytics" class="btn btn-outline-primary">📊 Analytics</a>
     <a href="/posts/new" class="btn btn-primary">+ Write Post</a>
   </div>

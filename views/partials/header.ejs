@@ -49,6 +49,8 @@
     }
     .post-body { line-height: 1.85; font-size: 1.08rem; }
     .post-body img { max-width: 100%; height: auto; border-radius: .5rem; }
+    .post-body video.post-video { display: block; width: 100%; max-height: 80vh; background: #000; border-radius: .5rem; margin: 1rem 0; }
+    .post-body iframe.post-embed { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: .5rem; margin: 1rem 0; }
     .post-body pre { background: var(--bs-secondary-bg); padding: 1rem; border-radius: .5rem; overflow-x: auto; }
     .post-body code { background: var(--bs-secondary-bg); padding: .1rem .35rem; border-radius: .25rem; }
     .post-body pre code { background: none; padding: 0; }
@@ -94,6 +96,7 @@
         <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
         <li class="nav-item"><a class="nav-link" href="/community">👥 Community</a></li>
         <li class="nav-item"><a class="nav-link" href="/leaderboard">🏆 Leaderboard</a></li>
+        <li class="nav-item"><a class="nav-link" href="/hire">💼 Hire Me</a></li>
       </ul>
 
       <form class="d-flex me-lg-3 mb-2 mb-lg-0" action="/" method="GET" role="search">
@@ -119,6 +122,12 @@
               <li><a class="dropdown-item" href="/posts/new">Write Post</a></li>
               <li><a class="dropdown-item" href="/dashboard">Dashboard</a></li>
               <li><a class="dropdown-item" href="/analytics">Analytics</a></li>
+              <li>
+                <a class="dropdown-item d-flex justify-content-between align-items-center" href="/inbox">
+                  Inbox
+                  <% if (locals.newInquiries > 0) { %><span class="badge rounded-pill bg-danger ms-2"><%= newInquiries %></span><% } %>
+                </a>
+              </li>
               <li><hr class="dropdown-divider"></li>
             <% } %>
             <li><a class="dropdown-item" href="/bookmarks">My Bookmarks</a></li>

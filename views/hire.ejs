@@ -1,0 +1,77 @@
+<%- include('partials/header') %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4 p-md-5">
+        <h1 class="fw-bold mb-2">💼 Hire Me</h1>
+        <p class="lead text-body-secondary mb-4">
+          Koi project hai? Neeche apni zaroorat likh dein. Main email par jawab dunga.
+        </p>
+
+        <% if (sent) { %>
+          <div class="alert alert-success">
+            ✅ Shukriya! Aap ka message mujh tak pahunch gaya. Main jald aap ko email karunga.
+          </div>
+        <% } %>
+        <% if (error) { %>
+          <div class="alert alert-danger"><%= error %></div>
+        <% } %>
+
+        <form action="/hire" method="POST" novalidate>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <%# Honeypot: insaan ko nazar nahi aata, bots bhar dete hain %>
+          <div style="position:absolute; left:-10000px;" aria-hidden="true">
+            <label>Website <input type="text" name="website" tabindex="-1" autocomplete="off"></label>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="name" class="form-label">Your name</label>
+              <input type="text" class="form-control" id="name" name="name" maxlength="100"
+                     value="<%= form.name || '' %>" required>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="email" class="form-label">Your email</label>
+              <input type="email" class="form-control" id="email" name="email" maxlength="150"
+                     value="<%= form.email || '' %>" placeholder="jawab isi par aayega" required>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label for="service" class="form-label">What do you need?</label>
+              <select class="form-select" id="service" name="service" required>
+                <option value="" disabled <%= form.service ? '' : 'selected' %>>Choose one…</option>
+                <% services.forEach(s => { %>
+                  <option value="<%= s %>" <%= form.service === s ? 'selected' : '' %>><%= s %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col-md-6 mb-3">
+              <label for="budget" class="form-label">Budget <span class="text-body-secondary">(optional)</span></label>
+              <select class="form-select" id="budget" name="budget">
+                <option value="">Prefer not to say</option>
+                <% budgets.forEach(b => { %>
+                  <option value="<%= b %>" <%= form.budget === b ? 'selected' : '' %>><%= b %></option>
+                <% }) %>
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="message" class="form-label">Project details</label>
+            <textarea class="form-control" id="message" name="message" rows="6" maxlength="3000"
+                      placeholder="Kya banwana hai, kab tak chahiye, koi link ya example…" required><%= form.message || '' %></textarea>
+            <div class="form-text">Kam az kam 20 characters, zyada se zyada 3000.</div>
+          </div>
+
+          <button type="submit" class="btn btn-primary">Send message</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
