@@ -1,5 +1,7 @@
 <%- include('partials/header') %>
 
+<div id="readProgress" aria-hidden="true"></div>
+
 <div class="row justify-content-center">
   <div class="col-12 col-lg-8">
 
@@ -50,6 +52,19 @@
         <% if (post.excerpt) { %>
           <p class="lead text-body-secondary"><%= post.excerpt %></p>
           <hr>
+        <% } %>
+
+        <% if (locals.toc && toc.length >= 3) { %>
+          <details class="toc card card-body bg-body-tertiary border-0 mb-4" open>
+            <summary class="fw-semibold" style="cursor:pointer;">📑 In this post</summary>
+            <ul class="list-unstyled mb-0 mt-2">
+              <% toc.forEach(function (t) { %>
+                <li class="py-1" style="<%= t.level === 3 ? 'padding-left:1.25rem;' : '' %>">
+                  <a href="#<%= t.id %>"><%- t.text %></a>
+                </li>
+              <% }) %>
+            </ul>
+          </details>
         <% } %>
 
         <div class="post-body"><%- contentHtml %></div>
@@ -233,5 +248,27 @@
 
   </div>
 </div>
+
+<script>
+  // Reading progress bar: post ke text par kitna scroll hua
+  (function () {
+    var bar = document.getElementById('readProgress');
+    var body = document.querySelector('.post-body');
+    if (!bar || !body) return;
+    var ticking = false;
+    function update() {
+      var rect = body.getBoundingClientRect();
+      var total = rect.height - window.innerHeight * 0.6;
+      var done = -rect.top + window.innerHeight * 0.2;
+      var pct = total > 0 ? Math.min(Math.max(done / total, 0), 1) : 0;
+      bar.style.width = (pct * 100).toFixed(1) + '%';
+      ticking = false;
+    }
+    function onScroll() { if (!ticking) { ticking = true; requestAnimationFrame(update); } }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    update();
+  })();
+</script>
 
 <%- include('partials/footer') %>

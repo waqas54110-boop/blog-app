@@ -7,10 +7,14 @@ const pool = require('./db');
 const config = require('./config');
 const csrf = require('./lib/csrf');
 const { startNewsletterScheduler } = require('./lib/newsletter');
+const { startPublisher } = require('./lib/publisher');
+const card = require('./lib/card');
+const { siteLd, safeJson } = require('./lib/seo');
 const authRouter = require('./routes/auth');
 const postsRouter = require('./routes/posts');
 const engageRouter = require('./routes/engage');
 const uploadsRouter = require('./routes/uploads');
+const growthRouter = require('./routes/growth');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -42,6 +46,7 @@ app.post('/posts/:id/comments', limiter(5, 10, 'You are commenting too fast. Ple
 app.post('/forgot-password', limiter(60, 5, 'Too many reset requests. Please try again in an hour.'));
 app.post('/reset-password/:token', limiter(15, 10, 'Too many attempts. Please try again in a few minutes.'));
 app.post('/upload-image', limiter(10, 40, 'Too many uploads. Please wait a few minutes.'));
+app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
 // Ye csrf middleware se pehle hona chahiye.
@@ -49,6 +54,9 @@ app.post(
   '/upload-image',
   express.raw({ type: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], limit: '6mb' })
 );
+
+// Push subscribe/unsubscribe JSON bhejte hain (CSRF token header x-csrf-token mein)
+app.use('/push', express.json({ limit: '8kb' }));
 
 app.use(
   session({
@@ -81,8 +89,14 @@ app.use(async (req, res, next) => {
   // Open Graph defaults (post page inhein override karta hai)
   const base = config.siteUrl || `${req.protocol}://${req.get('host')}`;
   res.locals.ogUrl = base + req.path;
-  res.locals.ogImage = config.defaultOgImage || null;
+  // Default share image: .env ki DEFAULT_OG_IMAGE, warna khud bana hua site card
+  res.locals.ogImage = config.defaultOgImage || (card.isAvailable() ? base + '/og/site.png' : null);
+  res.locals.ogImageCard = !config.defaultOgImage && card.isAvailable();
   res.locals.ogType = 'website';
+  res.locals.safeJson = safeJson;
+  res.locals.jsonLd = req.path === '/'
+    ? siteLd({ base, siteName: config.siteName, description: res.locals.metaDescription })
+    : [];
 
   res.locals.unreadCount = 0;
   res.locals.navCategories = [];
@@ -110,6 +124,7 @@ app.use(csrf);
 app.use('/', postsRouter);
 app.use('/', engageRouter);
 app.use('/', uploadsRouter);
+app.use('/', growthRouter);
 app.use('/', authRouter);
 
 app.use((req, res) => {
@@ -132,4 +147,5 @@ app.listen(PORT, (err) => {
   }
   console.log('Server chal raha hai, port ' + PORT);
   startNewsletterScheduler();
+  startPublisher();
 });

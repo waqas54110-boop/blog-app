@@ -6,6 +6,10 @@ const config = require('../config');
 const { trackVisit, isBot } = require('../lib/analytics');
 const { notifyUser } = require('../lib/notify');
 const { uniqueSlug } = require('../lib/slug');
+const { addToc } = require('../lib/toc');
+const { postLd } = require('../lib/seo');
+const card = require('../lib/card');
+const indexnow = require('../lib/indexnow');
 
 const router = express.Router();
 const PER_PAGE = Math.min(Math.max(parseInt(process.env.POSTS_PER_PAGE, 10) || 6, 1), 30);
@@ -521,6 +525,7 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
     await pool.query(
       `UPDATE posts
        SET slug = $11, title = $1, excerpt = $2, content = $3, category = $4, cover_url = $5,
+           updated_at = now(),
            publish_at = CASE
              WHEN $7::text IS NOT NULL THEN ($7::text)::timestamp AT TIME ZONE $8::text
              WHEN posts.is_draft AND NOT $6::boolean THEN now()  -- draft se publish: abhi ki date
@@ -532,6 +537,14 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
        data.is_draft, data.publish_at, TZ, data.send_newsletter, id, slug]
     );
     await saveTagsForPost(id, parseTags(req.body.tags));
+
+    // Live post edit hui to Bing/Yandex ko batao (await nahi: redirect slow na ho).
+    // Nayi publish hui post ko scheduler (lib/publisher.js) bhejta hai.
+    const live = await pool.query(`SELECT 1 FROM posts p WHERE p.id = $1 AND ${LIVE}`, [id]);
+    if (live.rows[0] && config.siteUrl) {
+      indexnow.ping([`${config.siteUrl}/posts/${slug}`], { throttle: true }).catch(() => {});
+    }
+
     res.redirect('/posts/' + slug);
   } catch (err) {
     console.error(err);
@@ -632,19 +645,32 @@ router.get('/posts/:ref', async (req, res) => {
     const shareUrl = `${base}/posts/${post.slug}`;
     const withUtm = (src, medium = 'share') => `${shareUrl}?utm_source=${src}&utm_medium=${medium}`;
     const description = post.excerpt || makePreview(post);
+    const tagNames = tagsResult.rows.map((r) => r.name);
+
+    // Share image: cover ho to wahi; na ho to title wala auto card (OG_CARD_ALWAYS=true se hamesha card)
+    const cover = absUrl(base, post.cover_url);
+    const useCard = card.isAvailable() && (!cover || process.env.OG_CARD_ALWAYS === 'true');
+    const ogImage = useCard ? `${base}/og/${post.slug}.png` : (cover || config.defaultOgImage || null);
+
+    const { html: contentHtml, toc } = addToc(renderMarkdown(post.content));
 
     res.render('post', {
       title: post.title,
       metaDescription: description,
-      ogImage: absUrl(base, post.cover_url) || config.defaultOgImage || null,
+      ogImage,
+      ogImageCard: useCard,
       ogUrl: shareUrl,
       ogType: 'article',
+      jsonLd: post.is_live
+        ? postLd({ base, siteName: config.siteName, post, description, image: ogImage, tags: tagNames, content: post.content })
+        : [],
       post,
-      contentHtml: renderMarkdown(post.content),
+      contentHtml,
+      toc,
       related: related.rows,
       comments: comments.rows,
       threads,
-      tags: tagsResult.rows.map((r) => r.name),
+      tags: tagNames,
       reactionEmojis: REACTION_EMOJIS,
       reactionCounts,
       myReaction,
