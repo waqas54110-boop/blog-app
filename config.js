@@ -1,8 +1,8 @@
 // Saari settings ek jagah. Values .env / Render environment se aati hain.
 module.exports = {
   // Apne groups banane ke baad .env mein ye links daal dein
-  whatsappUrl: process.env.COMMUNITY_WHATSAPP_URL || 'https://chat.whatsapp.com/REPLACE_WITH_YOUR_INVITE_LINK',
-  facebookUrl: process.env.COMMUNITY_FACEBOOK_URL || 'https://facebook.com/groups/REPLACE_WITH_YOUR_GROUP',
+  whatsappUrl: process.env.COMMUNITY_WHATSAPP_URL || 'https://chat.whatsapp.com/DlUFKzSudp04uMWdCSgA6L',
+  facebookUrl: process.env.COMMUNITY_FACEBOOK_URL || 'https://www.facebook.com/search/top?q=kwl%20sports',
   whatsappChannelUrl: process.env.WHATSAPP_CHANNEL_URL || '', // optional
   siteUrl: (process.env.SITE_URL || '').replace(/\/$/, ''),   // e.g. https://myblog.onrender.com
   siteName: process.env.SITE_NAME || 'My Blog',
