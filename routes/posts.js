@@ -5,6 +5,12 @@ const pool = require('../db');
 
 const router = express.Router();
 const PER_PAGE = 6;
+const REACTION_EMOJIS = ['👍', '❤️', '🔥', '😂', '😢'];
+
+// Apne groups banane ke baad ye do links yahan replace kar dein
+const COMMUNITY_WHATSAPP_URL = 'https://chat.whatsapp.com/REPLACE_WITH_YOUR_INVITE_LINK';
+const COMMUNITY_FACEBOOK_URL = 'https://facebook.com/groups/REPLACE_WITH_YOUR_GROUP';
+
 const CATEGORIES = [
   'Cricket',
   'Video Editing',
@@ -182,6 +188,100 @@ router.post('/subscribe', async (req, res) => {
   }
 });
 
+// ---------- RSS FEED ----------
+router.get('/rss.xml', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT id, title, excerpt, content, created_at FROM posts ORDER BY created_at DESC LIMIT 20`
+    );
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+    const items = result.rows.map((p) => `
+    <item>
+      <title>${esc(p.title)}</title>
+      <link>${baseUrl}/posts/${p.id}</link>
+      <guid>${baseUrl}/posts/${p.id}</guid>
+      <pubDate>${new Date(p.created_at).toUTCString()}</pubDate>
+      <description>${esc(p.excerpt || p.content.slice(0, 200))}</description>
+    </item>`).join('');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>My Blog</title>
+  <link>${baseUrl}</link>
+  <description>Notes and tutorials on cricket, video editing, AI, freelancing and web development.</description>
+  ${items}
+</channel>
+</rss>`;
+
+    res.type('application/rss+xml').send(xml);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- SITEMAP ----------
+router.get('/sitemap.xml', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, created_at FROM posts ORDER BY created_at DESC');
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const staticUrls = ['', '/about', '/leaderboard', '/community'];
+
+    const staticXml = staticUrls.map((u) => `
+  <url><loc>${baseUrl}${u}</loc></url>`).join('');
+
+    const postsXml = result.rows.map((p) => `
+  <url>
+    <loc>${baseUrl}/posts/${p.id}</loc>
+    <lastmod>${new Date(p.created_at).toISOString()}</lastmod>
+  </url>`).join('');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${staticXml}${postsXml}
+</urlset>`;
+
+    res.type('application/xml').send(xml);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- ROBOTS.TXT ----------
+router.get('/robots.txt', (req, res) => {
+  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  res.type('text/plain').send(`User-agent: *\nAllow: /\n\nSitemap: ${baseUrl}/sitemap.xml`);
+});
+
+// ---------- LEADERBOARD ----------
+router.get('/leaderboard', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT u.username, COUNT(*)::int AS comment_count
+       FROM comments c JOIN users u ON u.id = c.user_id
+       GROUP BY u.username
+       ORDER BY comment_count DESC
+       LIMIT 10`
+    );
+    res.render('leaderboard', { title: 'Top Commenters', leaders: result.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- COMMUNITY ----------
+router.get('/community', (req, res) => {
+  res.render('community', {
+    title: 'Join Our Community',
+    whatsappUrl: COMMUNITY_WHATSAPP_URL,
+    facebookUrl: COMMUNITY_FACEBOOK_URL,
+  });
+});
+
 // ---------- ABOUT ----------
 router.get('/about', (req, res) => {
   res.render('about', { title: 'About' });
@@ -353,7 +453,7 @@ router.get('/posts/:id', async (req, res) => {
     const post = result.rows[0];
     if (!post) return res.status(404).render('404', { title: 'Not Found' });
 
-    const [related, comments, tagsResult] = await Promise.all([
+    const [related, comments, tagsResult, reactionResult, myReactionResult] = await Promise.all([
       pool.query(
         `SELECT id, title, created_at FROM posts
          WHERE category = $1 AND id <> $2
@@ -372,7 +472,16 @@ router.get('/posts/:id', async (req, res) => {
          WHERE pt.post_id = $1 ORDER BY t.name`,
         [id]
       ),
+      pool.query('SELECT emoji, COUNT(*)::int AS total FROM reactions WHERE post_id = $1 GROUP BY emoji', [id]),
+      uid
+        ? pool.query('SELECT emoji FROM reactions WHERE post_id = $1 AND user_id = $2', [id, uid])
+        : Promise.resolve({ rows: [] }),
     ]);
+
+    const reactionCounts = {};
+    REACTION_EMOJIS.forEach((e) => { reactionCounts[e] = 0; });
+    reactionResult.rows.forEach((r) => { reactionCounts[r.emoji] = r.total; });
+    const myReaction = myReactionResult.rows[0] ? myReactionResult.rows[0].emoji : null;
 
     const words = post.content.trim().split(/\s+/).length;
     const shareUrl = `${req.protocol}://${req.get('host')}/posts/${post.id}`;
@@ -385,6 +494,9 @@ router.get('/posts/:id', async (req, res) => {
       related: related.rows,
       comments: comments.rows,
       tags: tagsResult.rows.map((r) => r.name),
+      reactionEmojis: REACTION_EMOJIS,
+      reactionCounts,
+      myReaction,
       shareUrl,
       readingTime: Math.max(Math.ceil(words / 200), 1),
       commentError: req.query.commentError || null,
@@ -407,6 +519,35 @@ router.post('/posts/:id/delete', requireAdmin, async (req, res) => {
     console.error(err);
     res.status(500).send('Server error');
   }
+});
+
+// ---------- REACTION toggle ----------
+router.post('/posts/:id/react', requireLogin, async (req, res) => {
+  const id = toId(req.params.id);
+  if (!id) return res.redirect('/');
+  const emoji = req.body.emoji;
+  const uid = req.session.user.id;
+
+  if (!REACTION_EMOJIS.includes(emoji)) return res.redirect('/posts/' + id);
+
+  try {
+    const existing = await pool.query(
+      'SELECT emoji FROM reactions WHERE post_id = $1 AND user_id = $2',
+      [id, uid]
+    );
+    if (existing.rows[0] && existing.rows[0].emoji === emoji) {
+      await pool.query('DELETE FROM reactions WHERE post_id = $1 AND user_id = $2', [id, uid]);
+    } else {
+      await pool.query(
+        `INSERT INTO reactions (post_id, user_id, emoji) VALUES ($1, $2, $3)
+         ON CONFLICT (post_id, user_id) DO UPDATE SET emoji = EXCLUDED.emoji, created_at = now()`,
+        [id, uid, emoji]
+      );
+    }
+  } catch (err) {
+    console.error(err);
+  }
+  res.redirect('/posts/' + id + '#reactions');
 });
 
 // ---------- LIKE toggle ----------

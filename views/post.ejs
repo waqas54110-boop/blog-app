@@ -44,6 +44,27 @@
 
         <hr class="my-4">
 
+        <!-- Reactions -->
+        <div id="reactions" class="d-flex flex-wrap gap-2 mb-3">
+          <% reactionEmojis.forEach(e => { %>
+            <% if (user) { %>
+              <form action="/posts/<%= post.id %>/react" method="POST" class="mb-0">
+                <input type="hidden" name="emoji" value="<%= e %>">
+                <button type="submit" class="btn btn-sm <%= myReaction === e ? 'btn-primary' : 'btn-outline-secondary' %>">
+                  <%= e %> <%= reactionCounts[e] || 0 %>
+                </button>
+              </form>
+            <% } else { %>
+              <span class="btn btn-sm btn-outline-secondary disabled"><%= e %> <%= reactionCounts[e] || 0 %></span>
+            <% } %>
+          <% }) %>
+          <% if (!user) { %>
+            <span class="align-self-center small text-body-secondary"><a href="/login">Log in</a> to react</span>
+          <% } %>
+        </div>
+
+        <hr class="my-4">
+
         <!-- Actions -->
         <div class="d-flex flex-wrap gap-2 align-items-center">
           <% if (user) { %>
