@@ -1,0 +1,26 @@
+<%- include('partials/header') %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <h2 class="mb-4">🔔 Notifications</h2>
+
+    <% if (notifications.length === 0) { %>
+      <div class="card border-0 shadow-sm"><div class="card-body text-center text-body-secondary py-5">
+        Abhi koi notification nahi hai. Jab koi aap ke comment ka jawab dega to yahan nazar aayega.
+      </div></div>
+    <% } else { %>
+      <div class="list-group shadow-sm">
+        <% notifications.forEach(n => { %>
+          <a href="<%= n.link || '/' %>" class="list-group-item list-group-item-action <%= n.is_read ? '' : 'notif-unread' %>">
+            <div><%= n.message %></div>
+            <small class="text-body-secondary">
+              <%= new Date(n.created_at).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) %>
+            </small>
+          </a>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

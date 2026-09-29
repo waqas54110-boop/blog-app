@@ -1,7 +1,7 @@
 <%- include('partials/header') %>
 
 <div class="text-center py-5">
-  <h1 class="display-1 fw-bold text-primary">404</h1>
+  <h1 class="display-1 fw-bold text-primary"><%= locals.code || 404 %></h1>
   <p class="lead text-body-secondary"><%= locals.message || 'This page does not exist.' %></p>
   <a href="/" class="btn btn-primary">Go Home</a>
 </div>

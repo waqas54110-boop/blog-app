@@ -2,7 +2,10 @@
 
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h2 class="mb-0">Dashboard</h2>
-  <a href="/posts/new" class="btn btn-primary">+ Write Post</a>
+  <div class="d-flex gap-2">
+    <a href="/analytics" class="btn btn-outline-primary">📊 Analytics</a>
+    <a href="/posts/new" class="btn btn-primary">+ Write Post</a>
+  </div>
 </div>
 
 <div class="row g-3 mb-4">
@@ -10,9 +13,11 @@
     ['Posts', stats.posts],
     ['Total views', stats.views],
     ['Comments', stats.comments],
-    ['Registered users', stats.users]
+    ['Registered users', stats.users],
+    ['Subscribers', stats.subscribers],
+    ['Visits (7 days)', stats.visits7]
   ].forEach(s => { %>
-    <div class="col-6 col-lg-3">
+    <div class="col-6 col-lg-2">
       <div class="card border-0 shadow-sm text-center">
         <div class="card-body">
           <div class="display-6 fw-bold text-primary"><%= s[1] %></div>
@@ -43,16 +48,31 @@
         <% } %>
         <% posts.forEach(p => { %>
           <tr>
-            <td><a href="/posts/<%= p.id %>" class="text-decoration-none"><%= p.title %></a></td>
+            <td>
+              <a href="/posts/<%= p.id %>" class="text-decoration-none"><%= p.title %></a>
+              <% if (p.is_draft) { %><span class="badge text-bg-secondary ms-1">Draft</span><% } %>
+              <% if (p.is_scheduled) { %><span class="badge text-bg-warning ms-1">Scheduled</span><% } %>
+            </td>
             <td><span class="badge text-bg-primary"><%= p.category %></span></td>
             <td class="text-end"><%= p.views %></td>
             <td class="text-end"><%= p.likes %></td>
             <td class="text-end"><%= p.comments %></td>
-            <td><%= new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></td>
+            <td><%= new Date(p.publish_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></td>
             <td class="text-end text-nowrap">
+              <% if (!p.is_draft && !p.is_scheduled) { %>
+                <div class="btn-group btn-group-sm" role="group">
+                  <button type="button" class="btn btn-outline-success copy-msg"
+                          data-channel="whatsapp" data-title="<%= p.title %>" data-preview="<%= p.preview %>"
+                          data-url="<%= baseUrl %>/posts/<%= p.id %>">Copy WhatsApp msg</button>
+                  <button type="button" class="btn btn-outline-primary copy-msg"
+                          data-channel="facebook" data-title="<%= p.title %>" data-preview="<%= p.preview %>"
+                          data-url="<%= baseUrl %>/posts/<%= p.id %>">Copy FB msg</button>
+                </div>
+              <% } %>
               <a href="/posts/<%= p.id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
               <form action="/posts/<%= p.id %>/delete" method="POST" class="d-inline"
                     onsubmit="return confirm('Delete this post permanently?')">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
               </form>
             </td>
@@ -62,5 +82,26 @@
     </table>
   </div>
 </div>
+
+<script>
+  // Group mein paste karne ke liye ready message (UTM ke saath, taake analytics mein source dikhe)
+  document.querySelectorAll('.copy-msg').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const d = btn.dataset;
+      const link = d.url + '?utm_source=' + d.channel + '&utm_medium=group';
+      const text = '📢 New post: ' + d.title + '\n\n' + d.preview + '\n\n👉 Read here: ' + link;
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch (e) {
+        const ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      const old = btn.textContent;
+      btn.textContent = 'Copied ✓';
+      setTimeout(() => { btn.textContent = old; }, 1500);
+    });
+  });
+</script>
 
 <%- include('partials/footer') %>

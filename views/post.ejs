@@ -5,6 +5,18 @@
 
     <a href="/" class="text-decoration-none">&larr; Back to all posts</a>
 
+    <% if (!post.is_live) { %>
+      <div class="alert alert-warning mt-3 mb-0">
+        <% if (post.is_draft) { %>
+          <strong>Draft:</strong> yeh post abhi sirf aap ko nazar aa rahi hai. Publish karne ke liye Edit &rarr; "Publish".
+        <% } else { %>
+          <strong>Scheduled:</strong> yeh post
+          <%= new Date(post.publish_at).toLocaleString('en-GB', { timeZone: (locals.tz || 'Asia/Karachi'), dateStyle: 'medium', timeStyle: 'short' }) %>
+          par khud publish hogi.
+        <% } %>
+      </div>
+    <% } %>
+
     <article class="card border-0 shadow-sm mt-3">
       <% if (post.cover_url) { %>
         <img src="<%= post.cover_url %>" class="card-img-top" style="max-height:360px;object-fit:cover;" alt="">
@@ -28,7 +40,7 @@
           <span class="avatar"><%= post.username.charAt(0).toUpperCase() %></span>
           <span class="fw-semibold text-body"><%= post.username %></span>
           <span>&middot;</span>
-          <span><%= new Date(post.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) %></span>
+          <span><%= new Date(post.publish_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) %></span>
           <span>&middot;</span>
           <span><%= readingTime %> min read</span>
           <span>&middot;</span>
@@ -49,6 +61,7 @@
           <% reactionEmojis.forEach(e => { %>
             <% if (user) { %>
               <form action="/posts/<%= post.id %>/react" method="POST" class="mb-0">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <input type="hidden" name="emoji" value="<%= e %>">
                 <button type="submit" class="btn btn-sm <%= myReaction === e ? 'btn-primary' : 'btn-outline-secondary' %>">
                   <%= e %> <%= reactionCounts[e] || 0 %>
@@ -69,11 +82,13 @@
         <div class="d-flex flex-wrap gap-2 align-items-center">
           <% if (user) { %>
             <form action="/posts/<%= post.id %>/like" method="POST" class="mb-0">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button type="submit" class="btn btn-sm <%= post.liked ? 'btn-danger' : 'btn-outline-danger' %>">
                 <%= post.liked ? 'Liked' : 'Like' %> (<%= post.like_count %>)
               </button>
             </form>
             <form action="/posts/<%= post.id %>/bookmark" method="POST" class="mb-0">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <button type="submit" class="btn btn-sm <%= post.bookmarked ? 'btn-warning' : 'btn-outline-warning' %>">
                 <%= post.bookmarked ? 'Bookmarked' : 'Bookmark' %>
               </button>
@@ -92,19 +107,19 @@
             <ul class="dropdown-menu">
               <li>
                 <a class="dropdown-item" target="_blank" rel="noopener"
-                   href="https://wa.me/?text=<%= encodeURIComponent(post.title + ' - ' + shareUrl) %>">WhatsApp</a>
+                   href="https://wa.me/?text=<%= encodeURIComponent(post.title + ' - ' + shareLinks.whatsapp) %>">WhatsApp</a>
               </li>
               <li>
                 <a class="dropdown-item" target="_blank" rel="noopener"
-                   href="https://www.facebook.com/sharer/sharer.php?u=<%= encodeURIComponent(shareUrl) %>">Facebook</a>
+                   href="https://www.facebook.com/sharer/sharer.php?u=<%= encodeURIComponent(shareLinks.facebook) %>">Facebook</a>
               </li>
               <li>
                 <a class="dropdown-item" target="_blank" rel="noopener"
-                   href="https://twitter.com/intent/tweet?text=<%= encodeURIComponent(post.title) %>&url=<%= encodeURIComponent(shareUrl) %>">Twitter / X</a>
+                   href="https://twitter.com/intent/tweet?text=<%= encodeURIComponent(post.title) %>&url=<%= encodeURIComponent(shareLinks.twitter) %>">Twitter / X</a>
               </li>
               <li>
                 <button type="button" class="dropdown-item"
-                        onclick="navigator.clipboard.writeText('<%= shareUrl %>'); this.textContent='Link copied';">
+                        onclick="navigator.clipboard.writeText('<%= shareLinks.copy %>'); this.textContent='Link copied';">
                   Copy link
                 </button>
               </li>
@@ -116,6 +131,7 @@
               <a href="/posts/<%= post.id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
               <form action="/posts/<%= post.id %>/delete" method="POST" class="mb-0"
                     onsubmit="return confirm('Delete this post permanently?')">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
               </form>
             </div>
@@ -123,6 +139,8 @@
         </div>
       </div>
     </article>
+
+    <%- include('partials/group-banner') %>
 
     <!-- Comments -->
     <section id="comments" class="card border-0 shadow-sm mt-4">
@@ -135,6 +153,7 @@
 
         <% if (user) { %>
           <form action="/posts/<%= post.id %>/comments" method="POST" class="mb-4">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <textarea class="form-control mb-2" name="body" rows="3" maxlength="1000"
                       placeholder="Write a comment..." required></textarea>
             <button type="submit" class="btn btn-primary btn-sm">Post Comment</button>
@@ -147,8 +166,8 @@
           <p class="text-body-secondary mb-0">No comments yet.</p>
         <% } %>
 
-        <% comments.forEach(c => { %>
-          <div class="d-flex gap-3 py-3 border-top">
+        <% const renderComment = (c, isReply) => { %>
+          <div id="c<%= c.id %>" class="d-flex gap-3 py-3 border-top <%= isReply ? 'reply-box' : '' %>">
             <span class="avatar"><%= c.username.charAt(0).toUpperCase() %></span>
             <div class="flex-grow-1">
               <div class="d-flex justify-content-between align-items-start">
@@ -161,25 +180,53 @@
                 <% if (user && (isAdmin || user.id === c.user_id)) { %>
                   <form action="/comments/<%= c.id %>/delete" method="POST" class="mb-0"
                         onsubmit="return confirm('Delete this comment?')">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
                     <button type="submit" class="btn btn-link btn-sm text-danger p-0">Delete</button>
                   </form>
                 <% } %>
               </div>
               <div class="comment-body"><%= c.body %></div>
+
+              <% if (user) { %>
+                <button type="button" class="btn btn-link btn-sm p-0 mt-1 text-decoration-none"
+                        data-bs-toggle="collapse" data-bs-target="#reply-<%= c.id %>">Reply</button>
+                <div class="collapse mt-2" id="reply-<%= c.id %>">
+                  <form action="/posts/<%= post.id %>/comments" method="POST">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <input type="hidden" name="parent_id" value="<%= c.id %>">
+                    <textarea class="form-control form-control-sm mb-2" name="body" rows="2" maxlength="1000"
+                              placeholder="Reply to <%= c.username %>..." required></textarea>
+                    <button type="submit" class="btn btn-primary btn-sm">Post Reply</button>
+                  </form>
+                </div>
+              <% } %>
             </div>
           </div>
+        <% }; %>
+
+        <% threads.forEach(t => { %>
+          <% renderComment(t, false); %>
+          <% t.replies.forEach(r => { renderComment(r, true); }); %>
         <% }) %>
       </div>
     </section>
 
     <% if (related.length) { %>
-      <h5 class="mt-5 mb-3">More in <%= post.category %></h5>
-      <div class="list-group shadow-sm">
+      <h5 class="mt-5 mb-3">Related posts</h5>
+      <div class="row g-3">
         <% related.forEach(r => { %>
-          <a href="/posts/<%= r.id %>" class="list-group-item list-group-item-action d-flex justify-content-between">
-            <span><%= r.title %></span>
-            <small class="text-body-secondary"><%= new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) %></small>
-          </a>
+          <div class="col-12 col-md-6">
+            <a href="/posts/<%= r.id %>" class="card border-0 shadow-sm h-100 text-decoration-none post-card">
+              <% if (r.cover_url) { %>
+                <img src="<%= r.cover_url %>" class="card-img-top" style="height:110px;object-fit:cover;" alt="">
+              <% } %>
+              <div class="card-body py-3">
+                <span class="badge text-bg-primary mb-2"><%= r.category %></span>
+                <div class="fw-semibold text-body"><%= r.title %></div>
+                <small class="text-body-secondary"><%= new Date(r.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></small>
+              </div>
+            </a>
+          </div>
         <% }) %>
       </div>
     <% } %>

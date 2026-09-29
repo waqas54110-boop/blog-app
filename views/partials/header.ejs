@@ -5,9 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= locals.title || 'My Blog' %></title>
   <meta name="description" content="<%= locals.metaDescription || 'Notes and tutorials on cricket, video editing, AI, freelancing and web development.' %>">
+  <link rel="canonical" href="<%= locals.ogUrl || '' %>">
+  <meta property="og:site_name" content="<%= locals.siteName || 'My Blog' %>">
   <meta property="og:title" content="<%= locals.title || 'My Blog' %>">
   <meta property="og:description" content="<%= locals.metaDescription || 'Notes and tutorials on cricket, video editing, AI, freelancing and web development.' %>">
-  <meta property="og:type" content="website">
+  <meta property="og:type" content="<%= locals.ogType || 'website' %>">
+  <meta property="og:url" content="<%= locals.ogUrl || '' %>">
+  <% if (locals.ogImage) { %>
+  <meta property="og:image" content="<%= ogImage %>">
+  <meta name="twitter:image" content="<%= ogImage %>">
+  <% } %>
+  <meta name="twitter:card" content="<%= locals.ogImage ? 'summary_large_image' : 'summary' %>">
+  <meta name="twitter:title" content="<%= locals.title || 'My Blog' %>">
+  <meta name="twitter:description" content="<%= locals.metaDescription || '' %>">
   <link rel="alternate" type="application/rss+xml" title="My Blog RSS Feed" href="/rss.xml">
   <script>
     document.documentElement.setAttribute('data-bs-theme', localStorage.getItem('theme') || 'light');
@@ -37,6 +47,8 @@
     .post-body pre code { background: none; padding: 0; }
     .post-body blockquote { border-left: 4px solid #4f46e5; padding-left: 1rem; color: var(--bs-secondary-color); }
     .comment-body { white-space: pre-wrap; }
+    .reply-box { margin-left: 3rem; }
+    .notif-unread { border-left: 4px solid #4f46e5; background: var(--bs-primary-bg-subtle); }
   </style>
 </head>
 <body>
@@ -81,6 +93,12 @@
       <button id="themeToggle" class="btn btn-sm btn-outline-secondary me-lg-2 mb-2 mb-lg-0" type="button">Dark</button>
 
       <% if (user) { %>
+        <a href="/notifications" class="btn btn-sm btn-outline-secondary position-relative me-lg-2 mb-2 mb-lg-0" title="Notifications">
+          🔔
+          <% if (locals.unreadCount > 0) { %>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"><%= unreadCount > 9 ? '9+' : unreadCount %></span>
+          <% } %>
+        </a>
         <div class="dropdown">
           <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
             <%= user.username %>
@@ -89,12 +107,14 @@
             <% if (isAdmin) { %>
               <li><a class="dropdown-item" href="/posts/new">Write Post</a></li>
               <li><a class="dropdown-item" href="/dashboard">Dashboard</a></li>
+              <li><a class="dropdown-item" href="/analytics">Analytics</a></li>
               <li><hr class="dropdown-divider"></li>
             <% } %>
             <li><a class="dropdown-item" href="/bookmarks">My Bookmarks</a></li>
             <li><hr class="dropdown-divider"></li>
             <li>
               <form action="/logout" method="POST" class="mb-0">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button type="submit" class="dropdown-item text-danger">Logout</button>
               </form>
             </li>

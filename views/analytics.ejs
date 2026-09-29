@@ -1,0 +1,150 @@
+<%- include('partials/header') %>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+  <h2 class="mb-0">📊 Analytics</h2>
+  <div class="btn-group">
+    <% [7, 30, 90].forEach(d => { %>
+      <a href="/analytics?days=<%= d %>" class="btn btn-sm <%= d === days ? 'btn-primary' : 'btn-outline-primary' %>">Last <%= d %> days</a>
+    <% }) %>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <% [
+    ['Total visits', totals.visits, 'text-primary'],
+    ['From WhatsApp', totals.whatsapp, 'text-success'],
+    ['From Facebook', totals.facebook, 'text-primary'],
+    ['From Google/Bing', totals.search, 'text-warning'],
+    ['From newsletter', totals.newsletter, 'text-info']
+  ].forEach(s => { %>
+    <div class="col-6 col-lg">
+      <div class="card border-0 shadow-sm text-center"><div class="card-body">
+        <div class="display-6 fw-bold <%= s[2] %>"><%= s[1] %></div>
+        <div class="text-body-secondary small"><%= s[0] %></div>
+      </div></div>
+    </div>
+  <% }) %>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="mb-3">Daily visits</h5>
+    <div style="height:280px;"><canvas id="dailyChart"></canvas></div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <h5 class="mb-3">Traffic sources</h5>
+      <% if (sources.length === 0) { %>
+        <p class="text-body-secondary mb-0">Abhi data nahi hai. Post share karein aur visits aane do.</p>
+      <% } else { %>
+        <table class="table table-sm align-middle mb-0">
+          <tbody>
+            <% const max = Math.max(...sources.map(s => s.visits)); %>
+            <% sources.forEach(s => { %>
+              <tr>
+                <td style="width:30%"><%= s.source %></td>
+                <td>
+                  <div class="progress" style="height:10px;"><div class="progress-bar" style="width:<%= Math.round(s.visits / max * 100) %>%"></div></div>
+                </td>
+                <td class="text-end fw-semibold"><%= s.visits %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </div></div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <h5 class="mb-3">Group / share / newsletter</h5>
+      <% if (mediums.length === 0) { %>
+        <p class="text-body-secondary mb-0">
+          Jab aap dashboard se "Copy WhatsApp msg" ya share buttons use karenge to yahan
+          <code>group</code> aur <code>share</code> ke visits alag alag dikhenge.
+        </p>
+      <% } else { %>
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Source</th><th>Medium</th><th class="text-end">Visits</th></tr></thead>
+          <tbody>
+            <% mediums.forEach(m => { %>
+              <tr><td><%= m.source %></td><td><%= m.medium %></td><td class="text-end"><%= m.visits %></td></tr>
+            <% }) %>
+          </tbody>
+        </table>
+      <% } %>
+    </div></div>
+  </div>
+
+  <div class="col-lg-8">
+    <div class="card border-0 shadow-sm"><div class="card-body">
+      <h5 class="mb-3">Top posts</h5>
+      <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+          <thead><tr><th>Post</th><th class="text-end">Visits</th><th class="text-end">WhatsApp</th><th class="text-end">Facebook</th></tr></thead>
+          <tbody>
+            <% if (topPosts.length === 0) { %><tr><td colspan="4" class="text-body-secondary">No data yet.</td></tr><% } %>
+            <% topPosts.forEach(p => { %>
+              <tr>
+                <td><a href="/posts/<%= p.id %>" class="text-decoration-none"><%= p.title %></a></td>
+                <td class="text-end fw-semibold"><%= p.visits %></td>
+                <td class="text-end"><%= p.whatsapp %></td>
+                <td class="text-end"><%= p.facebook %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div></div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <h5 class="mb-3">Top referrers</h5>
+      <% if (referrers.length === 0) { %>
+        <p class="text-body-secondary mb-0">No external referrers yet.</p>
+      <% } %>
+      <ul class="list-unstyled mb-0">
+        <% referrers.forEach(r => { %>
+          <li class="d-flex justify-content-between border-bottom py-1"><span class="text-truncate me-2"><%= r.referrer %></span><strong><%= r.visits %></strong></li>
+        <% }) %>
+      </ul>
+    </div></div>
+  </div>
+</div>
+
+<p class="text-body-secondary small mt-4">
+  Note: WhatsApp aur Facebook ki in-app browser aksar referrer chhupa deti hain, is liye group ke traffic ki
+  sahi pehchan <code>?utm_source=</code> wale links se hoti hai (share buttons aur "Copy msg" buttons yehi lagate hain).
+  Bots aur aap (admin) ke visits count nahi hote.
+</p>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+  const daily = <%- JSON.stringify(daily).replace(/</g, '\\u003c') %>;
+  new Chart(document.getElementById('dailyChart'), {
+    type: 'line',
+    data: {
+      labels: daily.map(d => d.label),
+      datasets: [{
+        label: 'Visits',
+        data: daily.map(d => d.visits),
+        borderColor: '#4f46e5',
+        backgroundColor: 'rgba(79,70,229,.15)',
+        fill: true,
+        tension: .3,
+        pointRadius: daily.length > 40 ? 0 : 3,
+      }],
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxTicksLimit: 10 } } },
+    },
+  });
+</script>
+
+<%- include('partials/footer') %>

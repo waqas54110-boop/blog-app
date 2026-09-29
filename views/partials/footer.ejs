@@ -20,6 +20,7 @@
     <% } %>
 
     <form action="/subscribe" method="POST" class="d-flex flex-wrap justify-content-center gap-2">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <input type="email" name="email" required placeholder="you@example.com"
              class="form-control" style="max-width:320px;">
       <button type="submit" class="btn btn-light fw-semibold">Subscribe</button>

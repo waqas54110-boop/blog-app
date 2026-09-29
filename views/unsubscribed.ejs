@@ -1,0 +1,14 @@
+<%- include('partials/header') %>
+
+<div class="text-center py-5">
+  <% if (done) { %>
+    <h2 class="fw-bold mb-2">You're unsubscribed</h2>
+    <p class="text-body-secondary">Aap ko ab is blog ki emails nahi aayengi.</p>
+  <% } else { %>
+    <h2 class="fw-bold mb-2">Link expired</h2>
+    <p class="text-body-secondary">Yeh unsubscribe link pehle hi use ho chuka hai ya theek nahi hai.</p>
+  <% } %>
+  <a href="/" class="btn btn-primary">Go Home</a>
+</div>
+
+<%- include('partials/footer') %>

@@ -2,14 +2,18 @@ const express = require('express');
 const { marked } = require('marked');
 const sanitizeHtml = require('sanitize-html');
 const pool = require('../db');
+const config = require('../config');
+const { trackVisit, isBot } = require('../lib/analytics');
+const { notifyUser } = require('../lib/notify');
 
 const router = express.Router();
 const PER_PAGE = 6;
 const REACTION_EMOJIS = ['👍', '❤️', '🔥', '😂', '😢'];
 
-// Apne groups banane ke baad ye do links yahan replace kar dein
-const COMMUNITY_WHATSAPP_URL = 'https://chat.whatsapp.com/REPLACE_WITH_YOUR_INVITE_LINK';
-const COMMUNITY_FACEBOOK_URL = 'https://facebook.com/groups/REPLACE_WITH_YOUR_GROUP';
+// Sirf published posts (draft aur future-scheduled posts public ko nazar nahi aatin)
+const LIVE = 'p.is_draft = false AND p.publish_at <= now()';
+const TZ = config.timezone;
+const baseUrlOf = (req) => config.siteUrl || `${req.protocol}://${req.get('host')}`;
 
 const CATEGORIES = [
   'Cricket',
@@ -31,6 +35,7 @@ const requireAdmin = (req, res, next) => {
   if (!req.session.user) return res.redirect('/login');
   if (req.session.user.role !== 'admin') {
     return res.status(403).render('404', {
+      code: 403,
       title: 'Not allowed',
       message: 'Only the blog owner can do this.',
     });
@@ -76,6 +81,9 @@ const saveTagsForPost = async (postId, tagNames) => {
   }
 };
 
+const readingTimeOf = (content) =>
+  Math.max(Math.ceil(content.trim().split(/\s+/).length / 200), 1);
+
 const makePreview = (post) => {
   if (post.excerpt) return post.excerpt;
   const plain = post.content.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#*_`>~]/g, '');
@@ -88,6 +96,9 @@ const validatePost = (body) => {
   const content = (body.content || '').trim();
   const category = body.category;
   const cover = (body.cover_url || '').trim();
+  const isDraft = body.status === 'draft';
+  const publishAt = (body.publish_at || '').trim();
+  const sendNewsletter = body.send_newsletter === 'on';
 
   let error = null;
   if (!title || !content) error = 'Title and content are required.';
@@ -95,10 +106,14 @@ const validatePost = (body) => {
   else if (excerpt.length > 300) error = 'Summary must be 300 characters or less.';
   else if (!CATEGORIES.includes(category)) error = 'Please choose a valid category.';
   else if (cover && !/^https?:\/\/\S+$/i.test(cover)) error = 'Cover image must be a valid http(s) URL.';
+  else if (publishAt && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(publishAt)) error = 'Publish date is not valid.';
 
   return {
     error,
-    data: { title, excerpt: excerpt || null, content, category, cover_url: cover || null },
+    data: {
+      title, excerpt: excerpt || null, content, category, cover_url: cover || null,
+      is_draft: isDraft, publish_at: publishAt || null, send_newsletter: sendNewsletter,
+    },
   };
 };
 
@@ -110,8 +125,12 @@ router.get('/', async (req, res) => {
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
   const offset = (page - 1) * PER_PAGE;
 
+  // Full-text search (GIN index) + title par partial match (jaise "node" -> "nodejs")
   const where = `
-    WHERE ($1::text = '' OR p.title ILIKE '%' || $1::text || '%' OR p.content ILIKE '%' || $1::text || '%')
+    WHERE ${LIVE}
+      AND ($1::text = ''
+           OR p.search_vector @@ websearch_to_tsquery('simple', $1::text)
+           OR p.title ILIKE '%' || $1::text || '%')
       AND ($2::text = '' OR p.category = $2::text)
       AND ($3::text = '' OR EXISTS (
         SELECT 1 FROM post_tags pt JOIN tags t ON t.id = pt.tag_id
@@ -121,7 +140,8 @@ router.get('/', async (req, res) => {
   try {
     const [postsResult, countResult, catResult, popularResult, tagsResult] = await Promise.all([
       pool.query(
-        `SELECT p.id, p.title, p.excerpt, p.content, p.category, p.cover_url, p.views, p.created_at,
+        `SELECT p.id, p.title, p.excerpt, p.content, p.category, p.cover_url, p.views,
+                p.publish_at AS created_at,
                 u.username,
                 (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id)::int AS like_count,
                 (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)::int AS comment_count,
@@ -130,22 +150,29 @@ router.get('/', async (req, res) => {
                           WHERE pt.post_id = p.id), '{}') AS tags
          FROM posts p JOIN users u ON u.id = p.user_id
          ${where}
-         ORDER BY p.created_at DESC
+         ORDER BY (CASE WHEN $1::text = '' THEN 0
+                        ELSE ts_rank(p.search_vector, websearch_to_tsquery('simple', $1::text)) END) DESC,
+                  p.publish_at DESC
          LIMIT $4 OFFSET $5`,
         [q, category, tag, PER_PAGE, offset]
       ),
       pool.query(`SELECT COUNT(*)::int AS total FROM posts p ${where}`, [q, category, tag]),
-      pool.query('SELECT category, COUNT(*)::int AS total FROM posts GROUP BY category ORDER BY total DESC'),
-      pool.query('SELECT id, title, views FROM posts ORDER BY views DESC, created_at DESC LIMIT 5'),
+      pool.query(`SELECT p.category, COUNT(*)::int AS total FROM posts p WHERE ${LIVE} GROUP BY p.category ORDER BY total DESC`),
+      pool.query(`SELECT p.id, p.title, p.views FROM posts p WHERE ${LIVE} ORDER BY p.views DESC, p.publish_at DESC LIMIT 5`),
       pool.query(
         `SELECT t.name, COUNT(*)::int AS total
-         FROM tags t JOIN post_tags pt ON pt.tag_id = t.id
+         FROM tags t JOIN post_tags pt ON pt.tag_id = t.id JOIN posts p ON p.id = pt.post_id
+         WHERE ${LIVE}
          GROUP BY t.name ORDER BY total DESC, t.name ASC LIMIT 15`
       ),
     ]);
 
     const totalPosts = countResult.rows[0].total;
-    const posts = postsResult.rows.map((p) => ({ ...p, preview: makePreview(p) }));
+    const posts = postsResult.rows.map((p) => ({
+      ...p,
+      preview: makePreview(p),
+      readingTime: readingTimeOf(p.content),
+    }));
 
     res.render('index', {
       title: 'My Blog',
@@ -192,9 +219,10 @@ router.post('/subscribe', async (req, res) => {
 router.get('/rss.xml', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT id, title, excerpt, content, created_at FROM posts ORDER BY created_at DESC LIMIT 20`
+      `SELECT p.id, p.title, p.excerpt, p.content, p.publish_at AS created_at
+       FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC LIMIT 20`
     );
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const baseUrl = baseUrlOf(req);
     const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
     const items = result.rows.map((p) => `
@@ -226,8 +254,10 @@ router.get('/rss.xml', async (req, res) => {
 // ---------- SITEMAP ----------
 router.get('/sitemap.xml', async (req, res) => {
   try {
-    const result = await pool.query('SELECT id, created_at FROM posts ORDER BY created_at DESC');
-    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const result = await pool.query(
+      `SELECT p.id, p.publish_at AS created_at FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC`
+    );
+    const baseUrl = baseUrlOf(req);
     const staticUrls = ['', '/about', '/leaderboard', '/community'];
 
     const staticXml = staticUrls.map((u) => `
@@ -252,7 +282,7 @@ router.get('/sitemap.xml', async (req, res) => {
 
 // ---------- ROBOTS.TXT ----------
 router.get('/robots.txt', (req, res) => {
-  const baseUrl = `${req.protocol}://${req.get('host')}`;
+  const baseUrl = baseUrlOf(req);
   res.type('text/plain').send(`User-agent: *\nAllow: /\n\nSitemap: ${baseUrl}/sitemap.xml`);
 });
 
@@ -277,8 +307,9 @@ router.get('/leaderboard', async (req, res) => {
 router.get('/community', (req, res) => {
   res.render('community', {
     title: 'Join Our Community',
-    whatsappUrl: COMMUNITY_WHATSAPP_URL,
-    facebookUrl: COMMUNITY_FACEBOOK_URL,
+    whatsappUrl: config.whatsappUrl,
+    facebookUrl: config.facebookUrl,
+    whatsappChannelUrl: config.whatsappChannelUrl,
   });
 });
 
@@ -295,7 +326,7 @@ router.get('/bookmarks', requireLogin, async (req, res) => {
        FROM bookmarks b
        JOIN posts p ON p.id = b.post_id
        JOIN users u ON u.id = p.user_id
-       WHERE b.user_id = $1
+       WHERE b.user_id = $1 AND ${LIVE}
        ORDER BY b.created_at DESC`,
       [req.session.user.id]
     );
@@ -314,13 +345,22 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
         (SELECT COUNT(*) FROM posts)::int AS posts,
         (SELECT COALESCE(SUM(views), 0) FROM posts)::int AS views,
         (SELECT COUNT(*) FROM comments)::int AS comments,
-        (SELECT COUNT(*) FROM users)::int AS users`),
-      pool.query(`SELECT p.id, p.title, p.category, p.views, p.created_at,
+        (SELECT COUNT(*) FROM users)::int AS users,
+        (SELECT COUNT(*) FROM subscribers)::int AS subscribers,
+        (SELECT COUNT(*) FROM post_visits WHERE created_at > now() - interval '7 days')::int AS visits7`),
+      pool.query(`SELECT p.id, p.title, p.excerpt, p.content, p.category, p.views, p.is_draft, p.publish_at,
+        (p.is_draft = false AND p.publish_at > now()) AS is_scheduled,
         (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id)::int AS likes,
         (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)::int AS comments
-        FROM posts p ORDER BY p.created_at DESC`),
+        FROM posts p ORDER BY p.publish_at DESC`),
     ]);
-    res.render('dashboard', { title: 'Dashboard', stats: stats.rows[0], posts: list.rows });
+    const posts = list.rows.map((p) => ({ ...p, preview: makePreview(p) }));
+    res.render('dashboard', {
+      title: 'Dashboard',
+      stats: stats.rows[0],
+      posts,
+      baseUrl: baseUrlOf(req),
+    });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -328,6 +368,8 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
 });
 
 // ---------- NEW POST (admin) ----------
+const editorDefaults = { status: 'publish', send_newsletter: true };
+
 router.get('/posts/new', requireAdmin, (req, res) => {
   res.render('editor', {
     title: 'Write a Post',
@@ -335,8 +377,16 @@ router.get('/posts/new', requireAdmin, (req, res) => {
     action: '/posts',
     error: null,
     categories: CATEGORIES,
-    form: {},
+    form: { ...editorDefaults },
+    isEdit: false,
+    tz: TZ,
   });
+});
+
+const formFromBody = (body) => ({
+  ...body,
+  status: body.status === 'draft' ? 'draft' : 'publish',
+  send_newsletter: body.send_newsletter === 'on',
 });
 
 router.post('/posts', requireAdmin, async (req, res) => {
@@ -348,15 +398,24 @@ router.post('/posts', requireAdmin, async (req, res) => {
       action: '/posts',
       error,
       categories: CATEGORIES,
-      form: req.body,
+      form: formFromBody(req.body),
+      isEdit: false,
+      tz: TZ,
     });
   }
 
   try {
     const result = await pool.query(
-      `INSERT INTO posts (user_id, title, excerpt, content, category, cover_url)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-      [req.session.user.id, data.title, data.excerpt, data.content, data.category, data.cover_url]
+      `INSERT INTO posts (user_id, title, excerpt, content, category, cover_url,
+                          is_draft, publish_at, newsletter_sent)
+       VALUES ($1, $2, $3, $4, $5, $6, $7,
+               COALESCE($8::timestamp AT TIME ZONE $9::text, now()), $10)
+       RETURNING id`,
+      [
+        req.session.user.id, data.title, data.excerpt, data.content, data.category, data.cover_url,
+        data.is_draft, data.publish_at, TZ,
+        !data.send_newsletter, // newsletter_sent=true matlab "email mat bhejo"
+      ]
     );
     await saveTagsForPost(result.rows[0].id, parseTags(req.body.tags));
     res.redirect('/posts/' + result.rows[0].id);
@@ -372,7 +431,12 @@ router.get('/posts/:id/edit', requireAdmin, async (req, res) => {
   if (!id) return res.status(404).render('404', { title: 'Not Found' });
 
   try {
-    const result = await pool.query('SELECT * FROM posts WHERE id = $1', [id]);
+    const result = await pool.query(
+      `SELECT p.*,
+              to_char(p.publish_at AT TIME ZONE $2::text, 'YYYY-MM-DD"T"HH24:MI') AS publish_at_local
+       FROM posts p WHERE p.id = $1`,
+      [id, TZ]
+    );
     const post = result.rows[0];
     if (!post) return res.status(404).render('404', { title: 'Not Found' });
 
@@ -382,6 +446,9 @@ router.get('/posts/:id/edit', requireAdmin, async (req, res) => {
       [id]
     );
     post.tags = tagsResult.rows.map((r) => r.name).join(', ');
+    post.status = post.is_draft ? 'draft' : 'publish';
+    post.publish_at = post.is_draft ? '' : post.publish_at_local; // draft ki date khali (publish par abhi ki date lagegi)
+    post.send_newsletter = !post.newsletter_sent;
 
     res.render('editor', {
       title: 'Edit Post',
@@ -390,6 +457,9 @@ router.get('/posts/:id/edit', requireAdmin, async (req, res) => {
       error: null,
       categories: CATEGORIES,
       form: post,
+      isEdit: true,
+      newsletterAlreadySent: post.newsletter_sent,
+      tz: TZ,
     });
   } catch (err) {
     console.error(err);
@@ -409,16 +479,25 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
       action: `/posts/${id}/edit`,
       error,
       categories: CATEGORIES,
-      form: req.body,
+      form: formFromBody(req.body),
+      isEdit: true,
+      tz: TZ,
     });
   }
 
   try {
     await pool.query(
       `UPDATE posts
-       SET title = $1, excerpt = $2, content = $3, category = $4, cover_url = $5
-       WHERE id = $6`,
-      [data.title, data.excerpt, data.content, data.category, data.cover_url, id]
+       SET title = $1, excerpt = $2, content = $3, category = $4, cover_url = $5,
+           publish_at = CASE
+             WHEN $7::text IS NOT NULL THEN ($7::text)::timestamp AT TIME ZONE $8::text
+             WHEN posts.is_draft AND NOT $6::boolean THEN now()  -- draft se publish: abhi ki date
+             ELSE posts.publish_at END,
+           is_draft = $6::boolean,
+           newsletter_sent = CASE WHEN posts.newsletter_sent THEN true ELSE NOT $9::boolean END
+       WHERE id = $10`,
+      [data.title, data.excerpt, data.content, data.category, data.cover_url,
+       data.is_draft, data.publish_at, TZ, data.send_newsletter, id]
     );
     await saveTagsForPost(id, parseTags(req.body.tags));
     res.redirect('/posts/' + id);
@@ -436,13 +515,9 @@ router.get('/posts/:id', async (req, res) => {
   const uid = req.session.user ? req.session.user.id : null;
 
   try {
-    // Views sirf readers ke count hote hain (admin ke nahi)
-    if (!res.locals.isAdmin) {
-      await pool.query('UPDATE posts SET views = views + 1 WHERE id = $1', [id]);
-    }
-
     const result = await pool.query(
       `SELECT p.*, u.username,
+              (p.is_draft = false AND p.publish_at <= now()) AS is_live,
               (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id)::int AS like_count,
               EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $2::int) AS liked,
               EXISTS (SELECT 1 FROM bookmarks b WHERE b.post_id = p.id AND b.user_id = $2::int) AS bookmarked
@@ -451,17 +526,35 @@ router.get('/posts/:id', async (req, res) => {
       [id, uid]
     );
     const post = result.rows[0];
-    if (!post) return res.status(404).render('404', { title: 'Not Found' });
+    // Draft / scheduled post sirf admin dekh sakta hai
+    if (!post || (!post.is_live && !res.locals.isAdmin)) {
+      return res.status(404).render('404', { title: 'Not Found' });
+    }
+
+    // Views aur traffic-source sirf live posts par, aur admin ke nahi
+    if (post.is_live && !res.locals.isAdmin && !isBot(req)) {
+      await pool.query('UPDATE posts SET views = views + 1 WHERE id = $1', [id]);
+      post.views += 1;
+      trackVisit(req, id); // await nahi: page slow na ho
+    }
 
     const [related, comments, tagsResult, reactionResult, myReactionResult] = await Promise.all([
+      // Related: pehle wo jin ke tags match karte hain, phir same category
       pool.query(
-        `SELECT id, title, created_at FROM posts
-         WHERE category = $1 AND id <> $2
-         ORDER BY created_at DESC LIMIT 3`,
+        `SELECT * FROM (
+           SELECT p.id, p.title, p.cover_url, p.category, p.publish_at AS created_at,
+                  (SELECT COUNT(*) FROM post_tags a JOIN post_tags b ON a.tag_id = b.tag_id
+                   WHERE a.post_id = p.id AND b.post_id = $2)::int AS shared_tags
+           FROM posts p
+           WHERE p.id <> $2 AND ${LIVE}
+         ) x
+         WHERE x.shared_tags > 0 OR x.category = $1
+         ORDER BY x.shared_tags DESC, (x.category = $1) DESC, x.created_at DESC
+         LIMIT 4`,
         [post.category, post.id]
       ),
       pool.query(
-        `SELECT c.id, c.body, c.created_at, c.user_id, u.username
+        `SELECT c.id, c.body, c.created_at, c.user_id, c.parent_id, u.username
          FROM comments c JOIN users u ON u.id = c.user_id
          WHERE c.post_id = $1
          ORDER BY c.created_at ASC`,
@@ -483,22 +576,44 @@ router.get('/posts/:id', async (req, res) => {
     reactionResult.rows.forEach((r) => { reactionCounts[r.emoji] = r.total; });
     const myReaction = myReactionResult.rows[0] ? myReactionResult.rows[0].emoji : null;
 
-    const words = post.content.trim().split(/\s+/).length;
-    const shareUrl = `${req.protocol}://${req.get('host')}/posts/${post.id}`;
+    // Comments ko top-level + replies mein baantna
+    const byParent = {};
+    const topLevel = [];
+    comments.rows.forEach((c) => {
+      if (c.parent_id) (byParent[c.parent_id] = byParent[c.parent_id] || []).push(c);
+      else topLevel.push(c);
+    });
+    const threads = topLevel.map((c) => ({ ...c, replies: byParent[c.id] || [] }));
+
+    const base = baseUrlOf(req);
+    const shareUrl = `${base}/posts/${post.id}`;
+    const withUtm = (src, medium = 'share') => `${shareUrl}?utm_source=${src}&utm_medium=${medium}`;
+    const description = post.excerpt || makePreview(post);
 
     res.render('post', {
       title: post.title,
-      metaDescription: post.excerpt || undefined,
+      metaDescription: description,
+      ogImage: post.cover_url || config.defaultOgImage || null,
+      ogUrl: shareUrl,
+      ogType: 'article',
       post,
       contentHtml: renderMarkdown(post.content),
       related: related.rows,
       comments: comments.rows,
+      threads,
       tags: tagsResult.rows.map((r) => r.name),
       reactionEmojis: REACTION_EMOJIS,
       reactionCounts,
       myReaction,
       shareUrl,
-      readingTime: Math.max(Math.ceil(words / 200), 1),
+      shareLinks: {
+        whatsapp: withUtm('whatsapp'),
+        facebook: withUtm('facebook'),
+        twitter: withUtm('twitter'),
+        copy: withUtm('link'),
+      },
+      readingTime: readingTimeOf(post.content),
+      tz: TZ,
       commentError: req.query.commentError || null,
     });
   } catch (err) {
@@ -592,7 +707,7 @@ router.post('/posts/:id/bookmark', requireLogin, async (req, res) => {
   res.redirect('/posts/' + id);
 });
 
-// ---------- COMMENTS ----------
+// ---------- COMMENTS (replies + notifications) ----------
 router.post('/posts/:id/comments', requireLogin, async (req, res) => {
   const id = toId(req.params.id);
   if (!id) return res.redirect('/');
@@ -603,16 +718,54 @@ router.post('/posts/:id/comments', requireLogin, async (req, res) => {
     return res.redirect(`/posts/${id}?commentError=${msg}#comments`);
   }
 
+  const me = req.session.user;
+  const replyToId = toId(req.body.parent_id);
+
   try {
-    await pool.query(
-      'INSERT INTO comments (post_id, user_id, body) VALUES ($1, $2, $3)',
-      [id, req.session.user.id, body]
+    const postRes = await pool.query(
+      `SELECT p.id, p.title, p.user_id FROM posts p WHERE p.id = $1 AND (${LIVE} OR $2::boolean)`,
+      [id, res.locals.isAdmin]
     );
+    const post = postRes.rows[0];
+    if (!post) return res.redirect('/');
+
+    // Reply hai? Jis comment ka jawab hai wo isi post ka hona chahiye.
+    // Sirf 1 level nesting: reply ka reply bhi top-level comment ke neeche lagta hai.
+    let parentId = null;
+    let repliedTo = null;
+    if (replyToId) {
+      const pr = await pool.query(
+        'SELECT id, user_id, parent_id FROM comments WHERE id = $1 AND post_id = $2',
+        [replyToId, id]
+      );
+      repliedTo = pr.rows[0] || null;
+      if (repliedTo) parentId = repliedTo.parent_id || repliedTo.id;
+    }
+
+    const ins = await pool.query(
+      'INSERT INTO comments (post_id, user_id, body, parent_id) VALUES ($1, $2, $3, $4) RETURNING id',
+      [id, me.id, body, parentId]
+    );
+    const link = `/posts/${id}#c${ins.rows[0].id}`;
+    const short = post.title.length > 60 ? post.title.slice(0, 57) + '...' : post.title;
+
+    if (repliedTo && repliedTo.user_id !== me.id) {
+      // Jis ne comment kiya tha use in-app notification + email
+      notifyUser(repliedTo.user_id, `${me.username} replied to your comment on "${short}"`, link, {
+        email: true,
+        emailSubject: `${me.username} replied to your comment`,
+      });
+    }
+    if (post.user_id !== me.id && (!repliedTo || repliedTo.user_id !== post.user_id)) {
+      // Blog owner ko bhi pata chale ke naya comment aaya
+      notifyUser(post.user_id, `${me.username} commented on "${short}"`, link);
+    }
+
+    res.redirect(`/posts/${id}#c${ins.rows[0].id}`);
   } catch (err) {
     console.error(err);
     return res.redirect('/');
   }
-  res.redirect(`/posts/${id}#comments`);
 });
 
 router.post('/comments/:id/delete', requireLogin, async (req, res) => {

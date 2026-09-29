@@ -1,0 +1,14 @@
+<!-- Community group banner: har post ke neeche, comments se pehle -->
+<div class="card border-0 shadow-sm mt-4 text-white" style="background: linear-gradient(135deg,#128c7e,#25d366);">
+  <div class="card-body p-4">
+    <h5 class="fw-bold mb-1">👥 Is tarah ki aur posts chahiye?</h5>
+    <p class="mb-3 opacity-90">Hamare group join karein: naye posts sab se pehle milenge aur aap sawal bhi puch sakte hain.</p>
+    <div class="d-flex flex-wrap gap-2">
+      <% if (locals.whatsappChannelUrl) { %>
+        <a href="<%= whatsappChannelUrl %>" target="_blank" rel="noopener" class="btn btn-light fw-semibold">📢 WhatsApp Channel</a>
+      <% } %>
+      <a href="<%= whatsappUrl %>" target="_blank" rel="noopener" class="btn btn-light fw-semibold">💬 WhatsApp Group</a>
+      <a href="<%= facebookUrl %>" target="_blank" rel="noopener" class="btn btn-primary fw-semibold">📘 Facebook Group</a>
+    </div>
+  </div>
+</div>
