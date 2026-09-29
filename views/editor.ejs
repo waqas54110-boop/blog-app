@@ -18,6 +18,19 @@
                    value="<%= form.title || '' %>" required>
           </div>
 
+          <div class="mb-3">
+            <label for="slug" class="form-label">URL slug <span class="text-body-secondary">(optional)</span></label>
+            <div class="input-group">
+              <span class="input-group-text">/posts/</span>
+              <input type="text" class="form-control" id="slug" name="slug" maxlength="100"
+                     value="<%= form.slug || '' %>" placeholder="title se khud ban jayega">
+            </div>
+            <div class="form-text">
+              Chhote English letters, numbers aur "-" (jaise <code>cricket-batting-tips</code>).
+              <% if (isEdit) { %>Edit par purana slug wahi rehta hai; badlein ge to purana link kaam nahi karega.<% } %>
+            </div>
+          </div>
+
           <div class="row">
             <div class="col-md-5 mb-3">
               <label for="category" class="form-label">Category</label>
@@ -28,9 +41,16 @@
               </select>
             </div>
             <div class="col-md-7 mb-3">
-              <label for="cover_url" class="form-label">Cover image URL <span class="text-body-secondary">(optional)</span></label>
-              <input type="url" class="form-control" id="cover_url" name="cover_url"
-                     value="<%= form.cover_url || '' %>" placeholder="https://...">
+              <label for="cover_url" class="form-label">Cover image <span class="text-body-secondary">(optional)</span></label>
+              <div class="input-group">
+                <input type="text" class="form-control" id="cover_url" name="cover_url"
+                       value="<%= form.cover_url || '' %>" placeholder="https://... ya Upload dabayein">
+                <button type="button" class="btn btn-outline-primary" id="coverUploadBtn">Upload</button>
+              </div>
+              <input type="file" id="coverFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+              <div class="form-text" id="coverStatus">JPG, PNG, WebP ya GIF. Bari images upload se pehle khud chhoti ho jati hain.</div>
+              <img id="coverPreview" src="<%= form.cover_url || '' %>" alt="" class="img-fluid rounded mt-2"
+                   style="max-height:120px; <%= form.cover_url ? '' : 'display:none;' %>">
             </div>
           </div>
 
@@ -47,7 +67,11 @@
           </div>
 
           <div class="mb-2">
-            <label for="content" class="form-label">Content (Markdown supported)</label>
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label for="content" class="form-label mb-0">Content (Markdown supported)</label>
+              <button type="button" class="btn btn-sm btn-outline-secondary" id="insertImageBtn">Insert image</button>
+            </div>
+            <input type="file" id="contentFile" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
             <textarea class="form-control font-monospace" id="content" name="content" rows="16" required><%= form.content || '' %></textarea>
           </div>
           <div class="form-text mb-4">
@@ -95,5 +119,88 @@
     </div>
   </div>
 </div>
+
+<script>
+  (function () {
+    var form = document.querySelector('form[method="POST"]');
+    var csrf = form.querySelector('input[name="_csrf"]').value;
+    var MAX_SIDE = 1600;            // is se bari image chhoti kar di jati hai
+    var MAX_BYTES = 5 * 1024 * 1024;
+
+    // Bari photo ko browser mein hi resize + compress karta hai (GIF jaisi hai waisi jati hai)
+    async function prepare(file) {
+      if (file.type === 'image/gif' || typeof createImageBitmap !== 'function') return file;
+      try {
+        var bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+        var scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.round(bmp.width * scale);
+        canvas.height = Math.round(bmp.height * scale);
+        canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+        var blob = await new Promise(function (res) { canvas.toBlob(res, 'image/webp', 0.82); });
+        return blob && blob.size < file.size ? blob : file;
+      } catch (e) { return file; }
+    }
+
+    async function upload(file) {
+      var blob = await prepare(file);
+      if (blob.size > MAX_BYTES) throw new Error('Image 5 MB se bari hai. Chhoti image chunein.');
+      var res = await fetch('/upload-image', {
+        method: 'POST',
+        headers: { 'Content-Type': blob.type, 'x-csrf-token': csrf },
+        body: blob
+      });
+      var data = {};
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok || !data.url) throw new Error(data.error || 'Upload nahi hui (' + res.status + ').');
+      return data.url;
+    }
+
+    // ----- Cover image -----
+    var coverUrl = document.getElementById('cover_url');
+    var coverFile = document.getElementById('coverFile');
+    var coverBtn = document.getElementById('coverUploadBtn');
+    var coverStatus = document.getElementById('coverStatus');
+    var coverPreview = document.getElementById('coverPreview');
+    var showPreview = function () {
+      if (coverUrl.value) { coverPreview.src = coverUrl.value; coverPreview.style.display = ''; }
+      else { coverPreview.style.display = 'none'; }
+    };
+    coverUrl.addEventListener('change', showPreview);
+    coverBtn.addEventListener('click', function () { coverFile.click(); });
+    coverFile.addEventListener('change', async function () {
+      var f = coverFile.files[0];
+      if (!f) return;
+      coverBtn.disabled = true; coverStatus.textContent = 'Uploading...';
+      try {
+        coverUrl.value = await upload(f);
+        showPreview();
+        coverStatus.textContent = 'Upload ho gayi. Post save karna na bhoolein.';
+      } catch (e) { coverStatus.textContent = e.message; }
+      coverBtn.disabled = false; coverFile.value = '';
+    });
+
+    // ----- Image inside content (Markdown mein ![alt](url) lagata hai) -----
+    var content = document.getElementById('content');
+    var contentFile = document.getElementById('contentFile');
+    var insertBtn = document.getElementById('insertImageBtn');
+    insertBtn.addEventListener('click', function () { contentFile.click(); });
+    contentFile.addEventListener('change', async function () {
+      var f = contentFile.files[0];
+      if (!f) return;
+      var label = insertBtn.textContent;
+      insertBtn.disabled = true; insertBtn.textContent = 'Uploading...';
+      try {
+        var url = await upload(f);
+        var alt = f.name.replace(/\.[^.]+$/, '').replace(/[\[\]]/g, '');
+        var md = '\n![' + alt + '](' + url + ')\n';
+        var pos = content.selectionStart != null ? content.selectionStart : content.value.length;
+        content.value = content.value.slice(0, pos) + md + content.value.slice(content.selectionEnd || pos);
+        content.focus(); content.selectionStart = content.selectionEnd = pos + md.length;
+      } catch (e) { alert(e.message); }
+      insertBtn.disabled = false; insertBtn.textContent = label; contentFile.value = '';
+    });
+  })();
+</script>
 
 <%- include('partials/footer') %>

@@ -1,0 +1,29 @@
+<%- include('partials/auth-top', { title: 'Reset password' }) %>
+
+            <h2 class="text-center mb-3">Reset password</h2>
+
+            <% if (invalid) { %>
+              <div class="alert alert-warning" role="alert">
+                Yeh reset link expire ho chuka hai ya pehle use ho chuka hai. Naya link mangwa lein.
+              </div>
+              <a href="/forgot-password" class="btn btn-primary w-100">Get a new link</a>
+            <% } else { %>
+              <% if (error) { %>
+                <div class="alert alert-danger" role="alert"><%= error %></div>
+              <% } %>
+
+              <form action="/reset-password/<%= token %>" method="POST">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <div class="mb-3">
+                  <label for="password" class="form-label">New password</label>
+                  <input type="password" class="form-control" id="password" name="password" placeholder="Kam az kam 8 characters" required minlength="8" autofocus>
+                </div>
+                <div class="mb-3">
+                  <label for="confirmPassword" class="form-label">Confirm new password</label>
+                  <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Password dobara likhein" required>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Save new password</button>
+              </form>
+            <% } %>
+
+<%- include('partials/auth-bottom') %>

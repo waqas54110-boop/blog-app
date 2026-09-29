@@ -5,15 +5,29 @@ const pool = require('../db');
 const config = require('../config');
 const { trackVisit, isBot } = require('../lib/analytics');
 const { notifyUser } = require('../lib/notify');
+const { uniqueSlug } = require('../lib/slug');
 
 const router = express.Router();
-const PER_PAGE = 6;
+const PER_PAGE = Math.min(Math.max(parseInt(process.env.POSTS_PER_PAGE, 10) || 6, 1), 30);
 const REACTION_EMOJIS = ['👍', '❤️', '🔥', '😂', '😢'];
 
 // Sirf published posts (draft aur future-scheduled posts public ko nazar nahi aatin)
 const LIVE = 'p.is_draft = false AND p.publish_at <= now()';
 const TZ = config.timezone;
 const baseUrlOf = (req) => config.siteUrl || `${req.protocol}://${req.get('host')}`;
+// Uploaded image ka URL relative hota hai (/img/5); OG tags aur emails ko poora URL chahiye
+const absUrl = (base, u) => (u && u.startsWith('/') ? base + u : u);
+
+// Home page ka URL (filters + page number ke saath)
+const homeUrl = ({ q, category, tag }, page = 1) => {
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (category) params.set('category', category);
+  if (tag) params.set('tag', tag);
+  if (page > 1) params.set('page', page);
+  const qs = params.toString();
+  return '/' + (qs ? '?' + qs : '');
+};
 
 const CATEGORIES = [
   'Cricket',
@@ -96,6 +110,7 @@ const validatePost = (body) => {
   const content = (body.content || '').trim();
   const category = body.category;
   const cover = (body.cover_url || '').trim();
+  const slug = (body.slug || '').trim();
   const isDraft = body.status === 'draft';
   const publishAt = (body.publish_at || '').trim();
   const sendNewsletter = body.send_newsletter === 'on';
@@ -105,13 +120,14 @@ const validatePost = (body) => {
   else if (title.length > 200) error = 'Title must be 200 characters or less.';
   else if (excerpt.length > 300) error = 'Summary must be 300 characters or less.';
   else if (!CATEGORIES.includes(category)) error = 'Please choose a valid category.';
-  else if (cover && !/^https?:\/\/\S+$/i.test(cover)) error = 'Cover image must be a valid http(s) URL.';
+  else if (cover && !/^(https?:\/\/\S+|\/img\/\d+)$/i.test(cover)) error = 'Cover image must be an http(s) URL or an uploaded image.';
+  else if (slug.length > 100) error = 'URL slug must be 100 characters or less.';
   else if (publishAt && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(publishAt)) error = 'Publish date is not valid.';
 
   return {
     error,
     data: {
-      title, excerpt: excerpt || null, content, category, cover_url: cover || null,
+      title, excerpt: excerpt || null, content, category, cover_url: cover || null, slug,
       is_draft: isDraft, publish_at: publishAt || null, send_newsletter: sendNewsletter,
     },
   };
@@ -140,7 +156,7 @@ router.get('/', async (req, res) => {
   try {
     const [postsResult, countResult, catResult, popularResult, tagsResult] = await Promise.all([
       pool.query(
-        `SELECT p.id, p.title, p.excerpt, p.content, p.category, p.cover_url, p.views,
+        `SELECT p.id, p.slug, p.title, p.excerpt, p.content, p.category, p.cover_url, p.views,
                 p.publish_at AS created_at,
                 u.username,
                 (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id)::int AS like_count,
@@ -158,7 +174,7 @@ router.get('/', async (req, res) => {
       ),
       pool.query(`SELECT COUNT(*)::int AS total FROM posts p ${where}`, [q, category, tag]),
       pool.query(`SELECT p.category, COUNT(*)::int AS total FROM posts p WHERE ${LIVE} GROUP BY p.category ORDER BY total DESC`),
-      pool.query(`SELECT p.id, p.title, p.views FROM posts p WHERE ${LIVE} ORDER BY p.views DESC, p.publish_at DESC LIMIT 5`),
+      pool.query(`SELECT p.id, p.slug, p.title, p.views FROM posts p WHERE ${LIVE} ORDER BY p.views DESC, p.publish_at DESC LIMIT 5`),
       pool.query(
         `SELECT t.name, COUNT(*)::int AS total
          FROM tags t JOIN post_tags pt ON pt.tag_id = t.id JOIN posts p ON p.id = pt.post_id
@@ -168,6 +184,10 @@ router.get('/', async (req, res) => {
     ]);
 
     const totalPosts = countResult.rows[0].total;
+    const totalPages = Math.max(Math.ceil(totalPosts / PER_PAGE), 1);
+    // Bahut bara page number: aakhri page par bhej do
+    if (page > totalPages) return res.redirect(homeUrl({ q, category, tag }, totalPages));
+
     const posts = postsResult.rows.map((p) => ({
       ...p,
       preview: makePreview(p),
@@ -181,7 +201,10 @@ router.get('/', async (req, res) => {
       popular: popularResult.rows,
       tags: tagsResult.rows,
       totalPosts,
-      totalPages: Math.max(Math.ceil(totalPosts / PER_PAGE), 1),
+      totalPages,
+      perPage: PER_PAGE,
+      // Canonical: page 2 ka apna URL (warna Google usay page 1 ka duplicate samajhta hai)
+      ogUrl: baseUrlOf(req) + homeUrl({ category, tag }, page),
       page,
       q,
       category,
@@ -219,7 +242,7 @@ router.post('/subscribe', async (req, res) => {
 router.get('/rss.xml', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT p.id, p.title, p.excerpt, p.content, p.publish_at AS created_at
+      `SELECT p.id, p.slug, p.title, p.excerpt, p.content, p.publish_at AS created_at
        FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC LIMIT 20`
     );
     const baseUrl = baseUrlOf(req);
@@ -228,8 +251,8 @@ router.get('/rss.xml', async (req, res) => {
     const items = result.rows.map((p) => `
     <item>
       <title>${esc(p.title)}</title>
-      <link>${baseUrl}/posts/${p.id}</link>
-      <guid>${baseUrl}/posts/${p.id}</guid>
+      <link>${baseUrl}/posts/${p.slug}</link>
+      <guid>${baseUrl}/posts/${p.slug}</guid>
       <pubDate>${new Date(p.created_at).toUTCString()}</pubDate>
       <description>${esc(p.excerpt || p.content.slice(0, 200))}</description>
     </item>`).join('');
@@ -255,7 +278,7 @@ router.get('/rss.xml', async (req, res) => {
 router.get('/sitemap.xml', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT p.id, p.publish_at AS created_at FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC`
+      `SELECT p.id, p.slug, p.publish_at AS created_at FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC`
     );
     const baseUrl = baseUrlOf(req);
     const staticUrls = ['', '/about', '/leaderboard', '/community'];
@@ -265,7 +288,7 @@ router.get('/sitemap.xml', async (req, res) => {
 
     const postsXml = result.rows.map((p) => `
   <url>
-    <loc>${baseUrl}/posts/${p.id}</loc>
+    <loc>${baseUrl}/posts/${p.slug}</loc>
     <lastmod>${new Date(p.created_at).toISOString()}</lastmod>
   </url>`).join('');
 
@@ -322,7 +345,7 @@ router.get('/about', (req, res) => {
 router.get('/bookmarks', requireLogin, async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT p.id, p.title, p.category, p.created_at, u.username
+      `SELECT p.id, p.slug, p.title, p.category, p.created_at, u.username
        FROM bookmarks b
        JOIN posts p ON p.id = b.post_id
        JOIN users u ON u.id = p.user_id
@@ -348,7 +371,7 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
         (SELECT COUNT(*) FROM users)::int AS users,
         (SELECT COUNT(*) FROM subscribers)::int AS subscribers,
         (SELECT COUNT(*) FROM post_visits WHERE created_at > now() - interval '7 days')::int AS visits7`),
-      pool.query(`SELECT p.id, p.title, p.excerpt, p.content, p.category, p.views, p.is_draft, p.publish_at,
+      pool.query(`SELECT p.id, p.slug, p.title, p.excerpt, p.content, p.category, p.views, p.is_draft, p.publish_at,
         (p.is_draft = false AND p.publish_at > now()) AS is_scheduled,
         (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id)::int AS likes,
         (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)::int AS comments
@@ -405,20 +428,23 @@ router.post('/posts', requireAdmin, async (req, res) => {
   }
 
   try {
+    // Slug: admin ne likha ho to wahi (saaf karke), warna title se
+    const slug = await uniqueSlug(pool, data.slug || data.title);
     const result = await pool.query(
       `INSERT INTO posts (user_id, title, excerpt, content, category, cover_url,
-                          is_draft, publish_at, newsletter_sent)
+                          is_draft, publish_at, newsletter_sent, slug)
        VALUES ($1, $2, $3, $4, $5, $6, $7,
-               COALESCE($8::timestamp AT TIME ZONE $9::text, now()), $10)
+               COALESCE($8::timestamp AT TIME ZONE $9::text, now()), $10, $11)
        RETURNING id`,
       [
         req.session.user.id, data.title, data.excerpt, data.content, data.category, data.cover_url,
         data.is_draft, data.publish_at, TZ,
         !data.send_newsletter, // newsletter_sent=true matlab "email mat bhejo"
+        slug,
       ]
     );
     await saveTagsForPost(result.rows[0].id, parseTags(req.body.tags));
-    res.redirect('/posts/' + result.rows[0].id);
+    res.redirect('/posts/' + slug);
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -486,9 +512,15 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
   }
 
   try {
+    const cur = await pool.query('SELECT slug FROM posts WHERE id = $1', [id]);
+    if (!cur.rows[0]) return res.status(404).render('404', { title: 'Not Found' });
+    // Edit par slug wahi rehta hai (purane links na tootein). Sirf tab badalta hai jab admin field khud badle.
+    let slug = cur.rows[0].slug;
+    if (data.slug && data.slug !== slug) slug = await uniqueSlug(pool, data.slug, id);
+
     await pool.query(
       `UPDATE posts
-       SET title = $1, excerpt = $2, content = $3, category = $4, cover_url = $5,
+       SET slug = $11, title = $1, excerpt = $2, content = $3, category = $4, cover_url = $5,
            publish_at = CASE
              WHEN $7::text IS NOT NULL THEN ($7::text)::timestamp AT TIME ZONE $8::text
              WHEN posts.is_draft AND NOT $6::boolean THEN now()  -- draft se publish: abhi ki date
@@ -497,10 +529,10 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
            newsletter_sent = CASE WHEN posts.newsletter_sent THEN true ELSE NOT $9::boolean END
        WHERE id = $10`,
       [data.title, data.excerpt, data.content, data.category, data.cover_url,
-       data.is_draft, data.publish_at, TZ, data.send_newsletter, id]
+       data.is_draft, data.publish_at, TZ, data.send_newsletter, id, slug]
     );
     await saveTagsForPost(id, parseTags(req.body.tags));
-    res.redirect('/posts/' + id);
+    res.redirect('/posts/' + slug);
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
@@ -508,9 +540,13 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
 });
 
 // ---------- SINGLE POST ----------
-router.get('/posts/:id', async (req, res) => {
-  const id = toId(req.params.id);
-  if (!id) return res.status(404).render('404', { title: 'Not Found' });
+router.get('/posts/:ref', async (req, res) => {
+  // :ref slug hai (/posts/my-post) ya purana number (/posts/12, jo slug par redirect hota hai)
+  const ref = String(req.params.ref || '').toLowerCase();
+  const byId = /^\d+$/.test(ref);
+  if ((byId && ref.length > 9) || (!byId && !/^[a-z0-9-]{1,120}$/.test(ref))) {
+    return res.status(404).render('404', { title: 'Not Found' });
+  }
 
   const uid = req.session.user ? req.session.user.id : null;
 
@@ -522,13 +558,20 @@ router.get('/posts/:id', async (req, res) => {
               EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $2::int) AS liked,
               EXISTS (SELECT 1 FROM bookmarks b WHERE b.post_id = p.id AND b.user_id = $2::int) AS bookmarked
        FROM posts p JOIN users u ON u.id = p.user_id
-       WHERE p.id = $1`,
-      [id, uid]
+       WHERE ${byId ? 'p.id = $1::int' : 'p.slug = $1::text'}`,
+      [ref, uid]
     );
     const post = result.rows[0];
     // Draft / scheduled post sirf admin dekh sakta hai
     if (!post || (!post.is_live && !res.locals.isAdmin)) {
       return res.status(404).render('404', { title: 'Not Found' });
+    }
+    const id = post.id;
+
+    // Purana /posts/12 link: permanent redirect naye slug URL par (query string, jaise utm, saath rehti hai)
+    if (byId && post.slug) {
+      const i = req.originalUrl.indexOf('?');
+      return res.redirect(301, '/posts/' + post.slug + (i === -1 ? '' : req.originalUrl.slice(i)));
     }
 
     // Views aur traffic-source sirf live posts par, aur admin ke nahi
@@ -542,7 +585,7 @@ router.get('/posts/:id', async (req, res) => {
       // Related: pehle wo jin ke tags match karte hain, phir same category
       pool.query(
         `SELECT * FROM (
-           SELECT p.id, p.title, p.cover_url, p.category, p.publish_at AS created_at,
+           SELECT p.id, p.slug, p.title, p.cover_url, p.category, p.publish_at AS created_at,
                   (SELECT COUNT(*) FROM post_tags a JOIN post_tags b ON a.tag_id = b.tag_id
                    WHERE a.post_id = p.id AND b.post_id = $2)::int AS shared_tags
            FROM posts p
@@ -586,14 +629,14 @@ router.get('/posts/:id', async (req, res) => {
     const threads = topLevel.map((c) => ({ ...c, replies: byParent[c.id] || [] }));
 
     const base = baseUrlOf(req);
-    const shareUrl = `${base}/posts/${post.id}`;
+    const shareUrl = `${base}/posts/${post.slug}`;
     const withUtm = (src, medium = 'share') => `${shareUrl}?utm_source=${src}&utm_medium=${medium}`;
     const description = post.excerpt || makePreview(post);
 
     res.render('post', {
       title: post.title,
       metaDescription: description,
-      ogImage: post.cover_url || config.defaultOgImage || null,
+      ogImage: absUrl(base, post.cover_url) || config.defaultOgImage || null,
       ogUrl: shareUrl,
       ogType: 'article',
       post,
@@ -723,7 +766,7 @@ router.post('/posts/:id/comments', requireLogin, async (req, res) => {
 
   try {
     const postRes = await pool.query(
-      `SELECT p.id, p.title, p.user_id FROM posts p WHERE p.id = $1 AND (${LIVE} OR $2::boolean)`,
+      `SELECT p.id, p.slug, p.title, p.user_id FROM posts p WHERE p.id = $1 AND (${LIVE} OR $2::boolean)`,
       [id, res.locals.isAdmin]
     );
     const post = postRes.rows[0];
@@ -746,7 +789,7 @@ router.post('/posts/:id/comments', requireLogin, async (req, res) => {
       'INSERT INTO comments (post_id, user_id, body, parent_id) VALUES ($1, $2, $3, $4) RETURNING id',
       [id, me.id, body, parentId]
     );
-    const link = `/posts/${id}#c${ins.rows[0].id}`;
+    const link = `/posts/${post.slug}#c${ins.rows[0].id}`;
     const short = post.title.length > 60 ? post.title.slice(0, 57) + '...' : post.title;
 
     if (repliedTo && repliedTo.user_id !== me.id) {
@@ -761,7 +804,7 @@ router.post('/posts/:id/comments', requireLogin, async (req, res) => {
       notifyUser(post.user_id, `${me.username} commented on "${short}"`, link);
     }
 
-    res.redirect(`/posts/${id}#c${ins.rows[0].id}`);
+    res.redirect(link);
   } catch (err) {
     console.error(err);
     return res.redirect('/');

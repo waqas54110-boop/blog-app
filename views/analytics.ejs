@@ -89,7 +89,7 @@
             <% if (topPosts.length === 0) { %><tr><td colspan="4" class="text-body-secondary">No data yet.</td></tr><% } %>
             <% topPosts.forEach(p => { %>
               <tr>
-                <td><a href="/posts/<%= p.id %>" class="text-decoration-none"><%= p.title %></a></td>
+                <td><a href="/posts/<%= p.slug %>" class="text-decoration-none"><%= p.title %></a></td>
                 <td class="text-end fw-semibold"><%= p.visits %></td>
                 <td class="text-end"><%= p.whatsapp %></td>
                 <td class="text-end"><%= p.facebook %></td>
@@ -125,7 +125,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
   const daily = <%- JSON.stringify(daily).replace(/</g, '\\u003c') %>;
-  new Chart(document.getElementById('dailyChart'), {
+  const themeColors = () => {
+    const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    return { text: dark ? '#adb5bd' : '#6c757d', grid: dark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)' };
+  };
+  const dailyChart = new Chart(document.getElementById('dailyChart'), {
     type: 'line',
     data: {
       labels: daily.map(d => d.label),
@@ -145,6 +149,17 @@
       scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxTicksLimit: 10 } } },
     },
   });
+  // Dark/light badalne par chart ke rang bhi badlein
+  const paintChart = () => {
+    const c = themeColors();
+    dailyChart.options.scales.x.ticks.color = c.text;
+    dailyChart.options.scales.y.ticks.color = c.text;
+    dailyChart.options.scales.x.grid = { color: c.grid };
+    dailyChart.options.scales.y.grid = { color: c.grid };
+    dailyChart.update();
+  };
+  document.addEventListener('themechange', paintChart);
+  paintChart();
 </script>
 
 <%- include('partials/footer') %>

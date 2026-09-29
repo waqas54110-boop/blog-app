@@ -49,7 +49,7 @@
         <% posts.forEach(p => { %>
           <tr>
             <td>
-              <a href="/posts/<%= p.id %>" class="text-decoration-none"><%= p.title %></a>
+              <a href="/posts/<%= p.slug %>" class="text-decoration-none"><%= p.title %></a>
               <% if (p.is_draft) { %><span class="badge text-bg-secondary ms-1">Draft</span><% } %>
               <% if (p.is_scheduled) { %><span class="badge text-bg-warning ms-1">Scheduled</span><% } %>
             </td>
@@ -63,10 +63,10 @@
                 <div class="btn-group btn-group-sm" role="group">
                   <button type="button" class="btn btn-outline-success copy-msg"
                           data-channel="whatsapp" data-title="<%= p.title %>" data-preview="<%= p.preview %>"
-                          data-url="<%= baseUrl %>/posts/<%= p.id %>">Copy WhatsApp msg</button>
+                          data-url="<%= baseUrl %>/posts/<%= p.slug %>">Copy WhatsApp msg</button>
                   <button type="button" class="btn btn-outline-primary copy-msg"
                           data-channel="facebook" data-title="<%= p.title %>" data-preview="<%= p.preview %>"
-                          data-url="<%= baseUrl %>/posts/<%= p.id %>">Copy FB msg</button>
+                          data-url="<%= baseUrl %>/posts/<%= p.slug %>">Copy FB msg</button>
                 </div>
               <% } %>
               <a href="/posts/<%= p.id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>

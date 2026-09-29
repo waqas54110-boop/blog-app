@@ -91,12 +91,12 @@ router.get('/analytics', requireAdmin, async (req, res) => {
         [days]
       ),
       pool.query(
-        `SELECT p.id, p.title, COUNT(v.id)::int AS visits,
+        `SELECT p.id, p.slug, p.title, COUNT(v.id)::int AS visits,
                 COUNT(*) FILTER (WHERE v.source = 'whatsapp')::int AS whatsapp,
                 COUNT(*) FILTER (WHERE v.source = 'facebook')::int AS facebook
          FROM post_visits v JOIN posts p ON p.id = v.post_id
          WHERE v.created_at > ${since}
-         GROUP BY p.id, p.title ORDER BY visits DESC LIMIT 10`,
+         GROUP BY p.id, p.slug, p.title ORDER BY visits DESC LIMIT 10`,
         [days]
       ),
       pool.query(

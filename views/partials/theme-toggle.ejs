@@ -1,0 +1,32 @@
+<script>
+  (function () {
+    var html = document.documentElement;
+    var btn = document.getElementById('themeToggle');
+    if (!btn) return;
+    var current = function () { return html.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light'; };
+    var announce = function () { document.dispatchEvent(new CustomEvent('themechange', { detail: current() })); };
+    var sync = function () {
+      var dark = current() === 'dark';
+      btn.textContent = dark ? '☀️ Light' : '🌙 Dark';
+      btn.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+      btn.setAttribute('aria-pressed', String(dark));
+    };
+    btn.addEventListener('click', function () {
+      var next = current() === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-bs-theme', next);
+      try { localStorage.setItem('theme', next); } catch (e) {}
+      sync(); announce();
+    });
+    // Agar user ne khud choose nahi kiya, to device ki setting badalne par saath badlo
+    if (window.matchMedia) {
+      window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function (e) {
+        var saved = null;
+        try { saved = localStorage.getItem('theme'); } catch (err) {}
+        if (saved) return;
+        html.setAttribute('data-bs-theme', e.matches ? 'dark' : 'light');
+        sync(); announce();
+      });
+    }
+    sync();
+  })();
+</script>

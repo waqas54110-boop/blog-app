@@ -10,6 +10,7 @@ const { startNewsletterScheduler } = require('./lib/newsletter');
 const authRouter = require('./routes/auth');
 const postsRouter = require('./routes/posts');
 const engageRouter = require('./routes/engage');
+const uploadsRouter = require('./routes/uploads');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -21,19 +22,33 @@ app.disable('x-powered-by');
 app.use(express.urlencoded({ extended: true }));
 
 // ---------- Rate limiting ----------
-const limiter = (windowMinutes, limit, message) =>
+const limiter = (windowMinutes, limit, message, opts = {}) =>
   rateLimit({
     windowMs: windowMinutes * 60 * 1000,
     limit,
     standardHeaders: true,
     legacyHeaders: false,
     handler: (req, res) => res.status(429).type('text').send(message),
+    ...opts,
   });
 
-app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try again.'));
+// Uploaded images (/img/...) is global limit mein count nahi hoti: ek page par kai images hoti hain
+app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try again.', {
+  skip: (req) => req.path.startsWith('/img/'),
+}));
 app.post(['/login', '/signup'], limiter(15, 15, 'Too many login/signup attempts. Please try again in 15 minutes.'));
 app.post('/subscribe', limiter(60, 6, 'Too many subscribe attempts. Please try again later.'));
 app.post('/posts/:id/comments', limiter(5, 10, 'You are commenting too fast. Please wait a few minutes.'));
+app.post('/forgot-password', limiter(60, 5, 'Too many reset requests. Please try again in an hour.'));
+app.post('/reset-password/:token', limiter(15, 10, 'Too many attempts. Please try again in a few minutes.'));
+app.post('/upload-image', limiter(10, 40, 'Too many uploads. Please wait a few minutes.'));
+
+// Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
+// Ye csrf middleware se pehle hona chahiye.
+app.post(
+  '/upload-image',
+  express.raw({ type: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], limit: '6mb' })
+);
 
 app.use(
   session({
@@ -94,6 +109,7 @@ app.use(csrf);
 
 app.use('/', postsRouter);
 app.use('/', engageRouter);
+app.use('/', uploadsRouter);
 app.use('/', authRouter);
 
 app.use((req, res) => {
@@ -101,6 +117,9 @@ app.use((req, res) => {
 });
 
 app.use((err, req, res, next) => {
+  if (err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Image is too large (max 5 MB).' });
+  }
   console.error(err);
   if (res.headersSent) return next(err);
   res.status(500).send('Server error');

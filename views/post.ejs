@@ -216,7 +216,7 @@
       <div class="row g-3">
         <% related.forEach(r => { %>
           <div class="col-12 col-md-6">
-            <a href="/posts/<%= r.id %>" class="card border-0 shadow-sm h-100 text-decoration-none post-card">
+            <a href="/posts/<%= r.slug %>" class="card border-0 shadow-sm h-100 text-decoration-none post-card">
               <% if (r.cover_url) { %>
                 <img src="<%= r.cover_url %>" class="card-img-top" style="height:110px;object-fit:cover;" alt="">
               <% } %>

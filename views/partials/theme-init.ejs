@@ -1,0 +1,11 @@
+<script>
+  // Saved choice pehle, warna device ki dark/light setting. Page draw hone se pehle chalta hai (flash nahi hota).
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('theme'); } catch (e) {}
+    if (t !== 'dark' && t !== 'light') {
+      t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-bs-theme', t);
+  })();
+</script>

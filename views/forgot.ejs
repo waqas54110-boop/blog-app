@@ -1,0 +1,32 @@
+<%- include('partials/auth-top', { title: 'Forgot password' }) %>
+
+            <h2 class="text-center mb-3">Forgot password</h2>
+
+            <% if (sent) { %>
+              <div class="alert alert-success" role="alert">
+                Agar is email se account hai to reset link bhej diya gaya hai. Link 60 minute tak chalega.
+                Inbox ke saath Spam folder bhi check karein.
+              </div>
+              <a href="/login" class="btn btn-primary w-100">Back to login</a>
+            <% } else { %>
+              <p class="text-body-secondary small">Apni email likhein. Hum password reset ka link bhej denge.</p>
+
+              <% if (error) { %>
+                <div class="alert alert-danger" role="alert"><%= error %></div>
+              <% } %>
+
+              <form action="/forgot-password" method="POST">
+<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <div class="mb-3">
+                  <label for="email" class="form-label">Email</label>
+                  <input type="email" class="form-control" id="email" name="email" placeholder="name@example.com" required autofocus>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Send reset link</button>
+              </form>
+
+              <p class="text-center text-body-secondary mt-3 mb-0">
+                <a href="/login">Back to login</a>
+              </p>
+            <% } %>
+
+<%- include('partials/auth-bottom') %>
