@@ -33,6 +33,8 @@ app.use(async (req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.isAdmin = !!(req.session.user && req.session.user.role === 'admin');
   res.locals.metaDescription = 'Notes and tutorials on cricket, video editing, AI, freelancing and web development.';
+  res.locals.subscribed = req.query.subscribed === '1';
+  res.locals.subscribeError = req.query.subscribeError || null;
   try {
     const r = await pool.query('SELECT DISTINCT category FROM posts ORDER BY category');
     res.locals.navCategories = r.rows.map((x) => x.category);

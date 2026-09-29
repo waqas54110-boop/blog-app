@@ -1,6 +1,27 @@
 </main>
 
-<footer class="text-center text-body-secondary small py-4 border-top bg-body mt-5">
+<section class="bg-primary bg-gradient text-white py-5 mt-5">
+  <div class="container text-center">
+    <h4 class="fw-bold mb-2">📬 Get new posts in your inbox</h4>
+    <p class="mb-4 opacity-75">No spam, just an email whenever a new post goes up.</p>
+
+    <% if (locals.subscribed) { %>
+      <div class="alert alert-success d-inline-block py-2 px-3 mb-3">Thanks for subscribing! 🎉</div>
+      <br>
+    <% } else if (locals.subscribeError) { %>
+      <div class="alert alert-danger d-inline-block py-2 px-3 mb-3"><%= subscribeError %></div>
+      <br>
+    <% } %>
+
+    <form action="/subscribe" method="POST" class="d-flex flex-wrap justify-content-center gap-2">
+      <input type="email" name="email" required placeholder="you@example.com"
+             class="form-control" style="max-width:320px;">
+      <button type="submit" class="btn btn-light fw-semibold">Subscribe</button>
+    </form>
+  </div>
+</section>
+
+<footer class="text-center text-body-secondary small py-4 border-top bg-body">
   &copy; <%= new Date().getFullYear() %> My Blog. Built with Node.js, Express, EJS and PostgreSQL.
 </footer>
 

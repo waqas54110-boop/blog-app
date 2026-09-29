@@ -39,6 +39,12 @@
                    value="<%= form.excerpt || '' %>" placeholder="One or two lines shown on the home page">
           </div>
 
+          <div class="mb-3">
+            <label for="tags" class="form-label">Tags <span class="text-body-secondary">(comma separated, up to 8)</span></label>
+            <input type="text" class="form-control" id="tags" name="tags"
+                   value="<%= form.tags || '' %>" placeholder="nodejs, railway, deployment">
+          </div>
+
           <div class="mb-2">
             <label for="content" class="form-label">Content (Markdown supported)</label>
             <textarea class="form-control font-monospace" id="content" name="content" rows="16" required><%= form.content || '' %></textarea>

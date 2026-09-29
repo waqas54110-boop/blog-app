@@ -4,6 +4,7 @@
   const params = new URLSearchParams();
   if (q) params.set('q', q);
   if (category) params.set('category', category);
+  if (tag) params.set('tag', tag);
   if (p > 1) params.set('page', p);
   const s = params.toString();
   return '/' + (s ? '?' + s : '');
@@ -19,11 +20,12 @@
   <!-- Posts -->
   <div class="col-lg-8">
 
-    <% if (q || category) { %>
+    <% if (q || category || tag) { %>
       <p class="text-body-secondary">
         <%= totalPosts %> result<%= totalPosts === 1 ? '' : 's' %>
         <% if (q) { %> for "<strong><%= q %></strong>"<% } %>
         <% if (category) { %> in <strong><%= category %></strong><% } %>
+        <% if (tag) { %> tagged <strong>#<%= tag %></strong><% } %>
         &middot; <a href="/">Clear filters</a>
       </p>
     <% } %>
@@ -49,6 +51,14 @@
                   <a href="/posts/<%= post.id %>" class="stretched-link text-body"><%= post.title %></a>
                 </h5>
                 <p class="card-text text-body-secondary flex-grow-1"><%= post.preview %></p>
+
+                <% if (post.tags && post.tags.length) { %>
+                  <div class="mb-2">
+                    <% post.tags.slice(0, 3).forEach(t => { %>
+                      <span class="badge text-bg-light text-body-secondary border me-1">#<%= t %></span>
+                    <% }) %>
+                  </div>
+                <% } %>
 
                 <div class="d-flex align-items-center gap-2 mt-2">
                   <span class="avatar"><%= post.username.charAt(0).toUpperCase() %></span>
@@ -133,6 +143,20 @@
         <% }) %>
       </div>
     </div>
+
+    <% if (tags && tags.length) { %>
+      <div class="card border-0 shadow-sm mt-4">
+        <div class="card-header bg-transparent fw-semibold">Tags</div>
+        <div class="card-body d-flex flex-wrap gap-2">
+          <% tags.forEach(t => { %>
+            <a href="/?tag=<%= encodeURIComponent(t.name) %>"
+               class="badge <%= tag === t.name ? 'text-bg-primary' : 'text-bg-secondary' %> text-decoration-none">
+              #<%= t.name %> <span class="opacity-75">(<%= t.total %>)</span>
+            </a>
+          <% }) %>
+        </div>
+      </div>
+    <% } %>
 
   </aside>
 </div>

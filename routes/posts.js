@@ -44,6 +44,32 @@ const renderMarkdown = (md) =>
     allowedSchemes: ['http', 'https'],
   });
 
+const parseTags = (raw) => {
+  if (!raw) return [];
+  return [...new Set(
+    raw.split(',')
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean)
+      .map((t) => t.slice(0, 30))
+  )].slice(0, 8);
+};
+
+const saveTagsForPost = async (postId, tagNames) => {
+  await pool.query('DELETE FROM post_tags WHERE post_id = $1', [postId]);
+  for (const name of tagNames) {
+    const tagRow = await pool.query(
+      `INSERT INTO tags (name) VALUES ($1)
+       ON CONFLICT (name) DO UPDATE SET name = EXCLUDED.name
+       RETURNING id`,
+      [name]
+    );
+    await pool.query(
+      'INSERT INTO post_tags (post_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+      [postId, tagRow.rows[0].id]
+    );
+  }
+};
+
 const makePreview = (post) => {
   if (post.excerpt) return post.excerpt;
   const plain = post.content.replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1').replace(/[#*_`>~]/g, '');
@@ -74,29 +100,42 @@ const validatePost = (body) => {
 router.get('/', async (req, res) => {
   const q = (req.query.q || '').trim();
   const category = (req.query.category || '').trim();
+  const tag = (req.query.tag || '').trim().toLowerCase();
   const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
   const offset = (page - 1) * PER_PAGE;
 
   const where = `
     WHERE ($1::text = '' OR p.title ILIKE '%' || $1::text || '%' OR p.content ILIKE '%' || $1::text || '%')
-      AND ($2::text = '' OR p.category = $2::text)`;
+      AND ($2::text = '' OR p.category = $2::text)
+      AND ($3::text = '' OR EXISTS (
+        SELECT 1 FROM post_tags pt JOIN tags t ON t.id = pt.tag_id
+        WHERE pt.post_id = p.id AND t.name = $3::text
+      ))`;
 
   try {
-    const [postsResult, countResult, catResult, popularResult] = await Promise.all([
+    const [postsResult, countResult, catResult, popularResult, tagsResult] = await Promise.all([
       pool.query(
         `SELECT p.id, p.title, p.excerpt, p.content, p.category, p.cover_url, p.views, p.created_at,
                 u.username,
                 (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id)::int AS like_count,
-                (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)::int AS comment_count
+                (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)::int AS comment_count,
+                COALESCE((SELECT array_agg(t.name ORDER BY t.name)
+                          FROM post_tags pt JOIN tags t ON t.id = pt.tag_id
+                          WHERE pt.post_id = p.id), '{}') AS tags
          FROM posts p JOIN users u ON u.id = p.user_id
          ${where}
          ORDER BY p.created_at DESC
-         LIMIT $3 OFFSET $4`,
-        [q, category, PER_PAGE, offset]
+         LIMIT $4 OFFSET $5`,
+        [q, category, tag, PER_PAGE, offset]
       ),
-      pool.query(`SELECT COUNT(*)::int AS total FROM posts p ${where}`, [q, category]),
+      pool.query(`SELECT COUNT(*)::int AS total FROM posts p ${where}`, [q, category, tag]),
       pool.query('SELECT category, COUNT(*)::int AS total FROM posts GROUP BY category ORDER BY total DESC'),
       pool.query('SELECT id, title, views FROM posts ORDER BY views DESC, created_at DESC LIMIT 5'),
+      pool.query(
+        `SELECT t.name, COUNT(*)::int AS total
+         FROM tags t JOIN post_tags pt ON pt.tag_id = t.id
+         GROUP BY t.name ORDER BY total DESC, t.name ASC LIMIT 15`
+      ),
     ]);
 
     const totalPosts = countResult.rows[0].total;
@@ -107,15 +146,39 @@ router.get('/', async (req, res) => {
       posts,
       categories: catResult.rows,
       popular: popularResult.rows,
+      tags: tagsResult.rows,
       totalPosts,
       totalPages: Math.max(Math.ceil(totalPosts / PER_PAGE), 1),
       page,
       q,
       category,
+      tag,
     });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
+  }
+});
+
+// ---------- NEWSLETTER SUBSCRIBE ----------
+router.post('/subscribe', async (req, res) => {
+  const email = (req.body.email || '').trim().toLowerCase();
+  const backPath = (req.get('Referrer') || '/').split('#')[0].split('?')[0];
+  const sep = backPath.includes('?') ? '&' : '?';
+
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    return res.redirect(`${backPath}${sep}subscribeError=${encodeURIComponent('Please enter a valid email address.')}`);
+  }
+
+  try {
+    await pool.query(
+      'INSERT INTO subscribers (email) VALUES ($1) ON CONFLICT (email) DO NOTHING',
+      [email]
+    );
+    res.redirect(`${backPath}${sep}subscribed=1`);
+  } catch (err) {
+    console.error(err);
+    res.redirect(`${backPath}${sep}subscribeError=${encodeURIComponent('Something went wrong. Please try again.')}`);
   }
 });
 
@@ -195,6 +258,7 @@ router.post('/posts', requireAdmin, async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
       [req.session.user.id, data.title, data.excerpt, data.content, data.category, data.cover_url]
     );
+    await saveTagsForPost(result.rows[0].id, parseTags(req.body.tags));
     res.redirect('/posts/' + result.rows[0].id);
   } catch (err) {
     console.error(err);
@@ -211,6 +275,13 @@ router.get('/posts/:id/edit', requireAdmin, async (req, res) => {
     const result = await pool.query('SELECT * FROM posts WHERE id = $1', [id]);
     const post = result.rows[0];
     if (!post) return res.status(404).render('404', { title: 'Not Found' });
+
+    const tagsResult = await pool.query(
+      `SELECT t.name FROM tags t JOIN post_tags pt ON pt.tag_id = t.id
+       WHERE pt.post_id = $1 ORDER BY t.name`,
+      [id]
+    );
+    post.tags = tagsResult.rows.map((r) => r.name).join(', ');
 
     res.render('editor', {
       title: 'Edit Post',
@@ -249,6 +320,7 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
        WHERE id = $6`,
       [data.title, data.excerpt, data.content, data.category, data.cover_url, id]
     );
+    await saveTagsForPost(id, parseTags(req.body.tags));
     res.redirect('/posts/' + id);
   } catch (err) {
     console.error(err);
@@ -281,7 +353,7 @@ router.get('/posts/:id', async (req, res) => {
     const post = result.rows[0];
     if (!post) return res.status(404).render('404', { title: 'Not Found' });
 
-    const [related, comments] = await Promise.all([
+    const [related, comments, tagsResult] = await Promise.all([
       pool.query(
         `SELECT id, title, created_at FROM posts
          WHERE category = $1 AND id <> $2
@@ -295,16 +367,25 @@ router.get('/posts/:id', async (req, res) => {
          ORDER BY c.created_at ASC`,
         [id]
       ),
+      pool.query(
+        `SELECT t.name FROM tags t JOIN post_tags pt ON pt.tag_id = t.id
+         WHERE pt.post_id = $1 ORDER BY t.name`,
+        [id]
+      ),
     ]);
 
     const words = post.content.trim().split(/\s+/).length;
+    const shareUrl = `${req.protocol}://${req.get('host')}/posts/${post.id}`;
 
     res.render('post', {
       title: post.title,
+      metaDescription: post.excerpt || undefined,
       post,
       contentHtml: renderMarkdown(post.content),
       related: related.rows,
       comments: comments.rows,
+      tags: tagsResult.rows.map((r) => r.name),
+      shareUrl,
       readingTime: Math.max(Math.ceil(words / 200), 1),
       commentError: req.query.commentError || null,
     });
