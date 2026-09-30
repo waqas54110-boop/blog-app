@@ -137,8 +137,9 @@ router.get('/votes/:id', async (req, res, next) => {
       ogImageCard: cardOk,
       poll, open: isOpen(poll), myPick, total, pctA, pctB: total ? 100 - pctA : 0,
       url,
+      pickPreview: isOpen(poll) && ['a', 'b'].includes(req.query.pick) && myPick !== req.query.pick ? req.query.pick : null,
       notice: notice || (req.query.error ? String(req.query.error).slice(0, 200) : null),
-      waText: `🗳️ ${poll.title}\n${poll.a_name} vs ${poll.b_name}\nVote here 👉 ${url}`,
+      waText: `🗳️ ${poll.title}\n${poll.a_name} vs ${poll.b_name}\n\nVote here 👉 ${url}\n\nDirect vote:\n▶ ${poll.a_name}: ${url}?pick=a\n▶ ${poll.b_name}: ${url}?pick=b`,
     });
   } catch (err) { next(err); }
 });
