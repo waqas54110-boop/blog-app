@@ -1,0 +1,36 @@
+<%- include('partials/header') %>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <div>
+    <h1 class="fw-bold mb-1">🗳️ Vote Contests</h1>
+    <p class="text-body-secondary mb-0">Pick your side, then share the contest with friends on WhatsApp &amp; Facebook.</p>
+  </div>
+  <% if (isAdmin) { %><a href="/votes/new" class="btn btn-primary">➕ New contest</a><% } %>
+</div>
+
+<% if (polls.length === 0) { %>
+  <div class="card border-0 shadow-sm"><div class="card-body text-center text-body-secondary py-5">No contests yet. Check back soon!</div></div>
+<% } %>
+
+<div class="row g-3">
+  <% polls.forEach(p => { const t = p.votes_a + p.votes_b; %>
+    <div class="col-12 col-md-6">
+      <div class="card border-0 shadow-sm h-100 post-card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+            <h5 class="fw-bold mb-0"><a class="stretched-link text-body" href="/votes/<%= p.id %>"><%= p.title %></a></h5>
+            <span class="badge <%= p.open ? 'text-bg-success' : 'text-bg-secondary' %>"><%= p.open ? 'Live' : 'Ended' %></span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <div class="flex-fill text-center"><img src="<%= p.a_image %>" alt="<%= p.a_name %>" class="rounded w-100" style="aspect-ratio:4/3;object-fit:cover;"><div class="small fw-semibold mt-1 text-truncate"><%= p.a_name %></div></div>
+            <span class="badge rounded-pill text-bg-danger">VS</span>
+            <div class="flex-fill text-center"><img src="<%= p.b_image %>" alt="<%= p.b_name %>" class="rounded w-100" style="aspect-ratio:4/3;object-fit:cover;"><div class="small fw-semibold mt-1 text-truncate"><%= p.b_name %></div></div>
+          </div>
+          <div class="small text-body-secondary mt-2"><%= t %> vote<%= t === 1 ? '' : 's' %></div>
+        </div>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<%- include('partials/footer') %>

@@ -16,7 +16,7 @@ const engageRouter = require('./routes/engage');
 const uploadsRouter = require('./routes/uploads');
 const growthRouter = require('./routes/growth');
 const hireRouter = require('./routes/hire');
-const predictRouter = require('./routes/predict');
+const votesRouter = require('./routes/votes');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -52,7 +52,7 @@ app.post('/upload-image', limiter(10, 40, 'Too many uploads. Please wait a few m
 app.post('/upload-video', limiter(30, 10, 'Too many video uploads. Please wait a while.'));
 // Galat form (400) count nahi hota, taake insaan ki typing ghalti par block na ho
 app.post('/hire', limiter(60, 5, 'Too many messages sent. Please try again in an hour.', { skipFailedRequests: true }));
-app.post('/predictions/:id/pick', limiter(10, 60, 'Too many predictions. Please wait a few minutes.'));
+app.post('/votes/:id/vote', limiter(10, 60, 'Too many votes. Please wait a few minutes.'));
 app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
@@ -151,7 +151,7 @@ app.use('/', engageRouter);
 app.use('/', uploadsRouter);
 app.use('/', growthRouter);
 app.use('/', hireRouter);
-app.use('/', predictRouter);
+app.use('/', votesRouter);
 app.use('/', authRouter);
 
 app.use((req, res) => {

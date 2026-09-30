@@ -74,8 +74,11 @@ router.post('/login', async (req, res) => {
       return res.render('login', { error: 'Invalid email or password.', success: null });
     }
 
-req.session.user = { id: user.id, username: user.username, role: user.role };  
-  res.redirect('/');
+req.session.user = { id: user.id, username: user.username, role: user.role };
+    // Vote link se aaya tha to login ke baad wapas usi vote page par bhejo
+    const back = req.session.returnTo;
+    delete req.session.returnTo;
+    res.redirect(/^\/votes\/\d{1,9}$/.test(back || '') ? back : '/');
   } catch (err) {
     console.error(err);
     res.status(500).render('login', { error: 'Server error, please try again.', success: null });

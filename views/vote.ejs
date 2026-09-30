@@ -1,0 +1,100 @@
+<%- include('partials/header') %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-10">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-3 p-md-4">
+        <div class="d-flex justify-content-between align-items-start gap-2 mb-1">
+          <h1 class="fw-bold h3 mb-0"><%= poll.title %></h1>
+          <span class="badge <%= open ? 'text-bg-success' : 'text-bg-secondary' %>"><%= open ? 'Live' : 'Ended' %></span>
+        </div>
+        <p class="text-body-secondary small mb-3">
+          <%= total %> vote<%= total === 1 ? '' : 's' %>
+          <% if (poll.ends_at && open) { %> · ends <span class="local-time" data-t="<%= new Date(poll.ends_at).toISOString() %>"></span><% } %>
+        </p>
+
+        <% if (notice) { %><div class="alert alert-info py-2"><%= notice %></div><% } %>
+
+        <form action="/votes/<%= poll.id %>/vote" method="POST">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="row g-3 align-items-stretch position-relative">
+            <% [['a', poll.a_name, poll.a_image, pctA, poll.votes_a], ['b', poll.b_name, poll.b_image, pctB, poll.votes_b]].forEach(o => {
+                 const won = !open && total > 0 && o[4] > (o[0] === 'a' ? poll.votes_b : poll.votes_a); %>
+              <div class="col-6">
+                <div class="text-center h-100 p-2 rounded-3 <%= myPick === o[0] ? 'border border-3 border-primary' : 'border' %>">
+                  <div class="position-relative">
+                    <img src="<%= o[2] %>" alt="<%= o[1] %>" class="rounded-3 w-100" style="aspect-ratio:1/1;object-fit:cover;">
+                    <% if (won) { %><span class="position-absolute top-0 start-0 m-2 badge text-bg-warning fs-6">🏆 Winner</span><% } %>
+                  </div>
+                  <div class="fw-bold fs-5 mt-2 text-break"><%= o[1] %></div>
+                  <div class="display-6 fw-bold text-primary"><%= o[3] %>%</div>
+                  <div class="small text-body-secondary mb-2"><%= o[4] %> vote<%= o[4] === 1 ? '' : 's' %></div>
+                  <% if (open) { %>
+                    <button name="pick" value="<%= o[0] %>" class="btn <%= myPick === o[0] ? 'btn-primary' : 'btn-outline-primary' %> w-100 fw-semibold">
+                      <%= myPick === o[0] ? '✔ Your vote' : 'Vote ' + o[1] %>
+                    </button>
+                  <% } %>
+                </div>
+              </div>
+            <% }) %>
+            <span class="position-absolute top-50 start-50 translate-middle badge rounded-pill text-bg-danger fs-5 border border-3 border-white" style="z-index:2;">VS</span>
+          </div>
+        </form>
+
+        <div class="progress mt-3" style="height:14px;" role="progressbar" aria-label="Vote share">
+          <div class="progress-bar bg-primary" style="width:<%= total ? pctA : 50 %>%"></div>
+          <div class="progress-bar bg-danger" style="width:<%= total ? pctB : 50 %>%"></div>
+        </div>
+
+        <% if (open && !user) { %><p class="small text-body-secondary mt-3 mb-0">You'll be asked to log in (or sign up) once; your vote is saved after that. One vote per account — you can change it until voting ends.</p><% } %>
+        <% if (open && user) { %><p class="small text-body-secondary mt-3 mb-0">One vote per account. You can change your vote until voting ends.</p><% } %>
+
+        <hr>
+        <h6 class="fw-bold">📣 Share this contest</h6>
+        <div class="d-flex flex-wrap gap-2">
+          <a class="btn btn-success" target="_blank" rel="noopener" href="https://wa.me/?text=<%= encodeURIComponent(waText) %>">WhatsApp</a>
+          <a class="btn btn-primary" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=<%= encodeURIComponent(url) %>">Facebook</a>
+          <button type="button" id="copyBtn" class="btn btn-outline-secondary" data-url="<%= url %>">Copy link</button>
+          <button type="button" id="nativeShare" class="btn btn-outline-secondary d-none" data-url="<%= url %>" data-title="<%= poll.title %>">More…</button>
+        </div>
+
+        <% if (isAdmin) { %>
+          <hr>
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <span class="small fw-semibold">Admin:</span>
+            <form action="/votes/<%= poll.id %>/toggle" method="POST" class="mb-0">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="btn btn-sm btn-outline-secondary"><%= poll.is_closed ? 'Reopen voting' : 'Close voting' %></button>
+            </form>
+            <form action="/votes/<%= poll.id %>/delete" method="POST" class="mb-0" onsubmit="return confirm('Contest aur uske saare votes delete karein?')">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="btn btn-sm btn-outline-danger">Delete</button>
+            </form>
+          </div>
+        <% } %>
+      </div>
+    </div>
+    <div class="text-center mt-3"><a href="/votes" class="text-decoration-none">← All contests</a></div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll('.local-time').forEach(function (el) {
+    el.textContent = new Date(el.dataset.t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  });
+  var copyBtn = document.getElementById('copyBtn');
+  copyBtn.addEventListener('click', async function () {
+    try { await navigator.clipboard.writeText(copyBtn.dataset.url); copyBtn.textContent = 'Copied ✅'; }
+    catch (e) { window.prompt('Copy this link:', copyBtn.dataset.url); }
+    setTimeout(function () { copyBtn.textContent = 'Copy link'; }, 2000);
+  });
+  var ns = document.getElementById('nativeShare');
+  if (navigator.share) {
+    ns.classList.remove('d-none');
+    ns.addEventListener('click', function () {
+      navigator.share({ title: ns.dataset.title, url: ns.dataset.url }).catch(function () {});
+    });
+  }
+</script>
+
+<%- include('partials/footer') %>

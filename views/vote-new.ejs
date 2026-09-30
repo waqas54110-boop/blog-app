@@ -1,0 +1,96 @@
+<%- include('partials/header') %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <h2 class="fw-bold mb-3">➕ New vote contest</h2>
+        <% if (error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
+
+        <form action="/votes" method="POST" id="voteForm">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Title / question</label>
+            <input class="form-control" name="title" maxlength="150" required placeholder="e.g. Who is the better captain?">
+          </div>
+
+          <div class="row g-3 mb-3">
+            <% ['a', 'b'].forEach((k, i) => { %>
+              <div class="col-12 col-md-6">
+                <div class="border rounded-3 p-3 h-100">
+                  <label class="form-label fw-semibold">Option <%= i + 1 %> name</label>
+                  <input class="form-control mb-2" name="<%= k %>_name" maxlength="60" required>
+                  <input type="hidden" name="<%= k %>_image" id="<%= k %>_image">
+                  <img id="<%= k %>_preview" class="rounded w-100 mb-2" style="display:none;aspect-ratio:1/1;object-fit:cover;" alt="">
+                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control form-control-sm pick-file" data-k="<%= k %>">
+                  <div class="small mt-1 text-body-secondary" id="<%= k %>_status">Choose an image</div>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Voting ends (optional)</label>
+            <input class="form-control" type="datetime-local" id="endsLocal">
+            <input type="hidden" name="ends_at" id="endsIso">
+            <div class="form-text">Khali chhorein to jab tak aap khud band na karein voting chalti rahegi. Time aap ke browser ke local time mein hai.</div>
+          </div>
+
+          <button class="btn btn-primary" type="submit" id="saveBtn" disabled>Publish contest</button>
+          <a href="/votes" class="btn btn-outline-secondary ms-2">Cancel</a>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var csrf = document.querySelector('#voteForm input[name="_csrf"]').value;
+    var MAX_SIDE = 1000, MAX_BYTES = 5 * 1024 * 1024;
+    var saveBtn = document.getElementById('saveBtn');
+    var busy = 0;
+    function refresh() { saveBtn.disabled = busy > 0 || !document.getElementById('a_image').value || !document.getElementById('b_image').value; }
+
+    async function prepare(file) {
+      if (file.type === 'image/gif' || typeof createImageBitmap !== 'function') return file;
+      try {
+        var bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+        var scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        var blob = await new Promise(function (r) { c.toBlob(r, 'image/webp', 0.85); });
+        return blob && blob.size < file.size ? blob : file;
+      } catch (e) { return file; }
+    }
+
+    document.querySelectorAll('.pick-file').forEach(function (input) {
+      input.addEventListener('change', async function () {
+        var k = input.dataset.k, file = input.files[0];
+        var status = document.getElementById(k + '_status');
+        if (!file) return;
+        document.getElementById(k + '_image').value = '';
+        busy++; refresh(); status.textContent = 'Uploading…';
+        try {
+          var blob = await prepare(file);
+          if (blob.size > MAX_BYTES) throw new Error('Image is over 5 MB. Choose a smaller one.');
+          var res = await fetch('/upload-image', { method: 'POST', headers: { 'Content-Type': blob.type, 'x-csrf-token': csrf }, body: blob });
+          var data = {}; try { data = await res.json(); } catch (e) {}
+          if (!res.ok || !data.url) throw new Error(data.error || 'Upload failed (' + res.status + ').');
+          document.getElementById(k + '_image').value = data.url;
+          var pv = document.getElementById(k + '_preview'); pv.src = data.url; pv.style.display = '';
+          status.textContent = 'Uploaded ✅';
+        } catch (e) { status.textContent = e.message; }
+        busy--; refresh();
+      });
+    });
+
+    document.getElementById('voteForm').addEventListener('submit', function () {
+      var el = document.getElementById('endsLocal');
+      document.getElementById('endsIso').value = el.value ? new Date(el.value).toISOString() : '';
+    });
+  })();
+</script>
+
+<%- include('partials/footer') %>
