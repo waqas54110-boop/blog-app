@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const pool = require('./db');
 const config = require('./config');
 const csrf = require('./lib/csrf');
+const google = require('./lib/google');
 const { startNewsletterScheduler } = require('./lib/newsletter');
 const { startPublisher } = require('./lib/publisher');
 const card = require('./lib/card');
@@ -48,6 +49,9 @@ app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try a
 app.post(['/login', '/signup'], limiter(15, 15, 'Too many login/signup attempts. Please try again in 15 minutes.'));
 app.post('/subscribe', limiter(60, 6, 'Too many subscribe attempts. Please try again later.'));
 app.post('/posts/:id/comments', limiter(5, 10, 'You are commenting too fast. Please wait a few minutes.'));
+app.post('/resend-verification', limiter(60, 5, 'Too many requests. Please try again in an hour.'));
+app.get('/verify-email/:token', limiter(15, 20, 'Too many attempts. Please try again in a few minutes.'));
+app.get(['/auth/google', '/auth/google/callback'], limiter(15, 30, 'Too many login attempts. Please try again in a few minutes.'));
 app.post('/forgot-password', limiter(60, 5, 'Too many reset requests. Please try again in an hour.'));
 app.post('/reset-password/:token', limiter(15, 10, 'Too many attempts. Please try again in a few minutes.'));
 app.post('/upload-image', limiter(10, 40, 'Too many uploads. Please wait a few minutes.'));
@@ -103,6 +107,7 @@ app.use(async (req, res, next) => {
   res.locals.facebookUrl = config.facebookUrl;
   res.locals.whatsappChannelUrl = config.whatsappChannelUrl;
   res.locals.siteName = config.siteName;
+  res.locals.googleEnabled = google.enabled;
   res.locals.videoMaxMb = config.videoMaxMb;
 
   // Open Graph defaults (post page inhein override karta hai)
