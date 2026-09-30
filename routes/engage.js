@@ -115,6 +115,72 @@ router.get('/analytics', requireAdmin, async (req, res) => {
       ),
     ]);
 
+    // Vote contests ke numbers (alag try: migration_v9 na chali ho to baaqi analytics phir bhi chale)
+    let pollStats = null;
+    try {
+      const [perPoll, bySrcViews, bySrcVotes] = await Promise.all([
+        pool.query(
+          `WITH allv AS (
+             SELECT poll_id, source, created_at FROM poll_votes
+             UNION ALL
+             SELECT poll_id, source, created_at FROM poll_match_votes
+           ),
+           ev AS (
+             SELECT poll_id,
+                    COUNT(*) FILTER (WHERE kind = 'view')::int AS opens,
+                    COUNT(DISTINCT visitor) FILTER (WHERE kind = 'view')::int AS people,
+                    COUNT(*) FILTER (WHERE kind = 'view' AND via = 'post')::int AS in_post,
+                    COUNT(*) FILTER (WHERE kind = 'view' AND source = 'whatsapp')::int AS wa_opens,
+                    COUNT(*) FILTER (WHERE kind = 'share')::int AS shares
+             FROM poll_events WHERE created_at > ${since} GROUP BY poll_id
+           ),
+           vt AS (
+             SELECT poll_id, COUNT(*)::int AS votes,
+                    COUNT(*) FILTER (WHERE source = 'whatsapp')::int AS wa_votes,
+                    COUNT(*) FILTER (WHERE source = 'facebook')::int AS fb_votes
+             FROM allv WHERE created_at > ${since} GROUP BY poll_id
+           )
+           SELECT p.id, p.title, p.kind,
+                  COALESCE(ev.opens, 0) AS opens, COALESCE(ev.people, 0) AS people, COALESCE(ev.in_post, 0) AS in_post,
+                  COALESCE(ev.wa_opens, 0) AS wa_opens, COALESCE(ev.shares, 0) AS shares,
+                  COALESCE(vt.votes, 0) AS votes, COALESCE(vt.wa_votes, 0) AS wa_votes, COALESCE(vt.fb_votes, 0) AS fb_votes
+           FROM polls p LEFT JOIN ev ON ev.poll_id = p.id LEFT JOIN vt ON vt.poll_id = p.id
+           WHERE COALESCE(ev.opens, 0) + COALESCE(vt.votes, 0) > 0
+           ORDER BY COALESCE(ev.opens, 0) + COALESCE(vt.votes, 0) DESC
+           LIMIT 20`,
+          [days]
+        ),
+        pool.query(
+          `SELECT COALESCE(source, 'direct') AS source, COUNT(*)::int AS n
+           FROM poll_events WHERE kind = 'view' AND created_at > ${since} GROUP BY 1`,
+          [days]
+        ),
+        pool.query(
+          `SELECT COALESCE(source, 'direct') AS source, COUNT(*)::int AS n FROM (
+             SELECT source, created_at FROM poll_votes UNION ALL SELECT source, created_at FROM poll_match_votes
+           ) v WHERE created_at > ${since} GROUP BY 1`,
+          [days]
+        ),
+      ]);
+      const sum = (k) => perPoll.rows.reduce((a, r) => a + r[k], 0);
+      const srcMap = {};
+      bySrcViews.rows.forEach((r) => { srcMap[r.source] = { source: r.source, opens: r.n, votes: 0 }; });
+      bySrcVotes.rows.forEach((r) => {
+        srcMap[r.source] = srcMap[r.source] || { source: r.source, opens: 0, votes: 0 };
+        srcMap[r.source].votes = r.n;
+      });
+      pollStats = {
+        polls: perPoll.rows,
+        totals: {
+          opens: sum('opens'), people: sum('people'), votes: sum('votes'), shares: sum('shares'),
+          wa_opens: sum('wa_opens'), wa_votes: sum('wa_votes'),
+        },
+        sources: Object.values(srcMap).sort((a, b) => (b.opens + b.votes) - (a.opens + a.votes)),
+      };
+    } catch (err) {
+      console.error('[analytics] polls:', err.message);
+    }
+
     res.render('analytics', {
       title: 'Analytics',
       days,
@@ -124,6 +190,7 @@ router.get('/analytics', requireAdmin, async (req, res) => {
       topPosts: posts.rows,
       referrers: referrers.rows,
       mediums: mediums.rows,
+      pollStats,
     });
   } catch (err) {
     console.error(err);

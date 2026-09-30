@@ -122,6 +122,87 @@
   Bots aur aap (admin) ke visits count nahi hote.
 </p>
 
+<% if (locals.pollStats) { const ps = pollStats, pt = ps.totals; %>
+  <h4 class="mt-5 mb-3">🗳️ Vote contests <small class="text-body-secondary fs-6">(last <%= days %> days)</small></h4>
+
+  <div class="row g-3 mb-3">
+    <% [
+      ['Contest opens', pt.opens, 'text-primary'],
+      ['People (unique)', pt.people, 'text-info'],
+      ['Votes cast', pt.votes, 'text-success'],
+      ['Opened from WhatsApp', pt.wa_opens, 'text-success'],
+      ['Voted from WhatsApp', pt.wa_votes, 'text-success'],
+      ['Share clicks', pt.shares, 'text-warning']
+    ].forEach(s => { %>
+      <div class="col-6 col-lg-2">
+        <div class="card border-0 shadow-sm text-center"><div class="card-body py-3">
+          <div class="h2 fw-bold mb-0 <%= s[2] %>"><%= s[1] %></div>
+          <div class="text-body-secondary small"><%= s[0] %></div>
+        </div></div>
+      </div>
+    <% }) %>
+  </div>
+
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <h6 class="fw-bold mb-3">Per contest</h6>
+      <% if (ps.polls.length === 0) { %>
+        <p class="text-body-secondary mb-0">No contest activity in this period yet.</p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th>Contest</th><th class="text-end">Opened</th><th class="text-end">People</th><th class="text-end">Voted</th>
+                <th class="text-end">Vote rate</th><th class="text-end">From WhatsApp (open / vote)</th><th class="text-end">Shares</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% ps.polls.forEach(r => { %>
+                <tr>
+                  <td>
+                    <a href="/votes/<%= r.id %>" class="text-decoration-none"><%= r.title %></a>
+                    <% if (r.kind === 'knockout') { %><span class="badge text-bg-warning ms-1">Knockout</span><% } %>
+                    <% if (r.in_post > 0) { %><span class="badge text-bg-light border ms-1" title="Widget views inside blog posts"><%= r.in_post %> in posts</span><% } %>
+                  </td>
+                  <td class="text-end"><%= r.opens %></td>
+                  <td class="text-end"><%= r.people %></td>
+                  <td class="text-end fw-semibold"><%= r.votes %></td>
+                  <td class="text-end"><%= r.people ? Math.min(100, Math.round(r.votes * 100 / r.people)) + '%' : '-' %></td>
+                  <td class="text-end"><span class="text-success fw-semibold"><%= r.wa_opens %></span> / <span class="text-success fw-semibold"><%= r.wa_votes %></span></td>
+                  <td class="text-end"><%= r.shares %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <% if (ps.sources.length) { %>
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <h6 class="fw-bold mb-3">Where contest traffic and votes come from</h6>
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead><tr><th>Source</th><th class="text-end">Opened</th><th class="text-end">Voted</th></tr></thead>
+            <tbody>
+              <% ps.sources.forEach(s => { %>
+                <tr><td><%= s.source %></td><td class="text-end"><%= s.opens %></td><td class="text-end"><%= s.votes %></td></tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  <% } %>
+  <p class="text-body-secondary small">
+    "Opened" = contest page or post widget loaded. "People" = unique browsers (cookie). "Voted from WhatsApp" = voters whose contest link came from a WhatsApp share
+    (share buttons add <code>?utm_source=whatsapp</code>). Bots and admin visits are not counted.
+  </p>
+<% } %>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
   const daily = <%- JSON.stringify(daily).replace(/</g, '\\u003c') %>;

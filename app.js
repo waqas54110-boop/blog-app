@@ -17,6 +17,7 @@ const uploadsRouter = require('./routes/uploads');
 const growthRouter = require('./routes/growth');
 const hireRouter = require('./routes/hire');
 const votesRouter = require('./routes/votes');
+const { startPollScheduler } = require('./lib/polls');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -41,7 +42,8 @@ const limiter = (windowMinutes, limit, message, opts = {}) =>
 // Uploaded images/videos (/img/..., /video/...) is global limit mein count nahi hoti:
 // ek page par kai images hoti hain aur video har seek par chhoti requests bhejti hai
 app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try again.', {
-  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/'),
+  // /votes/:id/state.json (live counting) ka apna alag limit neeche hai
+  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || /^\/votes\/\d+\/state\.json$/.test(req.path),
 }));
 app.post(['/login', '/signup'], limiter(15, 15, 'Too many login/signup attempts. Please try again in 15 minutes.'));
 app.post('/subscribe', limiter(60, 6, 'Too many subscribe attempts. Please try again later.'));
@@ -53,6 +55,9 @@ app.post('/upload-video', limiter(30, 10, 'Too many video uploads. Please wait a
 // Galat form (400) count nahi hota, taake insaan ki typing ghalti par block na ho
 app.post('/hire', limiter(60, 5, 'Too many messages sent. Please try again in an hour.', { skipFailedRequests: true }));
 app.post('/votes/:id/vote', limiter(10, 60, 'Too many votes. Please wait a few minutes.'));
+app.get('/votes/:id/state.json', limiter(1, 40, 'Too many requests.'));
+app.post('/votes/:id/share', limiter(10, 60, 'Too many requests.'));
+app.post('/votes/:id/comments', limiter(5, 10, 'You are commenting too fast. Please wait a few minutes.'));
 app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
@@ -178,4 +183,5 @@ app.listen(PORT, (err) => {
   console.log('Server chal raha hai, port ' + PORT);
   startNewsletterScheduler();
   startPublisher();
+  startPollScheduler(); // knockout rounds jin ka time ho gaya unhein agle round par le jata hai
 });

@@ -1,0 +1,111 @@
+<%
+  // Contest ka block: contest page aur post ke andar widget, dono yahi istemal karte hain.
+  // Zaroori: st (loadState ka natija). Optional: compact (post widget), ret (vote ke baad wapas kahan)
+  const compact = !!locals.compact;
+  const ret = locals.ret || '';
+  const isKo = st.kind === 'knockout';
+  const imgH = (two) => compact ? (two ? 170 : 120) : (two ? 260 : 190);
+
+  const renderMatch = (m) => {
+    const two = m.options.length === 2;
+%>
+  <form action="/votes/<%= st.id %>/vote" method="POST" class="pb-form mb-0">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <% if (isKo) { %><input type="hidden" name="match" value="<%= m.id %>"><% } %>
+    <% if (ret) { %><input type="hidden" name="ret" value="<%= ret %>"><% } %>
+    <% if (m.label) { %><div class="small fw-semibold text-body-secondary mb-1"><%= m.label %></div><% } %>
+    <div class="position-relative">
+      <div class="row g-3 align-items-stretch <%= two ? '' : 'row-cols-2 row-cols-md-3' %>">
+        <% m.options.forEach((o) => { const mine = m.myPick === o.id; %>
+          <div class="<%= two ? 'col-6' : 'col' %>">
+            <div class="pb-opt text-center h-100 p-2 rounded-3 border <%= mine ? 'border-3 border-primary' : '' %>" data-opt="<%= o.id %>" data-match="<%= m.id %>">
+              <div class="position-relative">
+                <img src="<%= o.image %>" alt="<%= o.name %>" class="rounded-3 w-100" loading="lazy"
+                     style="height:<%= imgH(two) %>px;object-fit:cover;object-position:center 20%;">
+                <% if (m.winnerId === o.id) { %>
+                  <span class="position-absolute top-0 start-0 m-2 badge text-bg-warning"><%= isKo && m.roundLabel !== 'Final' ? '✅ Advanced' : '🏆 Winner' %></span>
+                <% } %>
+              </div>
+              <div class="fw-bold mt-2 text-break <%= two && !compact ? 'fs-5' : '' %>"><%= o.name %></div>
+              <div class="fw-bold text-primary <%= two && !compact ? 'display-6' : 'fs-3' %>"><span class="pb-pct" data-opt="<%= o.id %>" data-match="<%= m.id %>"><%= o.pct %></span>%</div>
+              <div class="small text-body-secondary mb-1"><span class="pb-votes" data-opt="<%= o.id %>" data-match="<%= m.id %>"><%= o.votes %></span> <span class="pb-votes-word" data-opt="<%= o.id %>" data-match="<%= m.id %>">vote<%= o.votes === 1 ? '' : 's' %></span></div>
+              <div class="progress mb-2" style="height:8px;"><div class="progress-bar pb-bar" data-opt="<%= o.id %>" data-match="<%= m.id %>" style="width:<%= o.pct %>%;transition:width .5s ease;"></div></div>
+              <% if (m.active) { %>
+                <button name="option" value="<%= o.id %>" data-opt="<%= o.id %>" data-match="<%= m.id %>" data-name="<%= o.name %>"
+                        class="btn w-100 fw-semibold pb-btn <%= mine ? 'btn-primary' : 'btn-outline-primary' %>">
+                  <%= mine ? '✔ Your vote' : 'Vote ' + o.name %>
+                </button>
+              <% } %>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+      <% if (two) { %>
+        <span class="position-absolute top-50 start-50 translate-middle d-flex align-items-center justify-content-center rounded-circle bg-danger text-white fw-bold border border-3 border-white shadow"
+              style="z-index:2;width:<%= compact ? 42 : 52 %>px;height:<%= compact ? 42 : 52 %>px;">VS</span>
+      <% } %>
+    </div>
+  </form>
+<% }; %>
+
+<div class="poll-block" id="poll-<%= st.id %>" data-poll="<%= st.id %>" data-version="<%= st.version %>">
+  <script type="application/json" class="pb-state"><%- safeJson(st) %></script>
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div class="small text-body-secondary">
+      <span class="pb-total"><%= st.total %></span> <span class="pb-total-word">vote<%= st.total === 1 ? '' : 's' %></span>
+      <% if (isKo) { %> · Knockout<% } %>
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <% if (st.endsAt) { %><span class="badge text-bg-light border pb-count" data-end="<%= new Date(st.endsAt).toISOString() %>"></span><% } %>
+      <span class="badge <%= st.open ? 'text-bg-success' : 'text-bg-secondary' %>"><%= st.open ? 'Live' : 'Ended' %></span>
+    </div>
+  </div>
+
+  <div class="pb-flash alert alert-warning py-2 d-none"></div>
+
+  <% if (isKo && st.champion) { %>
+    <div class="text-center p-3 mb-3 rounded-3 bg-warning-subtle border border-warning">
+      <img src="<%= st.champion.image %>" alt="<%= st.champion.name %>" class="rounded-circle mb-2" style="width:96px;height:96px;object-fit:cover;">
+      <div class="small text-uppercase fw-semibold">🏆 Champion</div>
+      <div class="h4 fw-bold mb-0"><%= st.champion.name %></div>
+    </div>
+  <% } %>
+
+  <% if (isKo && st.open) { %>
+    <p class="small text-body-secondary mb-3">
+      <strong><%= st.currentRoundLabel %></strong> — vote in every match, winners go through to the next round.
+      <% if (st.roundHours) { %>Each round lasts <%= st.roundHours %> hour<%= st.roundHours === 1 ? '' : 's' %>.<% } %>
+    </p>
+  <% } %>
+
+  <% if (!isKo) { %>
+    <% renderMatch(st.matches[0]); %>
+  <% } else {
+       const rounds = [...new Set(st.matches.map((m) => m.round))].sort((a, b) => b - a);
+       rounds.forEach((r, idx) => {
+         const ms = st.matches.filter((m) => m.round === r);
+         if (idx === 0) { %>
+           <h6 class="fw-bold mb-2"><%= ms[0].roundLabel %></h6>
+           <div class="d-flex flex-column gap-4">
+             <% ms.forEach((m) => { renderMatch(m); }) %>
+           </div>
+         <% } else { %>
+           <details class="mt-4">
+             <summary class="fw-semibold"><%= ms[0].roundLabel %> — results</summary>
+             <div class="d-flex flex-column gap-4 mt-3">
+               <% ms.forEach((m) => { renderMatch(m); }) %>
+             </div>
+           </details>
+         <% }
+       });
+     } %>
+
+  <% if (st.open && !user) { %>
+    <p class="small text-body-secondary mt-3 mb-0">You'll be asked to log in (or sign up) once; your vote is saved after that. One vote per account<%= isKo ? ' in each match' : '' %> — you can change it until voting ends.</p>
+  <% } else if (st.open) { %>
+    <p class="small text-body-secondary mt-3 mb-0">One vote per account<%= isKo ? ' in each match' : '' %>. You can change your vote until voting ends. Results update live.</p>
+  <% } %>
+
+  <div class="pb-share"></div>
+</div>

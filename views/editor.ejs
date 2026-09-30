@@ -84,6 +84,17 @@
                    value="<%= form.tags || '' %>" placeholder="nodejs, railway, deployment">
           </div>
 
+          <div class="mb-3">
+            <label for="poll_id" class="form-label">Vote contest <span class="text-body-secondary">(optional)</span></label>
+            <select class="form-select" id="poll_id" name="poll_id">
+              <option value="">— No contest in this post —</option>
+              <% (locals.polls || []).forEach(pl => { %>
+                <option value="<%= pl.id %>" <%= String(form.poll_id || '') === String(pl.id) ? 'selected' : '' %>><%= pl.kind === 'knockout' ? '[Knockout] ' : '' %><%= pl.title %></option>
+              <% }) %>
+            </select>
+            <div class="form-text">Chuna hua contest post ke neeche (comments se pehle) vote widget ban kar nazar aayega, taake blog padhne wale wahin vote kar saken. Pehle 🗳️ Vote mein contest banayein.</div>
+          </div>
+
           <div class="mb-2">
             <div class="d-flex justify-content-between align-items-center mb-1">
               <label for="content" class="form-label mb-0">Content (Markdown supported)</label>

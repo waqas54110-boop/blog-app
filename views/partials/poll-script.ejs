@@ -1,0 +1,228 @@
+<script>
+// Contest blocks ka JS: vote page refresh ke bagair, live percentage, countdown, vote ke baad share-card.
+// Text badalna ho to sirf T mein badlein.
+(function () {
+  var T = {
+    voted: 'I voted for',       // share-card: "I voted for Mohammad Amir 🗳️"
+    shareTitle: 'Share your vote',
+    left: 'left', ending: 'Ending…', ended: 'Voting ended',
+    day: 'day', hr: 'hr', min: 'min', sec: 's',
+    vote: 'Vote', yourVote: '✔ Your vote', soFar: 'votes so far'
+  };
+  var blocks = document.querySelectorAll('.poll-block');
+  if (!blocks.length) return;
+
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+  blocks.forEach(function (el) {
+    var state = JSON.parse(el.querySelector('.pb-state').textContent);
+    var id = state.id;
+    var offset = state.now - Date.now();       // server aur browser ki ghari ka farq
+    var started = Date.now();
+    var lastPick = null;                       // { matchId, optionId }: abhi jis match mein vote diya
+    var shareEl = el.querySelector('.pb-share');
+    var flashEl = el.querySelector('.pb-flash');
+    var endedFetched = {};
+
+    function q(cls, oid, mid) { return el.querySelector('.' + cls + '[data-opt="' + oid + '"][data-match="' + mid + '"]'); }
+
+    function flash(msg) {
+      flashEl.textContent = msg; flashEl.classList.remove('d-none');
+      setTimeout(function () { flashEl.classList.add('d-none'); }, 5000);
+    }
+
+    // Number ko halka sa ginti ki tarah badalna (62 -> 65)
+    function animate(node, to) {
+      var from = parseInt(node.textContent, 10);
+      if (isNaN(from) || from === to) { node.textContent = to; return; }
+      var t0 = null;
+      function step(t) {
+        if (t0 === null) t0 = t;
+        var k = Math.min((t - t0) / 400, 1);
+        node.textContent = Math.round(from + (to - from) * k);
+        if (k < 1) requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    }
+
+    // ---------- live update ----------
+    function paint(st) {
+      var tot = el.querySelector('.pb-total'), tw = el.querySelector('.pb-total-word');
+      if (tot) { tot.textContent = st.total; tw.textContent = st.total === 1 ? 'vote' : 'votes'; }
+      st.matches.forEach(function (m) {
+        m.options.forEach(function (o) {
+          var pct = q('pb-pct', o.id, m.id), votes = q('pb-votes', o.id, m.id), vw = q('pb-votes-word', o.id, m.id);
+          var bar = q('pb-bar', o.id, m.id), btn = q('pb-btn', o.id, m.id), box = q('pb-opt', o.id, m.id);
+          var mine = m.myPick === o.id;
+          if (pct) animate(pct, o.pct);
+          if (votes) votes.textContent = o.votes;
+          if (vw) vw.textContent = o.votes === 1 ? 'vote' : 'votes';
+          if (bar) bar.style.width = o.pct + '%';
+          if (box) { box.classList.toggle('border-3', mine); box.classList.toggle('border-primary', mine); }
+          if (btn) {
+            btn.disabled = false;
+            btn.textContent = mine ? T.yourVote : T.vote + ' ' + btn.dataset.name;
+            btn.classList.toggle('btn-primary', mine);
+            btn.classList.toggle('btn-outline-primary', !mine);
+          }
+        });
+      });
+      renderShare(st);
+    }
+
+    function refresh() {
+      return fetch('/votes/' + id + '/state.json', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (st) {
+          if (!st) return;
+          offset = st.now - Date.now();
+          if (st.version !== el.dataset.version) { location.reload(); return; } // round badla / voting band hui
+          state = st;
+          paint(st);
+        })
+        .catch(function () {});
+    }
+
+    // Har 10 sec (tab nazar aa raha ho, aur contest live ho), max 30 minute
+    setInterval(function () {
+      if (document.hidden || !state.open || Date.now() - started > 30 * 60 * 1000) return;
+      refresh();
+    }, 10000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && state.open) refresh(); });
+
+    // ---------- countdown ----------
+    function tick() {
+      el.querySelectorAll('.pb-count').forEach(function (c) {
+        var end = Date.parse(c.dataset.end);
+        var left = end - (Date.now() + offset);
+        if (left <= 0) {
+          c.textContent = T.ending;
+          el.querySelectorAll('.pb-btn').forEach(function (b) { b.disabled = true; });
+          if (!endedFetched[c.dataset.end]) { endedFetched[c.dataset.end] = true; setTimeout(refresh, 1500); setTimeout(refresh, 6000); }
+          return;
+        }
+        var d = Math.floor(left / 86400000), h = Math.floor((left % 86400000) / 3600000);
+        var m = Math.floor((left % 3600000) / 60000), s = Math.floor((left % 60000) / 1000);
+        var txt;
+        if (d >= 1) txt = plural(d, T.day) + ' ' + plural(h, T.hr);
+        else if (h >= 1) txt = plural(h, T.hr) + ' ' + m + ' ' + T.min;
+        else txt = m + ' ' + T.min + ' ' + pad(s) + ' ' + T.sec;
+        c.textContent = '⏳ ' + txt + ' ' + T.left;
+      });
+    }
+    tick();
+    setInterval(tick, 1000);
+
+    // ---------- vote (ajax) ----------
+    el.addEventListener('submit', function (e) {
+      var form = e.target.closest ? e.target.closest('.pb-form') : null;
+      var btn = e.submitter;
+      if (!form || !btn || !btn.name || !window.fetch) return; // purana tareeqa (normal submit)
+      e.preventDefault();
+      var body = new URLSearchParams();
+      body.set('option', btn.value);
+      var mi = form.querySelector('[name=match]'), ri = form.querySelector('[name=ret]');
+      if (mi) body.set('match', mi.value);
+      if (ri) body.set('ret', ri.value);
+      var csrf = form.querySelector('[name=_csrf]').value;
+      btn.disabled = true;
+      fetch('/votes/' + id + '/vote', {
+        method: 'POST', credentials: 'same-origin',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded', 'x-csrf-token': csrf },
+        body: body.toString()
+      })
+        .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
+        .then(function (res) {
+          if (res.status === 401 && res.j.login) { location.href = res.j.login; return; }
+          if (res.j.state) {
+            if (res.j.state.version !== el.dataset.version) { location.reload(); return; }
+            state = res.j.state; offset = state.now - Date.now(); paint(state);
+          }
+          if (res.status >= 400 || res.j.error) { flash(res.j.error || 'Could not save your vote. Please try again.'); return; }
+          lastPick = { matchId: res.j.voted.matchId, optionId: res.j.voted.optionId };
+          renderShare(state);
+          if (shareEl.firstChild) shareEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        })
+        .catch(function () {
+          var h = document.createElement('input');
+          h.type = 'hidden'; h.name = 'option'; h.value = btn.value;
+          form.appendChild(h); form.submit();
+        });
+    });
+
+    // ---------- vote ke baad share-card ----------
+    function pickMatch(st) {
+      var m = null;
+      if (lastPick) m = st.matches.filter(function (x) { return x.id === lastPick.matchId; })[0];
+      if (!m || !m.myPick) {
+        var mine = st.matches.filter(function (x) { return x.myPick; });
+        m = mine.filter(function (x) { return x.active; })[0] || mine[mine.length - 1] || null;
+      }
+      return m;
+    }
+    function link(st, m, pick, src) {
+      return st.url + '?v=' + pick.id + (st.kind === 'knockout' ? '&m=' + m.id : '') + '&utm_source=' + src + '&utm_medium=share';
+    }
+    function renderShare(st) {
+      var m = pickMatch(st);
+      var pick = m && m.options.filter(function (o) { return o.id === m.myPick; })[0];
+      if (!pick) { shareEl.innerHTML = ''; shareEl.dataset.sig = ''; return; }
+      var result = m.options.map(function (o) { return o.pct + '%'; }).join(' vs ');
+      var sig = [m.id, pick.id, result].concat(m.options.map(function (o) { return o.votes; })).join('|');
+      if (shareEl.dataset.sig === sig) return;
+      shareEl.dataset.sig = sig;
+
+      var rows = m.options.map(function (o) {
+        var mine = o.id === pick.id;
+        return '<div class="d-flex align-items-center gap-2 mb-1">' +
+          '<div class="text-truncate" style="width:34%;font-weight:' + (mine ? 700 : 400) + '">' + esc(o.name) + '</div>' +
+          '<div class="flex-grow-1" style="height:12px;border-radius:6px;background:rgba(255,255,255,.22);overflow:hidden">' +
+          '<div style="height:100%;width:' + o.pct + '%;background:' + (mine ? '#fde047' : 'rgba(255,255,255,.75)') + ';transition:width .5s"></div></div>' +
+          '<div style="width:44px;text-align:right;font-weight:700">' + o.pct + '%</div></div>';
+      }).join('');
+
+      var text = '🗳️ ' + T.voted + ' ' + pick.name + ' — ' + result + '\n' + st.title + (m.label ? ' (' + m.label + ')' : '');
+      var wa = 'https://wa.me/?text=' + encodeURIComponent(text + '\n\n👉 ' + link(st, m, pick, 'whatsapp'));
+      var fb = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(link(st, m, pick, 'facebook'));
+
+      shareEl.innerHTML =
+        '<div class="mt-4 rounded-4 overflow-hidden border shadow-sm">' +
+        '<div class="p-3 text-white" style="background:linear-gradient(135deg,#4f46e5,#7c3aed)">' +
+        '<div class="d-flex align-items-center gap-3 mb-3">' +
+        '<img src="' + esc(pick.image) + '" alt="" style="width:84px;height:84px;object-fit:cover;border-radius:16px;border:3px solid rgba(255,255,255,.9)">' +
+        '<div><div class="small" style="opacity:.85">' + esc(m.label || st.title) + '</div>' +
+        '<div class="h4 fw-bold mb-1">' + esc(T.voted) + ' ' + esc(pick.name) + ' 🗳️</div>' +
+        '<div class="fw-bold" style="font-size:1.15rem">' + esc(result) + '</div></div></div>' + rows +
+        '</div>' +
+        '<div class="p-2 d-flex flex-wrap gap-2 align-items-center bg-body-tertiary">' +
+        '<span class="small fw-semibold me-1">' + esc(T.shareTitle) + ':</span>' +
+        '<a class="btn btn-success btn-sm" data-share="whatsapp" target="_blank" rel="noopener" href="' + esc(wa) + '">WhatsApp</a>' +
+        '<a class="btn btn-primary btn-sm" data-share="facebook" target="_blank" rel="noopener" href="' + esc(fb) + '">Facebook</a>' +
+        '<button type="button" class="btn btn-outline-secondary btn-sm" data-share="copy" data-link="' + esc(link(st, m, pick, 'link')) + '">Copy link</button>' +
+        '</div></div>';
+    }
+
+    // Share buttons: ginti + copy (event delegation, kyunke card baar baar dobara banti hai)
+    shareEl.addEventListener('click', function (e) {
+      var t = e.target.closest ? e.target.closest('[data-share]') : null;
+      if (!t) return;
+      var ch = t.dataset.share;
+      try {
+        var fd = new URLSearchParams(); fd.set('ch', ch);
+        fd.set('_csrf', el.querySelector('[name=_csrf]').value);
+        navigator.sendBeacon('/votes/' + id + '/share', fd);
+      } catch (err) { /* ginti na ho to koi baat nahi */ }
+      if (ch === 'copy') {
+        var url = t.dataset.link;
+        (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject()).then(function () {
+          t.textContent = 'Copied ✅'; setTimeout(function () { t.textContent = 'Copy link'; }, 2000);
+        }).catch(function () { window.prompt('Copy this link:', url); });
+      }
+    });
+
+    renderShare(state); // pehle se vote diya hua ho to card fauran dikhao
+  });
+})();
+</script>

@@ -1,7 +1,7 @@
 <%- include('partials/header') %>
 
 <div class="row justify-content-center">
-  <div class="col-12 col-lg-8">
+  <div class="col-12 col-lg-9">
     <div class="card border-0 shadow-sm">
       <div class="card-body p-4">
         <h2 class="fw-bold mb-3">➕ New vote contest</h2>
@@ -9,31 +9,49 @@
 
         <form action="/votes" method="POST" id="voteForm">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
           <div class="mb-3">
             <label class="form-label fw-semibold">Title / question</label>
             <input class="form-control" name="title" maxlength="150" required placeholder="e.g. Who is the better captain?">
           </div>
 
-          <div class="row g-3 mb-3">
-            <% ['a', 'b'].forEach((k, i) => { %>
-              <div class="col-12 col-md-6">
-                <div class="border rounded-3 p-3 h-100">
-                  <label class="form-label fw-semibold">Option <%= i + 1 %> name</label>
-                  <input class="form-control mb-2" name="<%= k %>_name" maxlength="60" required>
-                  <input type="hidden" name="<%= k %>_image" id="<%= k %>_image">
-                  <img id="<%= k %>_preview" class="rounded w-100 mb-2" style="display:none;aspect-ratio:1/1;object-fit:cover;" alt="">
-                  <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control form-control-sm pick-file" data-k="<%= k %>">
-                  <div class="small mt-1 text-body-secondary" id="<%= k %>_status">Choose an image</div>
-                </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Type</label>
+            <div class="d-flex flex-wrap gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="kind" id="kindVote" value="vote" checked>
+                <label class="form-check-label" for="kindVote">Vote <span class="text-body-secondary">(2 to 6 options, one round)</span></label>
               </div>
-            <% }) %>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="kind" id="kindKo" value="knockout">
+                <label class="form-check-label" for="kindKo">Knockout tournament <span class="text-body-secondary">(4 or 8 names, winners go through)</span></label>
+              </div>
+            </div>
           </div>
 
-          <div class="mb-3">
+          <div class="mb-3 d-none" id="koSize">
+            <label class="form-label fw-semibold">Contenders</label>
+            <select class="form-select w-auto" id="koCount">
+              <option value="4">4 (semi-finals + final)</option>
+              <option value="8">8 (quarter-finals, semi-finals, final)</option>
+            </select>
+          </div>
+
+          <div class="row g-3 mb-2" id="optRows"></div>
+          <button type="button" class="btn btn-outline-secondary btn-sm mb-3" id="addOpt">＋ Add option</button>
+          <div class="form-text mb-3 d-none" id="koSeedNote">Knockout bracket follows this order: 1 vs 2, 3 vs 4, and so on. If a match ends level, the one listed first goes through.</div>
+
+          <div class="mb-3" id="endsBox">
             <label class="form-label fw-semibold">Voting ends (optional)</label>
             <input class="form-control" type="datetime-local" id="endsLocal">
             <input type="hidden" name="ends_at" id="endsIso">
-            <div class="form-text">Khali chhorein to jab tak aap khud band na karein voting chalti rahegi. Time aap ke browser ke local time mein hai.</div>
+            <div class="form-text">Khali chhorein to jab tak aap khud band na karein voting chalti rahegi. Time aap ke browser ke local time mein hai. Readers ko countdown nazar aayega.</div>
+          </div>
+
+          <div class="mb-3 d-none" id="roundBox">
+            <label class="form-label fw-semibold">Each round lasts (hours, optional)</label>
+            <input class="form-control w-auto" type="number" name="round_hours" min="1" max="720" placeholder="e.g. 24">
+            <div class="form-text">Number likhein to har round itne ghante baad khud khatam hoga aur jeetne wale agle round mein chale jayenge. Khali chhorein to aap contest page se "End this round now" dabayenge.</div>
           </div>
 
           <button class="btn btn-primary" type="submit" id="saveBtn" disabled>Publish contest</button>
@@ -46,11 +64,76 @@
 
 <script>
   (function () {
-    var csrf = document.querySelector('#voteForm input[name="_csrf"]').value;
+    var form = document.getElementById('voteForm');
+    var csrf = form.querySelector('input[name="_csrf"]').value;
     var MAX_SIDE = 1000, MAX_BYTES = 5 * 1024 * 1024;
+    var rowsBox = document.getElementById('optRows');
     var saveBtn = document.getElementById('saveBtn');
+    var addBtn = document.getElementById('addOpt');
     var busy = 0;
-    function refresh() { saveBtn.disabled = busy > 0 || !document.getElementById('a_image').value || !document.getElementById('b_image').value; }
+
+    function kind() { return document.getElementById('kindKo').checked ? 'knockout' : 'vote'; }
+    function count() { return rowsBox.children.length; }
+
+    function refresh() {
+      var ok = busy === 0 && count() >= 2;
+      rowsBox.querySelectorAll('input[name="opt_image"]').forEach(function (i) { if (!i.value) ok = false; });
+      if (kind() === 'knockout') ok = ok && (count() === 4 || count() === 8);
+      saveBtn.disabled = !ok;
+    }
+
+    function makeRow(i) {
+      var col = document.createElement('div');
+      col.className = 'col-12 col-md-6 col-lg-4';
+      col.innerHTML =
+        '<div class="border rounded-3 p-3 h-100">' +
+        '<div class="d-flex justify-content-between align-items-center mb-1">' +
+        '<label class="form-label fw-semibold mb-0 opt-label"></label>' +
+        '<button type="button" class="btn btn-link btn-sm text-danger p-0 rm-opt">Remove</button></div>' +
+        '<input class="form-control mb-2" name="opt_name" maxlength="60" required>' +
+        '<input type="hidden" name="opt_image">' +
+        '<img class="rounded w-100 mb-2 opt-preview" style="display:none;aspect-ratio:1/1;object-fit:cover;" alt="">' +
+        '<input type="file" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control form-control-sm pick-file">' +
+        '<div class="small mt-1 text-body-secondary opt-status">Choose an image</div></div>';
+      return col;
+    }
+
+    function relabel() {
+      Array.prototype.forEach.call(rowsBox.children, function (col, i) {
+        col.querySelector('.opt-label').textContent = 'Option ' + (i + 1) + ' name';
+        col.querySelector('.rm-opt').style.display = (kind() === 'vote' && count() > 2) ? '' : 'none';
+      });
+      addBtn.style.display = kind() === 'vote' && count() < 6 ? '' : 'none';
+    }
+
+    function setCount(n) {
+      while (count() < n) rowsBox.appendChild(makeRow(count()));
+      while (count() > n) rowsBox.removeChild(rowsBox.lastChild);
+      relabel(); refresh();
+    }
+
+    function applyKind() {
+      var ko = kind() === 'knockout';
+      document.getElementById('koSize').classList.toggle('d-none', !ko);
+      document.getElementById('koSeedNote').classList.toggle('d-none', !ko);
+      document.getElementById('roundBox').classList.toggle('d-none', !ko);
+      document.getElementById('endsBox').classList.toggle('d-none', ko);
+      if (ko) setCount(parseInt(document.getElementById('koCount').value, 10));
+      else if (count() > 6) setCount(6);
+      else if (count() < 2) setCount(2);
+      relabel(); refresh();
+    }
+
+    document.getElementById('kindVote').addEventListener('change', applyKind);
+    document.getElementById('kindKo').addEventListener('change', applyKind);
+    document.getElementById('koCount').addEventListener('change', applyKind);
+    addBtn.addEventListener('click', function () { if (count() < 6) setCount(count() + 1); });
+    rowsBox.addEventListener('click', function (e) {
+      var b = e.target.closest('.rm-opt');
+      if (!b || count() <= 2) return;
+      rowsBox.removeChild(b.closest('.col-12'));
+      relabel(); refresh();
+    });
 
     async function prepare(file) {
       if (file.type === 'image/gif' || typeof createImageBitmap !== 'function') return file;
@@ -65,31 +148,36 @@
       } catch (e) { return file; }
     }
 
-    document.querySelectorAll('.pick-file').forEach(function (input) {
-      input.addEventListener('change', async function () {
-        var k = input.dataset.k, file = input.files[0];
-        var status = document.getElementById(k + '_status');
-        if (!file) return;
-        document.getElementById(k + '_image').value = '';
-        busy++; refresh(); status.textContent = 'Uploading…';
-        try {
-          var blob = await prepare(file);
-          if (blob.size > MAX_BYTES) throw new Error('Image is over 5 MB. Choose a smaller one.');
-          var res = await fetch('/upload-image', { method: 'POST', headers: { 'Content-Type': blob.type, 'x-csrf-token': csrf }, body: blob });
-          var data = {}; try { data = await res.json(); } catch (e) {}
-          if (!res.ok || !data.url) throw new Error(data.error || 'Upload failed (' + res.status + ').');
-          document.getElementById(k + '_image').value = data.url;
-          var pv = document.getElementById(k + '_preview'); pv.src = data.url; pv.style.display = '';
-          status.textContent = 'Uploaded ✅';
-        } catch (e) { status.textContent = e.message; }
-        busy--; refresh();
-      });
+    rowsBox.addEventListener('change', async function (e) {
+      var input = e.target;
+      if (!input.classList.contains('pick-file')) return;
+      var file = input.files[0];
+      var col = input.closest('.col-12');
+      var status = col.querySelector('.opt-status');
+      var hidden = col.querySelector('input[name="opt_image"]');
+      if (!file) return;
+      hidden.value = '';
+      busy++; refresh(); status.textContent = 'Uploading…';
+      try {
+        var blob = await prepare(file);
+        if (blob.size > MAX_BYTES) throw new Error('Image is over 5 MB. Choose a smaller one.');
+        var res = await fetch('/upload-image', { method: 'POST', headers: { 'Content-Type': blob.type, 'x-csrf-token': csrf }, body: blob });
+        var data = {}; try { data = await res.json(); } catch (err) {}
+        if (!res.ok || !data.url) throw new Error(data.error || 'Upload failed (' + res.status + ').');
+        hidden.value = data.url;
+        var pv = col.querySelector('.opt-preview'); pv.src = data.url; pv.style.display = '';
+        status.textContent = 'Uploaded ✅';
+      } catch (err) { status.textContent = err.message; }
+      busy--; refresh();
     });
 
-    document.getElementById('voteForm').addEventListener('submit', function () {
+    form.addEventListener('submit', function () {
       var el = document.getElementById('endsLocal');
-      document.getElementById('endsIso').value = el.value ? new Date(el.value).toISOString() : '';
+      document.getElementById('endsIso').value = kind() === 'vote' && el.value ? new Date(el.value).toISOString() : '';
     });
+
+    setCount(2);
+    applyKind();
   })();
 </script>
 

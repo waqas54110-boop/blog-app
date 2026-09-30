@@ -9,6 +9,7 @@ const { uniqueSlug } = require('../lib/slug');
 const { addToc } = require('../lib/toc');
 const { postLd } = require('../lib/seo');
 const card = require('../lib/card');
+const polls = require('../lib/polls');
 const indexnow = require('../lib/indexnow');
 
 const router = express.Router();
@@ -80,6 +81,24 @@ const requireAdmin = (req, res, next) => {
 const toId = (v) => {
   const n = parseInt(v, 10);
   return Number.isInteger(n) ? n : null;
+};
+
+
+// Post ke andar vote contest (widget): editor mein dropdown se chuna jata hai
+const getPollsForSelect = async () => {
+  try {
+    const r = await pool.query('SELECT id, title, kind FROM polls ORDER BY created_at DESC LIMIT 100');
+    return r.rows;
+  } catch (err) {
+    return []; // migration_v9 na chali ho to editor phir bhi khule
+  }
+};
+const savePostPoll = async (postId, raw) => {
+  try {
+    await pool.query('UPDATE posts SET poll_id = (SELECT id FROM polls WHERE id = $1) WHERE id = $2', [toId(raw), postId]);
+  } catch (err) {
+    console.error('[post poll]', err.message);
+  }
 };
 
 // Post mein sirf apni uploaded video (/video/5) aur YouTube embed allowed hain; baaqi sab kuch (script, iframe wagaira) saaf ho jata hai.
@@ -451,6 +470,7 @@ router.get('/posts/new', requireAdmin, async (req, res) => {
     action: '/posts',
     error: null,
     categories: await getCategories(),
+      polls: await getPollsForSelect(),
     form: { ...editorDefaults },
     isEdit: false,
     tz: TZ,
@@ -472,6 +492,7 @@ router.post('/posts', requireAdmin, async (req, res) => {
       action: '/posts',
       error,
       categories: await getCategories(),
+      polls: await getPollsForSelect(),
       form: formFromBody(req.body),
       isEdit: false,
       tz: TZ,
@@ -495,6 +516,7 @@ router.post('/posts', requireAdmin, async (req, res) => {
       ]
     );
     await saveTagsForPost(result.rows[0].id, parseTags(req.body.tags));
+    await savePostPoll(result.rows[0].id, req.body.poll_id);
     res.redirect('/posts/' + slug);
   } catch (err) {
     console.error(err);
@@ -533,6 +555,7 @@ router.get('/posts/:id/edit', requireAdmin, async (req, res) => {
       action: `/posts/${id}/edit`,
       error: null,
       categories: await getCategories(),
+      polls: await getPollsForSelect(),
       form: post,
       isEdit: true,
       newsletterAlreadySent: post.newsletter_sent,
@@ -556,6 +579,7 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
       action: `/posts/${id}/edit`,
       error,
       categories: await getCategories(),
+      polls: await getPollsForSelect(),
       form: formFromBody(req.body),
       isEdit: true,
       tz: TZ,
@@ -584,6 +608,7 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
        data.is_draft, data.publish_at, TZ, data.send_newsletter, id, slug]
     );
     await saveTagsForPost(id, parseTags(req.body.tags));
+    await savePostPoll(id, req.body.poll_id);
 
     // Live post edit hui to Bing/Yandex ko batao (await nahi: redirect slow na ho).
     // Nayi publish hui post ko scheduler (lib/publisher.js) bhejta hai.
@@ -699,6 +724,19 @@ router.get('/posts/:ref', async (req, res) => {
     const useCard = card.isAvailable() && (!cover || process.env.OG_CARD_ALWAYS === 'true');
     const ogImage = useCard ? `${base}/og/${post.slug}.png` : (cover || config.defaultOgImage || null);
 
+    // Post ke andar vote widget (agar admin ne contest lagaya ho)
+    let pollState = null;
+    let pollNotice = null;
+    if (post.poll_id) {
+      try {
+        pollNotice = await polls.applyPending(req, post.poll_id); // login se pehle dabaya hua vote
+        pollState = await polls.loadState(post.poll_id, uid, base);
+        if (pollState && post.is_live && !res.locals.isAdmin) polls.trackView(req, res, post.poll_id, 'post');
+      } catch (err) {
+        console.error('[post poll]', err.message);
+      }
+    }
+
     const { html: contentHtml, toc } = addToc(renderMarkdown(post.content));
 
     res.render('post', {
@@ -728,6 +766,8 @@ router.get('/posts/:ref', async (req, res) => {
         twitter: withUtm('twitter'),
         copy: withUtm('link'),
       },
+      pollState,
+      pollNotice,
       readingTime: readingTimeOf(post.content),
       tz: TZ,
       commentError: req.query.commentError || null,
