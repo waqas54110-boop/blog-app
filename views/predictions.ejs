@@ -1,0 +1,140 @@
+<%- include('partials/header') %>
+
+<div class="row g-4">
+  <div class="col-12 col-lg-8">
+    <h1 class="fw-bold mb-1">🎯 Prediction League</h1>
+    <p class="text-body-secondary">Pick the winner before the match starts. Correct prediction = <strong><%= points %> points</strong>. You can change your pick until the start time.</p>
+
+    <% if (saved) { %><div class="alert alert-success py-2">Saved ✅</div><% } %>
+    <% if (error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
+
+    <% if (isAdmin) { %>
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="fw-bold mb-3">➕ Add match (admin)</h5>
+          <form action="/predictions/matches" method="POST" class="row g-2">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="col-6"><input class="form-control" name="team_a" placeholder="Team A (e.g. Pakistan)" maxlength="60" required></div>
+            <div class="col-6"><input class="form-control" name="team_b" placeholder="Team B (e.g. India)" maxlength="60" required></div>
+            <div class="col-12 col-md-6"><input class="form-control" name="title" placeholder="Title (optional, e.g. Asia Cup Final)" maxlength="120"></div>
+            <div class="col-12 col-md-6"><input class="form-control" type="datetime-local" id="startsLocal" required>
+              <input type="hidden" name="starts_at" id="startsIso"></div>
+            <div class="col-12"><button class="btn btn-primary" type="submit">Add match</button>
+              <span class="text-body-secondary small ms-2">Time aap ke browser ke local time mein hai.</span></div>
+          </form>
+        </div>
+      </div>
+    <% } %>
+
+    <h4 class="fw-bold mb-3">Upcoming matches</h4>
+    <% if (openMatches.length === 0) { %>
+      <div class="card border-0 shadow-sm mb-4"><div class="card-body text-body-secondary text-center py-4">No open matches right now. Check back soon!</div></div>
+    <% } %>
+
+    <% openMatches.forEach(m => { %>
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+          <% if (m.title) { %><div class="small text-primary fw-semibold mb-1"><%= m.title %></div><% } %>
+          <div class="d-flex justify-content-between flex-wrap gap-2 mb-2">
+            <h5 class="fw-bold mb-0"><%= m.team_a %> <span class="text-body-secondary">vs</span> <%= m.team_b %></h5>
+            <span class="small text-body-secondary">
+              <% if (m.locked) { %>🔒 Closed – waiting for result<% } else { %>⏰ <span class="local-time" data-t="<%= new Date(m.starts_at).toISOString() %>"></span><% } %>
+            </span>
+          </div>
+
+          <% if (m.total > 0) { %>
+            <div class="small text-body-secondary mb-2">
+              <%= m.total %> prediction<%= m.total === 1 ? '' : 's' %> ·
+              <%= m.team_a %> <%= Math.round(m.votes_a * 100 / m.total) %>% ·
+              <%= m.team_b %> <%= Math.round(m.votes_b * 100 / m.total) %>%
+            </div>
+          <% } %>
+
+          <% if (!m.locked) { %>
+            <% if (user) { %>
+              <form action="/predictions/<%= m.id %>/pick" method="POST" class="d-flex flex-wrap gap-2">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button name="pick" value="a" class="btn btn-sm <%= m.my_pick === 'a' ? 'btn-primary' : 'btn-outline-primary' %>"><%= m.my_pick === 'a' ? '✔ ' : '' %><%= m.team_a %></button>
+                <button name="pick" value="draw" class="btn btn-sm <%= m.my_pick === 'draw' ? 'btn-primary' : 'btn-outline-primary' %>"><%= m.my_pick === 'draw' ? '✔ ' : '' %>Draw / No result</button>
+                <button name="pick" value="b" class="btn btn-sm <%= m.my_pick === 'b' ? 'btn-primary' : 'btn-outline-primary' %>"><%= m.my_pick === 'b' ? '✔ ' : '' %><%= m.team_b %></button>
+              </form>
+            <% } else { %>
+              <a href="/login" class="btn btn-sm btn-primary">Login to predict</a>
+            <% } %>
+          <% } else if (m.my_pick) { %>
+            <span class="badge text-bg-secondary">Your pick: <%= m.my_pick === 'a' ? m.team_a : m.my_pick === 'b' ? m.team_b : 'Draw' %></span>
+          <% } %>
+
+          <% if (isAdmin) { %>
+            <hr>
+            <form action="/predictions/matches/<%= m.id %>/settle" method="POST" class="d-flex flex-wrap gap-2 align-items-center">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <span class="small fw-semibold">Result:</span>
+              <button name="winner" value="a" class="btn btn-sm btn-success" onclick="return confirm('Final result save karein? Ye wapas nahi hota.')"><%= m.team_a %> won</button>
+              <button name="winner" value="draw" class="btn btn-sm btn-secondary" onclick="return confirm('Draw / no result save karein?')">Draw</button>
+              <button name="winner" value="b" class="btn btn-sm btn-success" onclick="return confirm('Final result save karein? Ye wapas nahi hota.')"><%= m.team_b %> won</button>
+              <button formaction="/predictions/matches/<%= m.id %>/delete" class="btn btn-sm btn-outline-danger ms-auto" onclick="return confirm('Match aur uski saari predictions delete?')">Delete</button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+    <% }) %>
+
+    <% if (doneMatches.length > 0) { %>
+      <h4 class="fw-bold mt-4 mb-3">Recent results</h4>
+      <div class="list-group shadow-sm">
+        <% doneMatches.forEach(m => { %>
+          <div class="list-group-item d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <strong><%= m.team_a %> vs <%= m.team_b %></strong>
+              <span class="text-body-secondary">→ <%= m.winner === 'draw' ? 'Draw' : (m.winner === 'a' ? m.team_a : m.team_b) + ' won' %></span>
+            </div>
+            <% if (user && m.my_pick) { %>
+              <span class="badge <%= m.my_points > 0 ? 'text-bg-success' : 'text-bg-secondary' %>"><%= m.my_points > 0 ? '+' + m.my_points + ' pts' : 'Missed' %></span>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+
+  <div class="col-12 col-lg-4">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body">
+        <h5 class="fw-bold mb-3">🏆 League table</h5>
+        <% if (leaders.length === 0) { %>
+          <p class="text-body-secondary mb-0">Points will appear after the first match result.</p>
+        <% } else { %>
+          <div class="list-group list-group-flush">
+            <% leaders.forEach((l, i) => { %>
+              <div class="list-group-item px-0 d-flex align-items-center gap-2">
+                <span style="width:2rem;" class="fw-bold"><%= i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.' %></span>
+                <span class="avatar"><%= l.username.charAt(0).toUpperCase() %></span>
+                <span class="flex-grow-1 fw-semibold text-truncate"><%= l.username %>
+                  <span class="d-block small text-body-secondary fw-normal"><%= l.correct %>/<%= l.played %> correct</span></span>
+                <span class="badge text-bg-primary"><%= l.pts %> pts</span>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Match ka time har visitor ko uske apne local time mein dikhao
+  document.querySelectorAll('.local-time').forEach(function (el) {
+    var d = new Date(el.dataset.t);
+    el.textContent = 'Starts ' + d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+  });
+  // Admin form: local time ko ISO (UTC) mein badal kar bhejo
+  var loc = document.getElementById('startsLocal');
+  if (loc) {
+    loc.form.addEventListener('submit', function () {
+      document.getElementById('startsIso').value = loc.value ? new Date(loc.value).toISOString() : '';
+    });
+  }
+</script>
+
+<%- include('partials/footer') %>
