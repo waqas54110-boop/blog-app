@@ -6,6 +6,8 @@
       <div class="card-body p-3 p-md-4">
         <h1 class="fw-bold h3 mb-3"><%= st.title %></h1>
 
+        <%- include('partials/sponsor-banner', { ex: ex, pollId: st.id }) %>
+
         <% if (notice) { %><div class="alert alert-info py-2"><%= notice %></div><% } %>
 
         <% if (pickPreview) { %>
@@ -53,6 +55,42 @@
             <p class="small text-body-secondary mt-2 mb-0">Tie in a match: the contender listed first in the bracket goes through.</p>
           <% } %>
           <p class="small text-body-secondary mt-1 mb-0">To show this contest inside a blog post: edit the post and pick it under “Vote contest”.</p>
+
+          <hr id="sponsor-admin">
+          <h6 class="fw-bold">🤝 Sponsor, prize &amp; giveaway</h6>
+          <form action="/votes/<%= st.id %>/sponsor" method="POST" class="mb-3">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <%- include('partials/sponsor-fields', { v: ex }) %>
+            <button class="btn btn-sm btn-primary mt-3">Save sponsor &amp; prize</button>
+            <a href="/votes/<%= st.id %>/report" class="btn btn-sm btn-outline-secondary mt-3 ms-1">📊 Sponsor report</a>
+          </form>
+
+          <% if (ex.prize && adminX) { %>
+            <div class="border rounded-3 p-3">
+              <div class="fw-semibold mb-1">🎁 Giveaway draw</div>
+              <div class="small text-body-secondary mb-2">
+                Eligible: <%= ex.giveaway_pool === 'winner' ? (adminX.eligibleWinner == null ? 'available once there is a clear winner' : adminX.eligibleWinner + ' verified voters who backed the winner') : adminX.eligibleAll + ' verified voters' %>
+                (admin and unverified accounts are never included).
+              </div>
+              <% if (ex.giveaway_username) { %>
+                <div class="mb-2">Winner: <strong><%= ex.giveaway_username %></strong><% if (adminX.winnerEmail) { %> · <a href="mailto:<%= adminX.winnerEmail %>"><%= adminX.winnerEmail %></a><% } %>
+                  <span class="small text-body-secondary">(drawn from <%= ex.giveaway_count %><%= ex.giveaway_redraws ? ', redrawn ' + ex.giveaway_redraws + 'x' : '' %>)</span></div>
+                <form action="/votes/<%= st.id %>/giveaway" method="POST" class="mb-0" onsubmit="return confirm('Redraw? The current winner will be replaced (and cannot win again).')">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="redraw" value="1">
+                  <button class="btn btn-sm btn-outline-warning">Winner not reachable? Redraw</button>
+                </form>
+              <% } else if (st.open) { %>
+                <button class="btn btn-sm btn-secondary" disabled>Close the contest (or wait for it to end) to draw</button>
+              <% } else { %>
+                <form action="/votes/<%= st.id %>/giveaway" method="POST" class="mb-0" onsubmit="return confirm('Pick a random winner now?')">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="btn btn-sm btn-success">🎲 Pick a random winner</button>
+                </form>
+              <% } %>
+            </div>
+          <% } else if (!ex.prize) { %>
+            <p class="small text-body-secondary mb-0">Add a prize above to enable the giveaway draw.</p>
+          <% } %>
         <% } %>
       </div>
     </div>

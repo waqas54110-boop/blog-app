@@ -10,6 +10,7 @@ const { addToc } = require('../lib/toc');
 const { postLd } = require('../lib/seo');
 const card = require('../lib/card');
 const polls = require('../lib/polls');
+const sponsorLib = require('../lib/sponsor');
 const indexnow = require('../lib/indexnow');
 
 const router = express.Router();
@@ -264,8 +265,12 @@ router.get('/', async (req, res) => {
       readingTime: readingTimeOf(p.content),
     }));
 
+    // Sab se garam / pin kiya hua live contest (sirf asli homepage par, search/filter/page 2 par nahi)
+    const liveContest = !q && !category && !tag && page === 1 ? await sponsorLib.homeContest(req, res, baseUrlOf(req)) : null;
+
     res.render('index', {
       title: 'My Blog',
+      liveContest,
       posts,
       categories: catResult.rows,
       popular: popularResult.rows,

@@ -14,4 +14,7 @@ module.exports = {
   hireServices: (process.env.HIRE_SERVICES || 'Video Editing, Web Development, Odoo Customization, Content Creation, Other')
     .split(',').map((s) => s.trim()).filter(Boolean).slice(0, 10),
   inquiryEmail: process.env.INQUIRY_EMAIL || '',
+  // Telegram channel mein contest khud post karne ke liye (dono khali = band)
+  telegramToken: process.env.TELEGRAM_BOT_TOKEN || '',
+  telegramChat: process.env.TELEGRAM_CHAT_ID || '',   // @channelname ya -100xxxxxxxxxx
 };

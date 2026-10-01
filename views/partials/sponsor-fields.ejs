@@ -1,0 +1,83 @@
+<%
+  // Sponsor + prize + giveaway ke fields. Naya contest form aur contest page ka admin box, dono yahi use karte hain.
+  // Input: v = { sponsor_name, sponsor_url, sponsor_logo, prize, giveaway_pool, featured } (khali object chalta hai)
+  const sv = locals.v || {};
+%>
+<div class="row g-3" id="sp-box">
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold">Sponsor name</label>
+    <input class="form-control" name="sponsor_name" maxlength="80" value="<%= sv.sponsor_name || '' %>" placeholder="e.g. Ali Mobile Mart">
+  </div>
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold">Sponsor website / link</label>
+    <input class="form-control" name="sponsor_url" maxlength="500" value="<%= sv.sponsor_url || '' %>" placeholder="https://...">
+  </div>
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold">Sponsor logo (optional)</label>
+    <input type="hidden" name="sponsor_logo" id="sp-logo" value="<%= sv.sponsor_logo || '' %>">
+    <div class="d-flex align-items-center gap-2">
+      <img id="sp-preview" src="<%= sv.sponsor_logo || '' %>" alt="" class="rounded border" style="height:44px;max-width:120px;object-fit:contain;<%= sv.sponsor_logo ? '' : 'display:none;' %>">
+      <input type="file" id="sp-file" accept="image/jpeg,image/png,image/webp,image/gif" class="form-control form-control-sm">
+    </div>
+    <div class="small text-body-secondary mt-1" id="sp-status"><%= sv.sponsor_logo ? 'Logo saved. Choose a file to replace it.' : 'Square or wide logo, any size up to 5 MB.' %></div>
+  </div>
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold">Prize (giveaway)</label>
+    <input class="form-control" name="prize" maxlength="160" value="<%= sv.prize || '' %>" placeholder="e.g. Rs 5,000 mobile load">
+    <div class="form-text">Prize likhne se contest par 🎁 dikhta hai aur giveaway draw ka button khulta hai.</div>
+  </div>
+  <div class="col-12 col-md-6">
+    <label class="form-label fw-semibold">Who can win the giveaway</label>
+    <select class="form-select" name="giveaway_pool">
+      <option value="all" <%= sv.giveaway_pool !== 'winner' ? 'selected' : '' %>>Every verified voter</option>
+      <option value="winner" <%= sv.giveaway_pool === 'winner' ? 'selected' : '' %>>Only voters who backed the winner</option>
+    </select>
+  </div>
+  <div class="col-12 col-md-6 d-flex align-items-end">
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="featured" value="1" id="sp-featured" <%= sv.featured ? 'checked' : '' %>>
+      <label class="form-check-label" for="sp-featured">Pin on homepage <span class="text-body-secondary">(shown first while it is live)</span></label>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var file = document.getElementById('sp-file');
+    var box = document.getElementById('sp-box');
+    var form = box.closest('form');
+    var csrf = form.querySelector('input[name="_csrf"]').value;
+    var hidden = document.getElementById('sp-logo'), status = document.getElementById('sp-status'), pv = document.getElementById('sp-preview');
+    var busy = false, MAX_SIDE = 600, MAX_BYTES = 5 * 1024 * 1024;
+
+    async function prepare(f) {
+      if (f.type === 'image/gif' || typeof createImageBitmap !== 'function') return f;
+      try {
+        var bmp = await createImageBitmap(f, { imageOrientation: 'from-image' });
+        var scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
+        var c = document.createElement('canvas');
+        c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+        c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+        var blob = await new Promise(function (r) { c.toBlob(r, 'image/webp', 0.9); });
+        return blob && blob.size < f.size ? blob : f;
+      } catch (e) { return f; }
+    }
+
+    file.addEventListener('change', async function () {
+      var f = file.files[0]; if (!f) return;
+      busy = true; status.textContent = 'Uploading…';
+      try {
+        var blob = await prepare(f);
+        if (blob.size > MAX_BYTES) throw new Error('Image is over 5 MB. Choose a smaller one.');
+        var res = await fetch('/upload-image', { method: 'POST', headers: { 'Content-Type': blob.type, 'x-csrf-token': csrf }, body: blob });
+        var data = {}; try { data = await res.json(); } catch (e) {}
+        if (!res.ok || !data.url) throw new Error(data.error || 'Upload failed (' + res.status + ').');
+        hidden.value = data.url; pv.src = data.url; pv.style.display = '';
+        status.textContent = 'Uploaded ✅';
+      } catch (e) { status.textContent = e.message; }
+      busy = false;
+    });
+    // Logo upload ke beech form submit na ho
+    form.addEventListener('submit', function (e) { if (busy) { e.preventDefault(); status.textContent = 'Wait, the logo is still uploading…'; } });
+  })();
+</script>

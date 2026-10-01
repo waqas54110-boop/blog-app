@@ -18,6 +18,8 @@ const uploadsRouter = require('./routes/uploads');
 const growthRouter = require('./routes/growth');
 const hireRouter = require('./routes/hire');
 const votesRouter = require('./routes/votes');
+const sponsorRouter = require('./routes/sponsor');
+const { startTelegramPoster } = require('./lib/telegram');
 const { startPollScheduler } = require('./lib/polls');
 
 const app = express();
@@ -61,6 +63,7 @@ app.post('/hire', limiter(60, 5, 'Too many messages sent. Please try again in an
 app.post('/votes/:id/vote', limiter(10, 60, 'Too many votes. Please wait a few minutes.'));
 app.get('/votes/:id/state.json', limiter(1, 40, 'Too many requests.'));
 app.post('/votes/:id/share', limiter(10, 60, 'Too many requests.'));
+app.get('/votes/:id/go', limiter(1, 30, 'Too many requests.'));
 app.post('/votes/:id/comments', limiter(5, 10, 'You are commenting too fast. Please wait a few minutes.'));
 app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
 
@@ -161,6 +164,7 @@ app.use('/', engageRouter);
 app.use('/', uploadsRouter);
 app.use('/', growthRouter);
 app.use('/', hireRouter);
+app.use('/', sponsorRouter);
 app.use('/', votesRouter);
 app.use('/', authRouter);
 
@@ -189,4 +193,5 @@ app.listen(PORT, (err) => {
   startNewsletterScheduler();
   startPublisher();
   startPollScheduler(); // knockout rounds jin ka time ho gaya unhein agle round par le jata hai
+  startTelegramPoster(); // naya contest / result Telegram channel mein (token set ho to)
 });

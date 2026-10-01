@@ -7,6 +7,8 @@ const card = require('../lib/card');
 const { renderVoteCard, renderVotedCard } = require('../lib/votecard');
 const P = require('../lib/polls');
 const { notifyUser } = require('../lib/notify');
+const S = require('../lib/sponsor');
+const T = require('../lib/telegram');
 
 const router = express.Router();
 const IMG_RE = /^\/img\/\d{1,9}$/;
@@ -28,7 +30,7 @@ const baseUrl = (req) => config.siteUrl || `${req.protocol}://${req.get('host')}
 const toId = (v) => (/^\d{1,9}$/.test(String(v)) ? parseInt(v, 10) : null);
 const uidOf = (req) => (req.session.user ? req.session.user.id : null);
 // Vote ke baad kahan wapas jana hai (post ke andar widget se vote kiya ho to wahi post)
-const safeRet = (v) => (/^\/(posts\/[a-z0-9-]{1,120}|votes\/\d{1,9})$/.test(String(v || '')) ? String(v) : null);
+const safeRet = (v) => (/^\/(posts\/[a-z0-9-]{1,120}|votes\/\d{1,9})?$/.test(String(v || '')) ? String(v) : null);
 
 // ---------- LIST ----------
 router.get('/votes', async (req, res, next) => {
@@ -47,6 +49,8 @@ router.get('/votes', async (req, res, next) => {
       title: 'Vote Contests',
       metaDescription: 'Pick your side in fun head-to-head vote contests and knockouts, and share them with friends.',
       polls,
+      tgMsg: req.query.tg ? String(req.query.tg).slice(0, 200) : null,
+      tgOn: T.isConfigured(),
     });
   } catch (err) { next(err); }
 });
@@ -88,11 +92,15 @@ router.post('/votes', requireAdmin, async (req, res, next) => {
       if (!Number.isInteger(roundHours) || roundHours < 1 || roundHours > 720) return back('Round length must be between 1 and 720 hours.');
     }
 
+    const sp = await S.parseSponsor(b);
+    if (sp.error) return back(sp.error);
+
     const ids = [...new Set(options.map((o) => parseInt(o.image.slice(5), 10)))];
     const ex = await pool.query('SELECT COUNT(DISTINCT id)::int AS c FROM images WHERE id = ANY($1)', [ids]);
     if (ex.rows[0].c !== ids.length) return back('One of the images was not found. Upload again.');
 
     const id = await P.createPoll({ kind, title, options, endsAt, roundHours, userId: req.session.user.id });
+    if (sp.value.name || sp.value.prize || sp.value.logo || sp.value.featured || sp.value.pool !== 'all') await S.saveSponsor(id, sp.value);
     res.redirect('/votes/' + id);
   } catch (err) { next(err); }
 });
@@ -160,6 +168,9 @@ router.get('/votes/:id', async (req, res, next) => {
     const st = await P.loadState(id, uidOf(req), base);
     if (!st) return next();
 
+    const ex = await S.extras(id);
+    const adminX = res.locals.isAdmin ? await S.adminInfo(id, st, ex) : null;
+
     if (!req.query.voted) P.trackView(req, res, id, 'page'); // vote ke baad wala redirect dobara "view" nahi gina jata
 
     const flat = st.matches.flatMap((m) => m.options);
@@ -204,6 +215,7 @@ router.get('/votes/:id', async (req, res, next) => {
     const threads = top.map((c) => ({ ...c, replies: byParent[c.id] || [] }));
 
     res.render('vote', {
+      ex, adminX,
       title: st.title,
       metaDescription: st.kind === 'knockout'
         ? `Knockout: ${names.join(', ')} - vote every round and pick the champion!`

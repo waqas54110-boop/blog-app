@@ -15,6 +15,21 @@
   <p class="mb-0 opacity-75">Notes and tutorials on cricket, video editing, AI/ML, freelancing and web development.</p>
 </section>
 
+<% if (locals.liveContest) { const lc = liveContest; %>
+  <section class="card border-0 shadow-sm mb-4" id="live-contest">
+    <div class="card-body p-3 p-md-4">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <h5 class="fw-bold mb-0">🔥 Live now: <%= lc.st.title %></h5>
+        <a href="/votes/<%= lc.st.id %>#comments" class="small text-decoration-none">Open contest &amp; comments →</a>
+      </div>
+      <% if (lc.notice) { %><div class="alert alert-info py-2"><%= lc.notice %></div><% } %>
+      <%- include('partials/sponsor-banner', { ex: lc.extras, pollId: lc.st.id }) %>
+      <%- include('partials/poll-block', { st: lc.st, compact: true, ret: '/' }) %>
+    </div>
+  </section>
+  <%- include('partials/poll-script') %>
+<% } %>
+
 <div class="row g-4">
 
   <!-- Posts -->

@@ -1,0 +1,28 @@
+<%
+  // Sponsor + prize + giveaway winner ki patti (contest page aur homepage). Input: ex (S.extras ka natija), pollId
+  const bx = locals.ex || {};
+%>
+<% if (bx.sponsor_name || bx.prize) { %>
+  <div class="rounded-3 border p-2 p-md-3 mb-3 d-flex flex-wrap align-items-center gap-3 bg-body-tertiary">
+    <% if (bx.sponsor_logo) { %>
+      <img src="<%= bx.sponsor_logo %>" alt="<%= bx.sponsor_name || 'Sponsor' %>" style="height:44px;max-width:120px;object-fit:contain;">
+    <% } %>
+    <div class="flex-grow-1">
+      <% if (bx.sponsor_name) { %>
+        <div class="small text-body-secondary">Sponsored by
+          <% if (bx.sponsor_url) { %>
+            <a href="/votes/<%= pollId %>/go" target="_blank" rel="sponsored noopener" class="fw-semibold"><%= bx.sponsor_name %></a>
+          <% } else { %><strong><%= bx.sponsor_name %></strong><% } %>
+        </div>
+      <% } %>
+      <% if (bx.prize) { %><div class="fw-semibold">🎁 <%= bx.prize %></div><% } %>
+      <% if (bx.prize && bx.giveaway_username) { %>
+        <div class="small">🎉 Giveaway winner: <strong><%= bx.giveaway_username %></strong></div>
+      <% } else if (bx.prize) { %>
+        <div class="small text-body-secondary">
+          <%= bx.giveaway_pool === 'winner' ? 'A random winner is drawn from verified voters who backed the winning side.' : 'A random winner is drawn from all verified voters when the contest ends.' %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+<% } %>

@@ -54,6 +54,11 @@
             <div class="form-text">Number likhein to har round itne ghante baad khud khatam hoga aur jeetne wale agle round mein chale jayenge. Khali chhorein to aap contest page se "End this round now" dabayenge.</div>
           </div>
 
+          <details class="mb-3 border rounded-3 p-3">
+            <summary class="fw-semibold">🤝 Sponsor, prize &amp; giveaway <span class="text-body-secondary fw-normal">(optional)</span></summary>
+            <div class="mt-3"><%- include('partials/sponsor-fields', { v: {} }) %></div>
+          </details>
+
           <button class="btn btn-primary" type="submit" id="saveBtn" disabled>Publish contest</button>
           <a href="/votes" class="btn btn-outline-secondary ms-2">Cancel</a>
         </form>

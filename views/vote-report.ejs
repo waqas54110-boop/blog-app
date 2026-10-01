@@ -1,0 +1,134 @@
+<%- include('partials/header') %>
+
+<style>
+  @media print {
+    nav, footer, .no-print, .navbar { display: none !important; }
+    body { background: #fff !important; }
+    .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+  }
+</style>
+
+<%
+  const total = rep.views || 0;
+  const pct = (n, d) => (d > 0 ? Math.round((n * 100) / d) : 0);
+  const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+  const maxDay = Math.max(1, ...rep.byDay.map((d) => d.n));
+  const summary = [
+    '📊 Contest report: ' + st.title,
+    ex.sponsor_name ? 'Sponsor: ' + ex.sponsor_name : null,
+    '👀 People reached: ' + rep.people + ' (' + rep.views + ' views)',
+    '🗳️ Votes: ' + rep.votes + ' from ' + rep.voters + ' people',
+    '↗️ Shares: ' + rep.shares,
+    ex.sponsor_url ? '🔗 Sponsor link clicks: ' + rep.clicks : null,
+    '💬 Comments: ' + rep.comments,
+    url
+  ].filter(Boolean).join('\n');
+%>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3 no-print">
+  <a href="/votes/<%= st.id %>" class="text-decoration-none">← Back to contest</a>
+  <div class="d-flex gap-2">
+    <button type="button" class="btn btn-outline-secondary btn-sm" id="copySummary">Copy WhatsApp summary</button>
+    <button type="button" class="btn btn-primary btn-sm" onclick="window.print()">🖨 Print / Save as PDF</button>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body p-4">
+    <div class="small text-uppercase text-body-secondary fw-semibold">Contest report</div>
+    <h1 class="h3 fw-bold mb-1"><%= st.title %></h1>
+    <div class="text-body-secondary mb-3">
+      <%= st.kind === 'knockout' ? 'Knockout tournament' : 'Vote contest' %> ·
+      <%= fmt(createdAt) %> → <%= st.open ? 'still live' : 'ended' %> ·
+      <a href="<%= url %>"><%= url %></a>
+    </div>
+    <% if (ex.sponsor_name || ex.prize) { %>
+      <div class="d-flex align-items-center gap-3 border rounded-3 p-3 mb-3">
+        <% if (ex.sponsor_logo) { %><img src="<%= ex.sponsor_logo %>" alt="" style="height:48px;max-width:130px;object-fit:contain;"><% } %>
+        <div>
+          <% if (ex.sponsor_name) { %><div>Sponsored by <strong><%= ex.sponsor_name %></strong></div><% } %>
+          <% if (ex.prize) { %><div>🎁 Prize: <strong><%= ex.prize %></strong></div><% } %>
+        </div>
+      </div>
+    <% } %>
+
+    <div class="row g-3 text-center">
+      <% [
+        ['People reached', rep.people], ['Page views', rep.views], ['Votes', rep.votes], ['Shares', rep.shares],
+        ['Comments', rep.comments], ['Sponsor link clicks', ex.sponsor_url ? rep.clicks : '–']
+      ].forEach(k => { %>
+        <div class="col-6 col-md-4 col-lg-2">
+          <div class="border rounded-3 py-3"><div class="fs-3 fw-bold text-primary"><%= k[1] %></div><div class="small text-body-secondary"><%= k[0] %></div></div>
+        </div>
+      <% }) %>
+    </div>
+    <p class="small text-body-secondary mt-3 mb-0">
+      <%= rep.voters %> different people voted (<%= pct(rep.voters, rep.people) %>% of the people reached).
+      Views: <%= rep.page_views %> on the contest page, <%= rep.post_views %> inside blog posts, <%= rep.home_views %> on the homepage.
+      <% if (ex.sponsor_url && rep.views > 0) { %> Sponsor link click rate: <%= pct(rep.clicks, rep.views) %>%.<% } %>
+      Admin visits and bots are not counted.
+    </p>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <h5 class="mb-3">Where viewers came from</h5>
+      <% if (rep.viewSources.length === 0) { %><p class="text-body-secondary mb-0">No data yet.</p><% } %>
+      <% rep.viewSources.forEach(s => { %>
+        <div class="d-flex justify-content-between small mb-1"><span class="text-capitalize"><%= s.source %></span><span><%= s.n %> (<%= pct(s.n, total) %>%)</span></div>
+        <div class="progress mb-2" style="height:6px;"><div class="progress-bar" style="width:<%= pct(s.n, total) %>%"></div></div>
+      <% }) %>
+    </div></div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <h5 class="mb-3">Where votes came from</h5>
+      <% if (rep.voteSources.length === 0) { %><p class="text-body-secondary mb-0">No votes yet.</p><% } %>
+      <% rep.voteSources.forEach(s => { %>
+        <div class="d-flex justify-content-between small mb-1"><span class="text-capitalize"><%= s.source %></span><span><%= s.n %> (<%= pct(s.n, rep.votes) %>%)</span></div>
+        <div class="progress mb-2" style="height:6px;"><div class="progress-bar bg-success" style="width:<%= pct(s.n, rep.votes) %>%"></div></div>
+      <% }) %>
+      <% if (rep.shareSources.length) { %>
+        <hr><h6 class="mb-2">Share button clicks</h6>
+        <p class="small mb-0"><% rep.shareSources.forEach((s, i) => { %><span class="text-capitalize"><%= s.source %></span>: <strong><%= s.n %></strong><%= i < rep.shareSources.length - 1 ? ' · ' : '' %><% }) %></p>
+      <% } %>
+    </div></div>
+  </div>
+</div>
+
+<div class="card border-0 shadow-sm mb-4"><div class="card-body">
+  <h5 class="mb-3">Votes per day</h5>
+  <% if (rep.byDay.length === 0) { %><p class="text-body-secondary mb-0">No votes yet.</p><% } %>
+  <% rep.byDay.forEach(d => { %>
+    <div class="d-flex align-items-center gap-2 small mb-1">
+      <span style="width:90px;"><%= d.day %></span>
+      <div class="progress flex-grow-1" style="height:10px;"><div class="progress-bar bg-warning" style="width:<%= pct(d.n, maxDay) %>%"></div></div>
+      <span style="width:40px;" class="text-end"><%= d.n %></span>
+    </div>
+  <% }) %>
+</div></div>
+
+<% if (ex.prize) { %>
+  <div class="card border-0 shadow-sm mb-4"><div class="card-body">
+    <h5 class="mb-2">🎁 Giveaway</h5>
+    <% if (ex.giveaway_username) { %>
+      <p class="mb-0">Winner: <strong><%= ex.giveaway_username %></strong>, drawn at random on <%= fmt(ex.giveaway_at) %> from <%= ex.giveaway_count %> eligible voter<%= ex.giveaway_count === 1 ? '' : 's' %>
+        (<%= ex.giveaway_pool === 'winner' ? 'voters who backed the winner' : 'all verified voters' %>)<% if (ex.giveaway_redraws > 0) { %>; redrawn <%= ex.giveaway_redraws %> time<%= ex.giveaway_redraws === 1 ? '' : 's' %> because earlier winners could not be reached<% } %>.</p>
+    <% } else { %>
+      <p class="text-body-secondary mb-0">Winner not drawn yet.</p>
+    <% } %>
+  </div></div>
+<% } %>
+
+<script>
+  document.getElementById('copySummary').addEventListener('click', function (e) {
+    var t = <%- safeJson(summary) %>, btn = e.target;
+    (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () {
+      btn.textContent = 'Copied ✅'; setTimeout(function () { btn.textContent = 'Copy WhatsApp summary'; }, 2000);
+    }).catch(function () { window.prompt('Copy this summary:', t); });
+  });
+</script>
+
+<%- include('partials/footer') %>

@@ -5,8 +5,20 @@
     <h1 class="fw-bold mb-1">🗳️ Vote Contests</h1>
     <p class="text-body-secondary mb-0">Pick your side, follow the live results, then share your vote on WhatsApp &amp; Facebook.</p>
   </div>
-  <% if (isAdmin) { %><a href="/votes/new" class="btn btn-primary">➕ New contest</a><% } %>
+  <% if (isAdmin) { %>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <a href="/votes/new" class="btn btn-primary">➕ New contest</a>
+      <% if (locals.tgOn) { %>
+        <form action="/votes/telegram-test" method="POST" class="mb-0">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-outline-secondary btn-sm" title="Telegram channel mein test message bhejein">✈️ Test Telegram</button>
+        </form>
+      <% } %>
+    </div>
+  <% } %>
 </div>
+
+<% if (locals.tgMsg) { %><div class="alert alert-info py-2"><%= tgMsg %></div><% } %>
 
 <% if (polls.length === 0) { %>
   <div class="card border-0 shadow-sm"><div class="card-body text-center text-body-secondary py-5">No contests yet. Check back soon!</div></div>
@@ -20,6 +32,7 @@
           <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
             <h5 class="fw-bold mb-0"><a class="stretched-link text-body" href="/votes/<%= p.id %>"><%= p.title %></a></h5>
             <div class="d-flex gap-1 flex-shrink-0">
+              <% if (p.sponsor_name || p.prize) { %><span class="badge text-bg-info">🎁 <%= p.prize ? 'Prize' : 'Sponsored' %></span><% } %>
               <% if (p.kind === 'knockout') { %><span class="badge text-bg-warning">Knockout</span><% } %>
               <span class="badge <%= p.open ? 'text-bg-success' : 'text-bg-secondary' %>"><%= p.open ? 'Live' : 'Ended' %></span>
             </div>
