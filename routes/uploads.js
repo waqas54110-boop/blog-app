@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../db');
+const cloud = require('../lib/cloudinary');
 
 const router = express.Router();
 
@@ -40,10 +41,20 @@ router.post('/upload-image', requireAdminJson, async (req, res) => {
   if (!mime) return res.status(400).json({ error: 'Only JPG, PNG, WebP or GIF images are allowed.' });
 
   try {
+    // Pehle Cloudinary (agar set hai). Na chale to database mein save: user ka upload zaya nahi hota.
+    let remote = null;
+    if (cloud.enabled()) {
+      try {
+        remote = (await cloud.uploadImage(buf, mime)).url;
+      } catch (e) {
+        console.error('[upload] Cloudinary fail, database mein save kar raha hoon:', e.message);
+      }
+    }
     const r = await pool.query(
-      'INSERT INTO images (mime, data, size, uploaded_by) VALUES ($1, $2, $3, $4) RETURNING id',
-      [mime, buf, buf.length, req.session.user.id]
+      'INSERT INTO images (mime, data, size, uploaded_by, remote_url) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [mime, remote ? null : buf, buf.length, req.session.user.id, remote]
     );
+    // URL pehle jaisa /img/ID hi rehta hai (poll, sponsor logo, posts sab usi par chalte hain)
     res.json({ url: `/img/${r.rows[0].id}` });
   } catch (err) {
     console.error('[upload]', err.message);
@@ -139,9 +150,15 @@ router.get('/img/:id', async (req, res) => {
   if (!id) return res.status(404).end();
 
   try {
-    const r = await pool.query('SELECT mime, data FROM images WHERE id = $1', [id]);
+    const r = await pool.query('SELECT mime, data, remote_url FROM images WHERE id = $1', [id]);
     const img = r.rows[0];
     if (!img) return res.status(404).end();
+
+    // Cloudinary wali image: wahin bhej do (browser is redirect ko bhi saal bhar cache karta hai)
+    if (img.remote_url) {
+      res.set('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.redirect(302, cloud.optimized(img.remote_url));
+    }
 
     res.set({
       'Content-Type': img.mime,
