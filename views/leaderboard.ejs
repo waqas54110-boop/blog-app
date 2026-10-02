@@ -16,7 +16,7 @@
                 <span class="fw-bold text-primary" style="width:2rem;">
                   <%= i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.' %>
                 </span>
-                <span class="avatar"><%= l.username.charAt(0).toUpperCase() %></span>
+                <span class="avatar"><%= l.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(l.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
                 <a href="/u/<%= encodeURIComponent(l.username) %>" class="fw-semibold flex-grow-1 text-reset text-decoration-none"><%= l.username %></a>
                 <span class="badge text-bg-primary"><%= l.comment_count %> comments</span>
               </div>

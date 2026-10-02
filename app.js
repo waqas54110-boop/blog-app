@@ -20,6 +20,11 @@ const hireRouter = require('./routes/hire');
 const votesRouter = require('./routes/votes');
 const sponsorRouter = require('./routes/sponsor');
 const profileRouter = require('./routes/profile');
+const friendsRouter = require('./routes/friends');
+const friendsLib = require('./lib/friends');
+const messagesRouter = require('./routes/messages');
+const messagesLib = require('./lib/messages');
+const avatarRouter = require('./routes/avatar');
 const moderationRouter = require('./routes/moderation');
 const moderationLib = require('./lib/moderation');
 const { startFollowNotifier } = require('./lib/follow');
@@ -50,7 +55,7 @@ const limiter = (windowMinutes, limit, message, opts = {}) =>
 // ek page par kai images hoti hain aur video har seek par chhoti requests bhejti hai
 app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try again.', {
   // /votes/:id/state.json (live counting) ka apna alag limit neeche hai
-  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || /^\/votes\/\d+\/state\.json$/.test(req.path),
+  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path),
 }));
 app.post(['/login', '/signup'], limiter(15, 15, 'Too many login/signup attempts. Please try again in 15 minutes.'));
 app.post('/subscribe', limiter(60, 6, 'Too many subscribe attempts. Please try again later.'));
@@ -72,6 +77,11 @@ app.post('/votes/:id/comments', limiter(5, 10, 'You are commenting too fast. Ple
 app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
 app.post('/report', limiter(10, 10, 'You are reporting too fast. Please wait a few minutes.'));
 app.post(['/u/:username/follow', '/u/:username/unfollow', '/u/:username/follow-email'], limiter(10, 30, 'Too many requests. Please wait a few minutes.'));
+app.post('/friends/:action/:username', limiter(10, 40, 'Too many requests. Please wait a few minutes.'));
+app.post('/messages/:username', limiter(1, 12, 'You are sending messages too fast. Please wait a minute.'));
+app.get('/messages/:username/poll', limiter(1, 30, 'Too many requests.'));
+app.post('/upload-avatar', limiter(10, 10, 'Too many photo uploads. Please wait a few minutes.'));
+app.post('/avatar/remove', limiter(10, 10, 'Too many requests. Please wait a few minutes.'));
 app.get('/r/:code', limiter(10, 30, 'Too many requests. Please try again in a few minutes.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
@@ -86,6 +96,9 @@ app.post(
   '/upload-video',
   express.raw({ type: ['video/mp4', 'video/webm'], limit: config.videoMaxMb + 'mb' })
 );
+
+// Profile photo: browser 256x256 JPEG bana kar seedha bytes bhejta hai (CSRF token header x-csrf-token mein). Ye bhi csrf se pehle.
+app.post('/upload-avatar', express.raw({ type: ['image/jpeg'], limit: '1mb' }));
 
 // Push subscribe/unsubscribe JSON bhejte hain (CSRF token header x-csrf-token mein)
 app.use('/push', express.json({ limit: '8kb' }));
@@ -153,6 +166,26 @@ app.use(async (req, res, next) => {
     console.error('locals middleware:', err.message);
   }
 
+  // Friend requests jo accept ka intezar kar rahi hain (header badge). Alag try: migration_v14 na chali ho to site na ruke
+  res.locals.pendingFriends = 0;
+  if (req.session.user) {
+    try {
+      res.locals.pendingFriends = await friendsLib.pendingCount(req.session.user.id);
+    } catch (err) {
+      console.error('friend requests count (migration_v14.sql chali?):', err.message);
+    }
+  }
+
+  // Parhe na gaye private messages (header ka 💬 badge). Alag try: migration_v15 na chali ho to site na ruke
+  res.locals.unreadMessages = 0;
+  if (req.session.user) {
+    try {
+      res.locals.unreadMessages = await messagesLib.unreadTotal(req.session.user.id);
+    } catch (err) {
+      console.error('unread messages count (migration_v15.sql chali?):', err.message);
+    }
+  }
+
   // Admin ke liye: moderation queue mein kitni cheezein review ka intezar kar rahi hain (alag try: migration_v13 na chali ho to site na ruke)
   res.locals.openReports = 0;
   if (res.locals.isAdmin) {
@@ -187,6 +220,9 @@ app.use('/', hireRouter);
 app.use('/', sponsorRouter);
 app.use('/', votesRouter);
 app.use('/', profileRouter);
+app.use('/', friendsRouter);
+app.use('/', messagesRouter);
+app.use('/', avatarRouter);
 app.use('/', moderationRouter);
 app.use('/', authRouter);
 

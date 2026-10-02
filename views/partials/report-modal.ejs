@@ -37,7 +37,9 @@
       var b = e.relatedTarget; if (!b) return;
       document.getElementById('reportType').value = b.getAttribute('data-report-type') || '';
       document.getElementById('reportId').value = b.getAttribute('data-report-id') || '';
-      document.getElementById('reportTitle').textContent = b.getAttribute('data-report-type') === 'poll' ? '🚩 Report this contest' : '🚩 Report this comment';
+      var t = b.getAttribute('data-report-type');
+      document.getElementById('reportTitle').textContent =
+        t === 'poll' ? '🚩 Report this contest' : t === 'user' ? '🚩 Report this user' : t === 'message' ? '🚩 Report this message' : '🚩 Report this comment';
     });
   })();
 </script>

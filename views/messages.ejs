@@ -1,0 +1,39 @@
+<%- include('partials/header') %>
+
+<% const when = (d) => { const t = new Date(d), n = new Date(); return t.toDateString() === n.toDateString()
+     ? t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+     : t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }; %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h3 fw-bold mb-3">💬 Messages</h1>
+
+        <% if (list.length === 0) { %>
+          <p class="text-body-secondary mb-0">You can message your friends here. <a href="/friends?tab=people">Add a friend</a> to start.</p>
+        <% } else { %>
+          <div class="list-group">
+            <% list.forEach(c => { %>
+              <a href="/messages/<%= encodeURIComponent(c.username) %>" class="list-group-item list-group-item-action d-flex align-items-center gap-3">
+                <span class="avatar"><%= c.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(c.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
+                <div class="flex-grow-1 overflow-hidden">
+                  <div class="fw-semibold"><%= c.username %></div>
+                  <div class="small text-body-secondary text-truncate <%= c.unread > 0 ? 'fw-semibold text-body' : '' %>">
+                    <% if (c.body) { %><%= c.last_sender === user.id ? 'You: ' : '' %><%= c.body %><% } else { %>Say hello 👋<% } %>
+                  </div>
+                </div>
+                <div class="text-end small text-body-secondary">
+                  <% if (c.created_at) { %><div><%= when(c.created_at) %></div><% } %>
+                  <% if (c.unread > 0) { %><span class="badge rounded-pill bg-danger"><%= c.unread %></span><% } %>
+                </div>
+              </a>
+            <% }) %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

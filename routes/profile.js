@@ -6,6 +6,8 @@ const { notifyUser } = require('../lib/notify');
 const Profile = require('../lib/profile');
 const R = require('../lib/referral');
 const { profileLink } = require('../lib/follow');
+const Friends = require('../lib/friends');
+const Blocks = require('../lib/blocks');
 
 const router = express.Router();
 const isProd = process.env.NODE_ENV === 'production';
@@ -34,13 +36,29 @@ router.get('/u/:username', async (req, res, next) => {
     const me = req.session.user ? req.session.user.id : null;
     const data = await Profile.load(profile, me);
     const isMe = me === profile.id;
+    let friendState = 'none';
+    let blockState = 'none'; // none | by_me | me
+    if (me && !isMe) {
+      try {
+        blockState = await Blocks.stateFor(me, profile.id);
+        if (blockState === 'none') friendState = await Friends.stateBetween(me, profile.id);
+      } catch (e) { console.error('friend/block state (migration_v14/v15 chali?):', e.message); }
+    }
+    // Profile photo ka version (browser cache badalne ke liye)
+    let avatarVer = 0;
+    try {
+      const a = await pool.query('SELECT avatar_image_id FROM users WHERE id = $1', [profile.id]);
+      avatarVer = (a.rows[0] && a.rows[0].avatar_image_id) || 0;
+    } catch (e) { console.error('avatar (migration_v15.sql chali?):', e.message); }
     res.render('profile', {
+      friendState, blockState, avatarVer,
       title: `${profile.username} · Profile`,
       metaDescription: `${profile.username} on ${config.siteName}: ${data.stats.votes} votes, ${data.stats.pts} prediction points, ${data.badges.length} badges.`,
       profile, ...data, isMe,
       selfPath: profileLink(profile.username),
       followMsg: req.query.followed === '1' ? `You now follow ${profile.username}. You will be notified about their new posts and contests.`
-        : req.query.followed === '0' ? `You unfollowed ${profile.username}.` : null,
+        : req.query.followed === '0' ? `You unfollowed ${profile.username}.`
+        : req.query.msg ? String(req.query.msg).slice(0, 120) : null,
     });
   } catch (err) { next(err); }
 });
@@ -53,6 +71,7 @@ router.post('/u/:username/follow', requireLogin, async (req, res, next) => {
     const me = req.session.user;
     const back = safeRet(req.body.ret, profileLink(target.username));
     if (target.id === me.id) return res.redirect(back);
+    if (await Blocks.isBlockedEither(me.id, target.id)) return res.redirect(back); // block ho to follow nahi
 
     const ins = await pool.query(
       'INSERT INTO follows (follower_id, followee_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING follower_id',

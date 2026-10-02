@@ -123,7 +123,7 @@
             <div id="c<%= c.id %>" class="py-3 border-top text-body-secondary fst-italic <%= isReply ? 'reply-box' : '' %>">This comment is hidden while the site owner reviews it.</div>
           <% return; } %>
           <div id="c<%= c.id %>" class="d-flex gap-3 py-3 border-top <%= isReply ? 'reply-box' : '' %>">
-            <span class="avatar"><%= c.username.charAt(0).toUpperCase() %></span>
+            <span class="avatar"><%= c.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(c.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
             <div class="flex-grow-1">
               <div class="d-flex justify-content-between align-items-start">
                 <div>

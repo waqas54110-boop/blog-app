@@ -109,7 +109,7 @@
             <% leaders.forEach((l, i) => { %>
               <div class="list-group-item px-0 d-flex align-items-center gap-2">
                 <span style="width:2rem;" class="fw-bold"><%= i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.' %></span>
-                <span class="avatar"><%= l.username.charAt(0).toUpperCase() %></span>
+                <span class="avatar"><%= l.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(l.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
                 <span class="flex-grow-1 fw-semibold text-truncate"><a href="/u/<%= encodeURIComponent(l.username) %>" class="text-reset text-decoration-none"><%= l.username %></a>
                   <span class="d-block small text-body-secondary fw-normal"><%= l.correct %>/<%= l.played %> correct</span></span>
                 <span class="badge text-bg-primary"><%= l.pts %> pts</span>

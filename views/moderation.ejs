@@ -1,7 +1,7 @@
 <%- include('partials/header') %>
 
 <% const fmt = (d) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); %>
-<% const label = { comment: 'Post comment', poll_comment: 'Contest comment', poll: 'Contest' }; %>
+<% const label = { comment: 'Post comment', poll_comment: 'Contest comment', poll: 'Contest', user: 'User', message: 'Private message' }; %>
 <% const reasonLabel = { spam: 'Spam', abuse: 'Abuse', hate: 'Hate', misleading: 'Misleading', other: 'Other' }; %>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -35,6 +35,15 @@
       <% if (g.target_type === 'poll') { %>
         <div class="fw-semibold"><a href="<%= g.link %>" class="text-decoration-none"><%= t.title %></a>
           <% if (t.is_closed) { %><span class="badge text-bg-secondary ms-1">Closed</span><% } %></div>
+      <% } else if (g.target_type === 'user') { %>
+        <div class="fw-semibold"><a href="<%= g.link %>" class="text-decoration-none">👤 <%= t.username %></a>
+          <span class="small text-body-secondary fw-normal">· joined <%= fmt(t.created_at) %></span></div>
+      <% } else if (g.target_type === 'message') { %>
+        <div class="small text-body-secondary mb-1">
+          Message from <a href="/u/<%= encodeURIComponent(t.username) %>"><%= t.username %></a> · <%= fmt(t.created_at) %>
+          <span class="badge text-bg-light border">only this message is shown</span>
+        </div>
+        <div class="border-start border-3 ps-3 py-1 comment-body"><%= t.body %></div>
       <% } else { %>
         <div class="small text-body-secondary mb-1">
           by <a href="/u/<%= encodeURIComponent(t.username) %>"><%= t.username %></a> on
@@ -49,8 +58,15 @@
       </div>
 
       <div class="d-flex flex-wrap gap-2 mt-3">
-        <% if (g.target_type !== 'poll') { %>
-          <form action="/admin/moderation/act" method="POST" class="mb-0" onsubmit="return confirm('Delete this comment (and its replies)?')">
+        <% if (g.target_type === 'user') { %>
+          <form action="/admin/moderation/act" method="POST" class="mb-0">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="type" value="user"><input type="hidden" name="id" value="<%= g.target_id %>">
+            <input type="hidden" name="action" value="handled">
+            <button class="btn btn-sm btn-primary">✔ Mark handled</button>
+          </form>
+        <% } else if (g.target_type !== 'poll') { %>
+          <form action="/admin/moderation/act" method="POST" class="mb-0" onsubmit="return confirm('Delete this <%= g.target_type === 'message' ? 'message' : 'comment (and its replies)' %>?')">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <input type="hidden" name="type" value="<%= g.target_type %>"><input type="hidden" name="id" value="<%= g.target_id %>">
             <input type="hidden" name="action" value="delete">

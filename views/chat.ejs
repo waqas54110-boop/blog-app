@@ -1,0 +1,123 @@
+<%- include('partials/header') %>
+
+<% const link = '/u/' + encodeURIComponent(other.username); %>
+<% const timeFmt = (d) => new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); %>
+
+<style>
+  .chat-box { height: 55vh; min-height: 300px; overflow-y: auto; background: var(--bs-tertiary-bg); border-radius: .5rem; padding: 1rem; }
+  .bubble { max-width: 80%; padding: .5rem .75rem; border-radius: 1rem; white-space: pre-wrap; word-break: break-word; }
+  .bubble.mine { background: #4f46e5; color: #fff; margin-left: auto; border-bottom-right-radius: .25rem; }
+  .bubble.theirs { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-bottom-left-radius: .25rem; }
+  .bubble-meta { font-size: .72rem; opacity: .7; }
+  .m-row { display: flex; flex-direction: column; margin-bottom: .6rem; }
+  .m-row.mine { align-items: flex-end; }
+  .m-row:target .bubble { outline: 2px solid #f59e0b; }
+</style>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+
+    <% if (locals.reportedFlash) { %><div class="alert alert-success">Thanks, your report was sent to the site owner.</div><% } %>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-3 p-md-4">
+
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <a href="/messages" class="btn btn-sm btn-outline-secondary">←</a>
+          <span class="avatar"><%= other.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(other.username) %>" alt="" onerror="this.remove()"></span>
+          <a href="<%= link %>" class="fw-semibold fs-5 text-reset text-decoration-none flex-grow-1"><%= other.username %></a>
+          <% if (!blocked) { %>
+            <div class="dropdown">
+              <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More">⋯</button>
+              <ul class="dropdown-menu dropdown-menu-end">
+                <li><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#reportModal" data-report-type="user" data-report-id="<%= other.id %>">🚩 Report user</button></li>
+                <li>
+                  <form action="/friends/block/<%= encodeURIComponent(other.username) %>" method="POST" class="mb-0"
+                        onsubmit="return confirm('Block this user? You will stop being friends and they cannot message you.')">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <input type="hidden" name="ret" value="/friends?tab=blocked">
+                    <button class="dropdown-item text-danger">⛔ Block user</button>
+                  </form>
+                </li>
+              </ul>
+            </div>
+          <% } %>
+        </div>
+
+        <% if (blocked) { %>
+          <div class="alert alert-secondary mb-0">You can't message this user.</div>
+        <% } else { %>
+          <div class="chat-box" id="chatBox">
+            <% if (messages.length === 0) { %><div class="text-center text-body-secondary small" id="emptyNote">No messages yet. Say hello 👋</div><% } %>
+            <% messages.forEach(m => { const mine = m.sender_id === user.id; %>
+              <div class="m-row <%= mine ? 'mine' : '' %>" id="m<%= m.id %>">
+                <div class="bubble <%= mine ? 'mine' : 'theirs' %>"><%= m.body %></div>
+                <div class="bubble-meta"><%= timeFmt(m.created_at) %>
+                  <% if (!mine) { %> · <a href="#" class="text-reset" data-bs-toggle="modal" data-bs-target="#reportModal" data-report-type="message" data-report-id="<%= m.id %>">Report</a><% } %>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+
+          <% if (err) { %><div class="alert alert-warning py-2 mt-3 mb-0"><%= err %></div><% } %>
+
+          <form action="/messages/<%= encodeURIComponent(other.username) %>" method="POST" class="mt-3 mb-0" id="sendForm">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="input-group">
+              <textarea class="form-control" name="body" id="msgBody" rows="2" maxlength="<%= maxLen %>" placeholder="Type a message... (Enter to send, Shift+Enter for new line)" required></textarea>
+              <button class="btn btn-primary" type="submit">Send</button>
+            </div>
+          </form>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/report-modal') %>
+
+<% if (!blocked) { %>
+<script>
+(function () {
+  var box = document.getElementById('chatBox');
+  var ta = document.getElementById('msgBody');
+  var lastId = <%= lastId %>;
+  var url = '/messages/<%= encodeURIComponent(other.username) %>/poll';
+  box.scrollTop = box.scrollHeight;
+
+  ta.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (ta.value.trim()) document.getElementById('sendForm').submit(); }
+  });
+
+  function fmt(d) { return new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+  function add(m) {
+    var empty = document.getElementById('emptyNote'); if (empty) empty.remove();
+    var row = document.createElement('div'); row.className = 'm-row' + (m.mine ? ' mine' : ''); row.id = 'm' + m.id;
+    var b = document.createElement('div'); b.className = 'bubble ' + (m.mine ? 'mine' : 'theirs'); b.textContent = m.body;
+    var meta = document.createElement('div'); meta.className = 'bubble-meta'; meta.textContent = fmt(m.at);
+    if (!m.mine) {
+      meta.appendChild(document.createTextNode(' · '));
+      var a = document.createElement('a'); a.href = '#'; a.className = 'text-reset'; a.textContent = 'Report';
+      a.setAttribute('data-bs-toggle', 'modal'); a.setAttribute('data-bs-target', '#reportModal');
+      a.setAttribute('data-report-type', 'message'); a.setAttribute('data-report-id', m.id);
+      meta.appendChild(a);
+    }
+    row.appendChild(b); row.appendChild(meta); box.appendChild(row);
+  }
+  function poll() {
+    if (document.hidden) return;
+    fetch(url + '?after=' + lastId, { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.messages || !j.messages.length) return;
+        var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+        j.messages.forEach(function (m) { if (m.id > lastId) { add(m); lastId = m.id; } });
+        if (atBottom) box.scrollTop = box.scrollHeight;
+      }).catch(function () {});
+  }
+  setInterval(poll, 6000);
+})();
+</script>
+<% } %>
+
+<%- include('partials/footer') %>

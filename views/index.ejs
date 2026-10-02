@@ -76,7 +76,7 @@
                 <% } %>
 
                 <div class="d-flex align-items-center gap-2 mt-2">
-                  <span class="avatar"><%= post.username.charAt(0).toUpperCase() %></span>
+                  <span class="avatar"><%= post.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(post.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
                   <div class="small">
                     <div class="fw-semibold"><%= post.username %></div>
                     <div class="text-body-secondary">

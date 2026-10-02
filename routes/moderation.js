@@ -21,7 +21,18 @@ const requireAdmin = (req, res, next) => {
 };
 
 // Content ka owner + wapas jane ka link (ret form se nahi aata, server khud banata hai)
-async function lookup(type, id) {
+async function lookup(type, id, meId) {
+  if (type === 'user') {
+    const r = await pool.query('SELECT id, username FROM users WHERE id = $1', [id]);
+    return r.rows[0] ? { owner: r.rows[0].id, path: `/u/${encodeURIComponent(r.rows[0].username)}`, hash: '' } : null;
+  }
+  if (type === 'message') {
+    // Sirf wahi report kar sakta hai jise message aaya (doosre ki private chat report nahi hoti)
+    const r = await pool.query(
+      'SELECT m.sender_id AS owner, m.receiver_id, s.username FROM messages m JOIN users s ON s.id = m.sender_id WHERE m.id = $1', [id]);
+    const m = r.rows[0];
+    return m && m.receiver_id === meId ? { owner: m.owner, path: `/messages/${encodeURIComponent(m.username)}`, hash: `#m${id}` } : null;
+  }
   if (type === 'comment') {
     const r = await pool.query('SELECT c.user_id AS owner, p.slug FROM comments c JOIN posts p ON p.id = c.post_id WHERE c.id = $1', [id]);
     return r.rows[0] ? { owner: r.rows[0].owner, path: `/posts/${r.rows[0].slug}`, hash: `#c${id}` } : null;
@@ -42,9 +53,9 @@ router.post('/report', requireLogin, async (req, res, next) => {
     const reason = String(req.body.reason || '');
     if (!M.TYPES.includes(type) || !id || !M.REASONS.includes(reason)) return res.redirect('/');
 
-    const t = await lookup(type, id);
-    if (!t) return res.redirect('/');
     const me = req.session.user;
+    const t = await lookup(type, id, me.id);
+    if (!t) return res.redirect('/');
     if (t.owner === me.id) return res.redirect(t.path + t.hash); // apna content report nahi hota
 
     const ins = await pool.query(
@@ -54,7 +65,7 @@ router.post('/report', requireLogin, async (req, res, next) => {
     );
 
     // Kai alag logon ne report kiya to comment foran chhupa do (admin dekh kar wapas la sakta hai)
-    if (ins.rows[0] && type !== 'poll') {
+    if (ins.rows[0] && (type === 'comment' || type === 'poll_comment')) {
       const table = type === 'comment' ? 'comments' : 'poll_comments';
       const n = await pool.query(
         `SELECT COUNT(DISTINCT reporter_id)::int AS c FROM reports
@@ -89,6 +100,18 @@ router.post('/admin/moderation/act', requireAdmin, async (req, res, next) => {
     const me = req.session.user.id;
     const done = (msg) => res.redirect('/admin/moderation?msg=' + encodeURIComponent(msg));
     if (!M.TYPES.includes(type) || !id) return res.redirect('/admin/moderation');
+
+    // User / private message: delete (sirf message) | keep (dismiss) | handled (user ke baare mein khud kar liya)
+    if (type === 'message' && action === 'delete') {
+      await pool.query('DELETE FROM messages WHERE id = $1', [id]);
+      await M.resolve(type, id, 'resolved', 'delete', me);
+      return done('Message deleted ✅');
+    }
+    if ((type === 'user' || type === 'message') && (action === 'keep' || action === 'handled')) {
+      await M.resolve(type, id, action === 'keep' ? 'dismissed' : 'resolved', action, me);
+      return done(action === 'keep' ? 'Dismissed. Reports closed ✅' : 'Marked as handled ✅');
+    }
+    if (type === 'user' || type === 'message') return res.redirect('/admin/moderation');
 
     if (action === 'delete' && type !== 'poll') {
       await pool.query(`DELETE FROM ${type === 'comment' ? 'comments' : 'poll_comments'} WHERE id = $1`, [id]);

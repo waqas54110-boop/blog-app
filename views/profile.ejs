@@ -7,12 +7,13 @@
   <div class="col-12 col-lg-9">
 
     <% if (followMsg) { %><div class="alert alert-success"><%= followMsg %></div><% } %>
+    <% if (locals.reportedFlash) { %><div class="alert alert-success">Thanks, your report was sent to the site owner.</div><% } %>
 
     <!-- Header card -->
     <div class="card border-0 shadow-sm mb-4">
       <div class="card-body p-4">
         <div class="d-flex flex-wrap align-items-center gap-3">
-          <span class="avatar" style="width:72px;height:72px;font-size:2rem;"><%= profile.username.charAt(0).toUpperCase() %></span>
+          <span class="avatar" style="width:72px;height:72px;font-size:2rem;"><%= profile.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(profile.username) %><%= avatarVer ? '?v=' + avatarVer : '' %>" alt="" onerror="this.remove()"></span>
           <div class="flex-grow-1">
             <h1 class="h3 fw-bold mb-1"><%= profile.username %>
               <% if (profile.role === 'admin') { %><span class="badge text-bg-primary align-middle fs-6">Owner</span><% } %>
@@ -28,6 +29,25 @@
           <div class="d-flex flex-column align-items-end gap-2">
             <% if (isMe) { %>
               <a href="/invite" class="btn btn-primary">🎁 Invite friends</a>
+              <div class="d-flex align-items-center gap-2">
+                <input type="file" id="avatarFile" accept="image/*" class="d-none">
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="avatarBtn">📷 <%= avatarVer ? 'Change photo' : 'Add photo' %></button>
+                <% if (avatarVer) { %>
+                  <form action="/avatar/remove" method="POST" class="mb-0" onsubmit="return confirm('Remove your profile photo?')">
+                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                    <button class="btn btn-sm btn-link text-danger text-decoration-none p-0">Remove</button>
+                  </form>
+                <% } %>
+              </div>
+              <div class="small text-danger" id="avatarMsg"></div>
+            <% } else if (user && blockState === 'by_me') { %>
+              <form action="/friends/unblock/<%= encodeURIComponent(profile.username) %>" method="POST" class="mb-0">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="ret" value="<%= link %>">
+                <button class="btn btn-outline-secondary">⛔ Blocked · Unblock</button>
+              </form>
+            <% } else if (user && blockState === 'me') { %>
+              <span class="text-body-secondary small">Not available</span>
             <% } else if (!user) { %>
               <a href="/login" class="btn btn-primary">➕ Follow</a>
             <% } else if (isFollowing) { %>
@@ -44,6 +64,28 @@
                 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button class="btn btn-primary">➕ Follow</button>
               </form>
+            <% } %>
+            <% if (user && !isMe && blockState === 'none') { %>
+              <% const fAct = (a, label, cls) => `<form action="/friends/${a}/${encodeURIComponent(profile.username)}" method="POST" class="mb-0 d-inline"><input type="hidden" name="_csrf" value="${csrfToken}"><input type="hidden" name="ret" value="${link}"><button class="btn ${cls}">${label}</button></form>`; %>
+              <% if (friendState === 'none') { %><%- fAct('request', '👋 Add friend', 'btn-outline-primary') %>
+              <% } else if (friendState === 'sent') { %><div class="d-flex align-items-center gap-2"><span class="text-body-secondary small">Request sent</span><%- fAct('decline', 'Cancel', 'btn-outline-secondary btn-sm') %></div>
+              <% } else if (friendState === 'received') { %><div class="d-flex gap-2"><%- fAct('accept', 'Accept request', 'btn-success') %><%- fAct('decline', 'Decline', 'btn-outline-secondary') %></div>
+              <% } else { %><div class="d-flex align-items-center gap-2"><a href="/messages/<%= encodeURIComponent(profile.username) %>" class="btn btn-primary">💬 Message</a><span class="badge text-bg-success">✓ Friends</span><%- fAct('remove', 'Unfriend', 'btn-link btn-sm text-danger text-decoration-none') %></div>
+              <% } %>
+              <div class="dropdown">
+                <button class="btn btn-sm btn-link text-body-secondary text-decoration-none p-0" data-bs-toggle="dropdown" aria-expanded="false">⋯ More</button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                  <li><button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#reportModal" data-report-type="user" data-report-id="<%= profile.id %>">🚩 Report user</button></li>
+                  <li>
+                    <form action="/friends/block/<%= encodeURIComponent(profile.username) %>" method="POST" class="mb-0"
+                          onsubmit="return confirm('Block this user? You will stop being friends and they cannot message you.')">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <input type="hidden" name="ret" value="<%= link %>">
+                      <button class="dropdown-item text-danger">⛔ Block user</button>
+                    </form>
+                  </li>
+                </ul>
+              </div>
             <% } %>
           </div>
         </div>
@@ -151,5 +193,45 @@
 
   </div>
 </div>
+
+<%- include('partials/report-modal') %>
+
+<% if (isMe) { %>
+<script>
+(function () {
+  var btn = document.getElementById('avatarBtn'), file = document.getElementById('avatarFile'), msg = document.getElementById('avatarMsg');
+  var token = '<%= csrfToken %>';
+  btn.addEventListener('click', function () { file.click(); });
+  file.addEventListener('change', function () {
+    var f = file.files[0]; if (!f) return;
+    msg.textContent = '';
+    if (!/^image\//.test(f.type)) { msg.textContent = 'Please choose an image.'; return; }
+    var img = new Image(), url = URL.createObjectURL(f);
+    img.onload = function () {
+      // Beech se square crop, 256x256 JPEG (chhoti file, tez load)
+      var size = Math.min(img.width, img.height), sx = (img.width - size) / 2, sy = (img.height - size) / 2;
+      var c = document.createElement('canvas'); c.width = c.height = 256;
+      var ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 256, 256);
+      ctx.drawImage(img, sx, sy, size, size, 0, 0, 256, 256);
+      URL.revokeObjectURL(url);
+      btn.disabled = true; btn.textContent = 'Uploading...';
+      c.toBlob(function (blob) {
+        if (!blob) { msg.textContent = 'Could not read this image.'; btn.disabled = false; return; }
+        fetch('/upload-avatar', { method: 'POST', headers: { 'Content-Type': 'image/jpeg', 'x-csrf-token': token }, body: blob, credentials: 'same-origin' })
+          .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (x) {
+            if (x.ok) { location.reload(); return; }
+            msg.textContent = (x.j && x.j.error) || 'Upload failed. Please try again.';
+            btn.disabled = false; btn.textContent = '📷 Change photo';
+          })
+          .catch(function () { msg.textContent = 'Upload failed. Please try again.'; btn.disabled = false; btn.textContent = '📷 Change photo'; });
+      }, 'image/jpeg', 0.85);
+    };
+    img.onerror = function () { msg.textContent = 'Could not read this image.'; };
+    img.src = url;
+  });
+})();
+</script>
+<% } %>
 
 <%- include('partials/footer') %>
