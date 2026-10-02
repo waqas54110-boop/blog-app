@@ -20,6 +20,8 @@ const hireRouter = require('./routes/hire');
 const votesRouter = require('./routes/votes');
 const sponsorRouter = require('./routes/sponsor');
 const profileRouter = require('./routes/profile');
+const friendsRouter = require('./routes/friends');
+const friendsLib = require('./lib/friends');
 const moderationRouter = require('./routes/moderation');
 const moderationLib = require('./lib/moderation');
 const { startFollowNotifier } = require('./lib/follow');
@@ -72,6 +74,7 @@ app.post('/votes/:id/comments', limiter(5, 10, 'You are commenting too fast. Ple
 app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
 app.post('/report', limiter(10, 10, 'You are reporting too fast. Please wait a few minutes.'));
 app.post(['/u/:username/follow', '/u/:username/unfollow', '/u/:username/follow-email'], limiter(10, 30, 'Too many requests. Please wait a few minutes.'));
+app.post('/friends/:action/:username', limiter(10, 40, 'Too many requests. Please wait a few minutes.'));
 app.get('/r/:code', limiter(10, 30, 'Too many requests. Please try again in a few minutes.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
@@ -153,6 +156,16 @@ app.use(async (req, res, next) => {
     console.error('locals middleware:', err.message);
   }
 
+  // Friend requests jo accept ka intezar kar rahi hain (header badge). Alag try: migration_v14 na chali ho to site na ruke
+  res.locals.pendingFriends = 0;
+  if (req.session.user) {
+    try {
+      res.locals.pendingFriends = await friendsLib.pendingCount(req.session.user.id);
+    } catch (err) {
+      console.error('friend requests count (migration_v14.sql chali?):', err.message);
+    }
+  }
+
   // Admin ke liye: moderation queue mein kitni cheezein review ka intezar kar rahi hain (alag try: migration_v13 na chali ho to site na ruke)
   res.locals.openReports = 0;
   if (res.locals.isAdmin) {
@@ -187,6 +200,7 @@ app.use('/', hireRouter);
 app.use('/', sponsorRouter);
 app.use('/', votesRouter);
 app.use('/', profileRouter);
+app.use('/', friendsRouter);
 app.use('/', moderationRouter);
 app.use('/', authRouter);
 

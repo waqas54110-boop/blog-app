@@ -6,6 +6,7 @@ const { notifyUser } = require('../lib/notify');
 const Profile = require('../lib/profile');
 const R = require('../lib/referral');
 const { profileLink } = require('../lib/follow');
+const Friends = require('../lib/friends');
 
 const router = express.Router();
 const isProd = process.env.NODE_ENV === 'production';
@@ -34,13 +35,19 @@ router.get('/u/:username', async (req, res, next) => {
     const me = req.session.user ? req.session.user.id : null;
     const data = await Profile.load(profile, me);
     const isMe = me === profile.id;
+    let friendState = 'none';
+    if (me && !isMe) {
+      try { friendState = await Friends.stateBetween(me, profile.id); } catch (e) { console.error('friend state (migration_v14.sql chali?):', e.message); }
+    }
     res.render('profile', {
+      friendState,
       title: `${profile.username} · Profile`,
       metaDescription: `${profile.username} on ${config.siteName}: ${data.stats.votes} votes, ${data.stats.pts} prediction points, ${data.badges.length} badges.`,
       profile, ...data, isMe,
       selfPath: profileLink(profile.username),
       followMsg: req.query.followed === '1' ? `You now follow ${profile.username}. You will be notified about their new posts and contests.`
-        : req.query.followed === '0' ? `You unfollowed ${profile.username}.` : null,
+        : req.query.followed === '0' ? `You unfollowed ${profile.username}.`
+        : req.query.msg ? String(req.query.msg).slice(0, 120) : null,
     });
   } catch (err) { next(err); }
 });

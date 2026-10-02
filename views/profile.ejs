@@ -45,6 +45,14 @@
                 <button class="btn btn-primary">➕ Follow</button>
               </form>
             <% } %>
+            <% if (user && !isMe) { %>
+              <% const fAct = (a, label, cls) => `<form action="/friends/${a}/${encodeURIComponent(profile.username)}" method="POST" class="mb-0 d-inline"><input type="hidden" name="_csrf" value="${csrfToken}"><input type="hidden" name="ret" value="${link}"><button class="btn ${cls}">${label}</button></form>`; %>
+              <% if (friendState === 'none') { %><%- fAct('request', '👋 Add friend', 'btn-outline-primary') %>
+              <% } else if (friendState === 'sent') { %><div class="d-flex align-items-center gap-2"><span class="text-body-secondary small">Request sent</span><%- fAct('decline', 'Cancel', 'btn-outline-secondary btn-sm') %></div>
+              <% } else if (friendState === 'received') { %><div class="d-flex gap-2"><%- fAct('accept', 'Accept request', 'btn-success') %><%- fAct('decline', 'Decline', 'btn-outline-secondary') %></div>
+              <% } else { %><div class="d-flex align-items-center gap-2"><span class="badge text-bg-success">✓ Friends</span><%- fAct('remove', 'Unfriend', 'btn-link btn-sm text-danger text-decoration-none') %></div>
+              <% } %>
+            <% } %>
           </div>
         </div>
 

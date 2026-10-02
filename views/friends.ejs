@@ -1,0 +1,121 @@
+<%- include('partials/header') %>
+
+<% const fmt = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; %>
+<% const here = '/friends?tab=' + tab; %>
+<% const act = (action, name, label, cls, ret) => `
+  <form action="/friends/${action}/${encodeURIComponent(name)}" method="POST" class="d-inline mb-0">
+    <input type="hidden" name="_csrf" value="${csrfToken}">
+    <input type="hidden" name="ret" value="${ret || here}">
+    <button class="btn btn-sm ${cls}">${label}</button>
+  </form>`; %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+
+    <% if (msg) { %><div class="alert alert-success"><%= msg %></div><% } %>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h3 fw-bold mb-3">👫 Friends</h1>
+
+        <ul class="nav nav-pills mb-4 gap-1">
+          <li class="nav-item"><a class="nav-link <%= tab === 'people' ? 'active' : '' %>" href="/friends?tab=people">People</a></li>
+          <li class="nav-item">
+            <a class="nav-link <%= tab === 'requests' ? 'active' : '' %>" href="/friends?tab=requests">
+              Requests <% if (incoming.length) { %><span class="badge rounded-pill bg-danger"><%= incoming.length %></span><% } %>
+            </a>
+          </li>
+          <li class="nav-item"><a class="nav-link <%= tab === 'friends' ? 'active' : '' %>" href="/friends?tab=friends">My friends (<%= friends.length %>)</a></li>
+        </ul>
+
+        <% if (tab === 'people') { %>
+          <form action="/friends" method="GET" class="d-flex gap-2 mb-3">
+            <input type="hidden" name="tab" value="people">
+            <input class="form-control" type="search" name="q" value="<%= q %>" maxlength="50" placeholder="Search by username...">
+            <button class="btn btn-outline-primary" type="submit">Search</button>
+          </form>
+
+          <% if (people.length === 0) { %>
+            <p class="text-body-secondary mb-0">No users found.</p>
+          <% } else { %>
+            <div class="list-group">
+              <% people.forEach(p => { %>
+                <div class="list-group-item d-flex align-items-center gap-3">
+                  <span class="avatar"><%= p.username.charAt(0).toUpperCase() %></span>
+                  <a href="/u/<%= encodeURIComponent(p.username) %>" class="fw-semibold flex-grow-1 text-reset text-decoration-none"><%= p.username %></a>
+                  <% if (p.state === 'none') { %>
+                    <%- act('request', p.username, '➕ Add friend', 'btn-primary', here + (q ? '&q=' + encodeURIComponent(q) : '')) %>
+                  <% } else if (p.state === 'sent') { %>
+                    <span class="text-body-secondary small">Request sent</span>
+                    <%- act('decline', p.username, 'Cancel', 'btn-outline-secondary', here + (q ? '&q=' + encodeURIComponent(q) : '')) %>
+                  <% } else if (p.state === 'received') { %>
+                    <%- act('accept', p.username, 'Accept', 'btn-success', here + (q ? '&q=' + encodeURIComponent(q) : '')) %>
+                    <%- act('decline', p.username, 'Decline', 'btn-outline-secondary', here + (q ? '&q=' + encodeURIComponent(q) : '')) %>
+                  <% } else { %>
+                    <span class="badge text-bg-success">✓ Friends</span>
+                  <% } %>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+
+        <% } else if (tab === 'requests') { %>
+          <h2 class="h6 text-uppercase text-body-secondary">Received</h2>
+          <% if (incoming.length === 0) { %>
+            <p class="text-body-secondary">No pending requests.</p>
+          <% } else { %>
+            <div class="list-group mb-4">
+              <% incoming.forEach(p => { %>
+                <div class="list-group-item d-flex align-items-center gap-3">
+                  <span class="avatar"><%= p.username.charAt(0).toUpperCase() %></span>
+                  <div class="flex-grow-1">
+                    <a href="/u/<%= encodeURIComponent(p.username) %>" class="fw-semibold text-reset text-decoration-none"><%= p.username %></a>
+                    <div class="small text-body-secondary"><%= fmt(p.created_at) %></div>
+                  </div>
+                  <%- act('accept', p.username, 'Accept', 'btn-success') %>
+                  <%- act('decline', p.username, 'Decline', 'btn-outline-secondary') %>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+
+          <h2 class="h6 text-uppercase text-body-secondary">Sent</h2>
+          <% if (outgoing.length === 0) { %>
+            <p class="text-body-secondary mb-0">You have no pending sent requests.</p>
+          <% } else { %>
+            <div class="list-group">
+              <% outgoing.forEach(p => { %>
+                <div class="list-group-item d-flex align-items-center gap-3">
+                  <span class="avatar"><%= p.username.charAt(0).toUpperCase() %></span>
+                  <a href="/u/<%= encodeURIComponent(p.username) %>" class="fw-semibold flex-grow-1 text-reset text-decoration-none"><%= p.username %></a>
+                  <%- act('decline', p.username, 'Cancel request', 'btn-outline-secondary') %>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+
+        <% } else { %>
+          <% if (friends.length === 0) { %>
+            <p class="text-body-secondary mb-0">No friends yet. Go to <a href="/friends?tab=people">People</a> and send a request.</p>
+          <% } else { %>
+            <div class="list-group">
+              <% friends.forEach(p => { %>
+                <div class="list-group-item d-flex align-items-center gap-3">
+                  <span class="avatar"><%= p.username.charAt(0).toUpperCase() %></span>
+                  <div class="flex-grow-1">
+                    <a href="/u/<%= encodeURIComponent(p.username) %>" class="fw-semibold text-reset text-decoration-none"><%= p.username %></a>
+                    <div class="small text-body-secondary">Friends since <%= fmt(p.since) %></div>
+                  </div>
+                  <%- act('remove', p.username, 'Unfriend', 'btn-outline-danger') %>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+        <% } %>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
