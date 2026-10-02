@@ -1,0 +1,68 @@
+<%- include('partials/header') %>
+
+<% const fmtD = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''; %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-md-9 col-lg-7">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h3 fw-bold mb-3">✏️ Edit profile</h1>
+
+        <% if (saved) { %><div class="alert alert-success">Profile updated.</div><% } %>
+        <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+
+        <form action="/settings/profile" method="POST" novalidate>
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <div class="mb-3">
+            <label for="username" class="form-label fw-semibold">Username</label>
+            <input type="text" class="form-control" id="username" name="username" value="<%= form.username %>"
+                   minlength="3" maxlength="30" pattern="[A-Za-z0-9_.\-]{3,30}" autocomplete="off"
+                   <%= lockedUntil ? 'readonly' : '' %> required>
+            <div class="form-text">
+              <% if (lockedUntil) { %>
+                You can change your username again on <strong><%= fmtD(lockedUntil) %></strong>.
+              <% } else { %>
+                3 to 30 characters: letters, numbers, dot, dash, underscore. You can change it once every <%= renameDays %> days.
+                Your old profile link (/u/<%= currentUsername %>) will stop working.
+              <% } %>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label for="location" class="form-label fw-semibold">Location <span class="text-body-secondary fw-normal">(optional)</span></label>
+            <input type="text" class="form-control" id="location" name="location" value="<%= form.location %>" maxlength="<%= locMax %>" placeholder="e.g. Lahore, Pakistan">
+          </div>
+
+          <div class="mb-3">
+            <label for="bio" class="form-label fw-semibold">Bio <span class="text-body-secondary fw-normal">(optional)</span></label>
+            <textarea class="form-control" id="bio" name="bio" rows="4" maxlength="<%= bioMax %>" placeholder="Tell people a little about yourself"><%= form.bio %></textarea>
+            <div class="form-text d-flex justify-content-between">
+              <span>No links, please.</span>
+              <span><span id="bioCount"><%= form.bio.length %></span> / <%= bioMax %></span>
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <button type="submit" class="btn btn-primary">Save changes</button>
+            <a href="/u/<%= encodeURIComponent(currentUsername) %>" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+
+        <hr class="my-4">
+        <div class="small text-body-secondary">
+          📷 To change your photo, open <a href="/u/<%= encodeURIComponent(currentUsername) %>">your profile</a> and use <strong>Add photo / Change photo</strong>.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    var t = document.getElementById('bio'), c = document.getElementById('bioCount');
+    if (t && c) t.addEventListener('input', function () { c.textContent = t.value.length; });
+  })();
+</script>
+
+<%- include('partials/footer') %>

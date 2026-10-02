@@ -54,8 +54,16 @@ router.get('/u/:username', async (req, res, next) => {
       const a = await pool.query('SELECT avatar_image_id FROM users WHERE id = $1', [profile.id]);
       avatarVer = (a.rows[0] && a.rows[0].avatar_image_id) || 0;
     } catch (e) { console.error('avatar (migration_v15.sql chali?):', e.message); }
+    // Bio aur location (migration_v17.sql)
+    let bio = '';
+    let userLocation = '';
+    try {
+      const b = await pool.query('SELECT bio, location FROM users WHERE id = $1', [profile.id]);
+      bio = (b.rows[0] && b.rows[0].bio) || '';
+      userLocation = (b.rows[0] && b.rows[0].location) || '';
+    } catch (e) { console.error('bio/location (migration_v17.sql chali?):', e.message); }
     res.render('profile', {
-      friendState, blockState, mutual, avatarVer,
+      friendState, blockState, mutual, avatarVer, bio, userLocation,
       title: `${profile.username} · Profile`,
       metaDescription: `${profile.username} on ${config.siteName}: ${data.stats.votes} votes, ${data.stats.pts} prediction points, ${data.badges.length} badges.`,
       profile, ...data, isMe,
@@ -63,6 +71,100 @@ router.get('/u/:username', async (req, res, next) => {
       followMsg: req.query.followed === '1' ? `You now follow ${profile.username}. You will be notified about their new posts and contests.`
         : req.query.followed === '0' ? `You unfollowed ${profile.username}.`
         : req.query.msg ? String(req.query.msg).slice(0, 120) : null,
+    });
+  } catch (err) { next(err); }
+});
+
+// ---------- EDIT PROFILE ----------
+const USERNAME_RE = /^[A-Za-z0-9_.-]{3,30}$/;
+const RENAME_DAYS = 30;
+const BIO_MAX = 200;
+const LOC_MAX = 60;
+// Control / invisible (zero-width, bidi) characters hata do, extra blank lines kam karo
+const cleanText = (s, max) => String(s || '')
+  .replace(/\r\n?/g, '\n')
+  .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, '')
+  .replace(/[ \t]+\n/g, '\n')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim()
+  .slice(0, max);
+const HAS_LINK = /(https?:\/\/|www\.)/i;
+
+const nextRenameDate = (changedAt) => {
+  if (!changedAt) return null;
+  const d = new Date(new Date(changedAt).getTime() + RENAME_DAYS * 24 * 3600 * 1000);
+  return d > new Date() ? d : null; // null = abhi badal sakte hain
+};
+
+const loadEditRow = async (uid) => {
+  const r = await pool.query('SELECT username, bio, location, username_changed_at FROM users WHERE id = $1', [uid]);
+  return r.rows[0] || null;
+};
+
+const renderEdit = (res, row, form, error, status = 200, saved = false) =>
+  res.status(status).render('edit-profile', {
+    title: 'Edit profile',
+    form, error, saved,
+    currentUsername: row.username,
+    lockedUntil: nextRenameDate(row.username_changed_at),
+    renameDays: RENAME_DAYS, bioMax: BIO_MAX, locMax: LOC_MAX,
+  });
+
+router.get('/settings/profile', requireLogin, async (req, res, next) => {
+  try {
+    const row = await loadEditRow(req.session.user.id);
+    if (!row) return res.redirect('/login');
+    renderEdit(res, row, { username: row.username, bio: row.bio || '', location: row.location || '' }, null, 200, req.query.saved === '1');
+  } catch (err) { next(err); }
+});
+
+router.post('/settings/profile', requireLogin, async (req, res, next) => {
+  try {
+    const uid = req.session.user.id;
+    const row = await loadEditRow(uid);
+    if (!row) return res.redirect('/login');
+
+    const form = {
+      username: String(req.body.username || '').trim(),
+      bio: cleanText(req.body.bio, BIO_MAX),
+      location: cleanText(req.body.location, LOC_MAX).replace(/\s*\n\s*/g, ' '),
+    };
+    const fail = (msg) => renderEdit(res, row, form, msg, 400);
+
+    if (HAS_LINK.test(form.bio) || HAS_LINK.test(form.location)) {
+      return fail('Links are not allowed in your bio or location.');
+    }
+
+    const renaming = form.username !== row.username;
+    if (renaming) {
+      const lockedUntil = nextRenameDate(row.username_changed_at);
+      if (lockedUntil) {
+        return fail(`You can change your username once every ${RENAME_DAYS} days. Next change: ${lockedUntil.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}.`);
+      }
+      if (!USERNAME_RE.test(form.username)) {
+        return fail('Username must be 3 to 30 characters: letters, numbers, dot, dash or underscore only.');
+      }
+      const taken = await pool.query('SELECT 1 FROM users WHERE lower(username) = lower($1) AND id <> $2 LIMIT 1', [form.username, uid]);
+      if (taken.rowCount) return fail('That username is already taken.');
+    }
+
+    try {
+      if (renaming) {
+        await pool.query(
+          'UPDATE users SET username = $1, username_changed_at = now(), bio = $2, location = $3 WHERE id = $4',
+          [form.username, form.bio || null, form.location || null, uid]
+        );
+        req.session.user.username = form.username; // header / baqi pages naya naam dikhayen
+      } else {
+        await pool.query('UPDATE users SET bio = $1, location = $2 WHERE id = $3', [form.bio || null, form.location || null, uid]);
+      }
+    } catch (err) {
+      if (err.code === '23505') return fail('That username is already taken.');
+      throw err;
+    }
+    req.session.save((e) => {
+      if (e) return next(e);
+      res.redirect('/u/' + encodeURIComponent(req.session.user.username) + '?msg=' + encodeURIComponent('Profile updated.'));
     });
   } catch (err) { next(err); }
 });

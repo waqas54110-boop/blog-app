@@ -146,6 +146,7 @@
               <li><hr class="dropdown-divider"></li>
             <% } %>
             <li><a class="dropdown-item" href="/u/<%= encodeURIComponent(user.username) %>">My Profile</a></li>
+            <li><a class="dropdown-item" href="/settings/profile">✏️ Edit Profile</a></li>
             <li>
               <a class="dropdown-item d-flex justify-content-between align-items-center" href="/friends<%= locals.pendingFriends > 0 ? '?tab=requests' : '' %>">
                 👫 Friends
