@@ -1,0 +1,27 @@
+<%# Ek feed comment. Locals: c, f (id, user_id), ago %>
+<% const canDel = locals.user && (locals.isAdmin || user.id === c.user_id || user.id === f.user_id); %>
+<div class="fc-comment d-flex gap-2 mb-2" id="c<%= c.id %>">
+  <a href="/u/<%= encodeURIComponent(c.username) %>" class="flex-shrink-0 text-decoration-none">
+    <span class="avatar avatar-sm"><%= c.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(c.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
+  </a>
+  <div class="flex-grow-1" style="min-width:0;">
+    <div class="fc-bubble">
+      <a class="fw-semibold small text-reset text-decoration-none" href="/u/<%= encodeURIComponent(c.username) %>"><%= c.username %></a>
+      <% if (c.is_hidden) { %><span class="badge text-bg-warning ms-1">Pending review</span><% } %>
+      <div class="comment-body"><%= c.body %></div>
+    </div>
+    <div class="small text-body-secondary px-2 d-flex gap-2 align-items-center">
+      <span><%= ago(c.created_at) %></span>
+      <% if (locals.user && user.id !== c.user_id) { %>
+        <button type="button" class="btn btn-link btn-sm p-0 text-body-secondary text-decoration-none small"
+                data-bs-toggle="modal" data-bs-target="#reportModal" data-report-type="feed_comment" data-report-id="<%= c.id %>">Report</button>
+      <% } %>
+      <% if (canDel) { %>
+        <form action="/feed/comments/<%= c.id %>/delete" method="POST" class="mb-0" onsubmit="return confirm('Delete this comment?')">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-link btn-sm p-0 text-danger text-decoration-none small">Delete</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</div>

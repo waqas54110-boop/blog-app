@@ -358,7 +358,7 @@ router.get('/sitemap.xml', async (req, res) => {
       `SELECT p.id, p.slug, p.publish_at AS created_at FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC`
     );
     const baseUrl = baseUrlOf(req);
-    const staticUrls = ['', '/about', '/leaderboard', '/community', '/hire'];
+    const staticUrls = ['', '/about', '/feed', '/leaderboard', '/community', '/hire'];
 
     const staticXml = staticUrls.map((u) => `
   <url><loc>${baseUrl}${u}</loc></url>`).join('');

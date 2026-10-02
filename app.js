@@ -27,6 +27,7 @@ const messagesLib = require('./lib/messages');
 const avatarRouter = require('./routes/avatar');
 const moderationRouter = require('./routes/moderation');
 const moderationLib = require('./lib/moderation');
+const feedRouter = require('./routes/feed');
 const { startFollowNotifier } = require('./lib/follow');
 const { startTelegramPoster } = require('./lib/telegram');
 const { startPollScheduler } = require('./lib/polls');
@@ -82,6 +83,10 @@ app.post('/messages/:username', limiter(1, 12, 'You are sending messages too fas
 app.get('/messages/:username/poll', limiter(1, 30, 'Too many requests.'));
 app.post('/upload-avatar', limiter(10, 10, 'Too many photo uploads. Please wait a few minutes.'));
 app.post('/avatar/remove', limiter(10, 10, 'Too many requests. Please wait a few minutes.'));
+app.post('/upload-feed-image', limiter(30, 20, 'Too many photo uploads. Please wait a while.'));
+app.post('/feed', limiter(10, 8, 'You are posting too fast. Please wait a few minutes.'));
+app.post('/feed/:id/comments', limiter(5, 12, 'You are commenting too fast. Please wait a few minutes.'));
+app.post('/feed/:id/like', limiter(10, 80, 'Too many likes. Please wait a few minutes.'));
 app.get('/r/:code', limiter(10, 30, 'Too many requests. Please try again in a few minutes.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
@@ -99,6 +104,9 @@ app.post(
 
 // Profile photo: browser 256x256 JPEG bana kar seedha bytes bhejta hai (CSRF token header x-csrf-token mein). Ye bhi csrf se pehle.
 app.post('/upload-avatar', express.raw({ type: ['image/jpeg'], limit: '1mb' }));
+
+// Feed photo: browser 1600px JPEG bana kar seedha bytes bhejta hai (CSRF token header mein). Ye bhi csrf se pehle.
+app.post('/upload-feed-image', express.raw({ type: ['image/jpeg'], limit: '2mb' }));
 
 // Push subscribe/unsubscribe JSON bhejte hain (CSRF token header x-csrf-token mein)
 app.use('/push', express.json({ limit: '8kb' }));
@@ -224,6 +232,7 @@ app.use('/', friendsRouter);
 app.use('/', messagesRouter);
 app.use('/', avatarRouter);
 app.use('/', moderationRouter);
+app.use('/', feedRouter);
 app.use('/', authRouter);
 
 app.use((req, res) => {
@@ -234,7 +243,7 @@ app.use((err, req, res, next) => {
   if (err.type === 'entity.too.large') {
     const isVideo = req.path === '/upload-video';
     return res.status(413).json({
-      error: isVideo ? `Video is too large (max ${config.videoMaxMb} MB).` : 'Image is too large (max 5 MB).',
+      error: isVideo ? `Video is too large (max ${config.videoMaxMb} MB).` : req.path === '/upload-feed-image' ? 'Photo is too large. Please choose a smaller one.' : 'Image is too large (max 5 MB).',
     });
   }
   console.error(err);

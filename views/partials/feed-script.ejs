@@ -1,0 +1,78 @@
+<%# Photo bada dekhna (lightbox), like, comment, link copy: feed aur post page dono par %>
+<div class="modal fade" id="photoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-xl">
+    <div class="modal-content" data-bs-dismiss="modal"><img id="photoModalImg" src="" alt=""></div>
+  </div>
+</div>
+<script>
+(function () {
+  var csrf = <%- JSON.stringify(csrfToken || '') %>;
+  var hdr = { 'x-csrf-token': csrf, 'X-Requested-With': 'fetch' };
+
+  function toggleLike(btn) {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    fetch('/feed/' + btn.getAttribute('data-id') + '/like', { method: 'POST', headers: hdr, credentials: 'same-origin' })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok) { if (x.j && x.j.error) alert(x.j.error); return; }
+        var card = btn.closest('.feed-card');
+        btn.classList.toggle('on', x.j.liked);
+        btn.querySelector('.ic').textContent = x.j.liked ? '♥' : '♡';
+        card.querySelector('.js-like-count').textContent = x.j.likes;
+        card.querySelector('.js-likes').classList.toggle('invisible', x.j.likes === 0);
+      })
+      .catch(function () { alert('Network problem. Please try again.'); })
+      .then(function () { btn.disabled = false; });
+  }
+
+  function copyText(t) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(function () { alert('Link copied ✅'); }, function () { prompt('Copy this link:', t); });
+    } else { prompt('Copy this link:', t); }
+  }
+
+  document.addEventListener('click', function (e) {
+    var like = e.target.closest('.js-like');
+    if (like) { e.preventDefault(); toggleLike(like); return; }
+    var ph = e.target.closest('.js-photo');
+    if (ph) {
+      e.preventDefault();
+      document.getElementById('photoModalImg').src = ph.getAttribute('href');
+      new bootstrap.Modal(document.getElementById('photoModal')).show();
+      return;
+    }
+    var cp = e.target.closest('[data-copy]');
+    if (cp) { copyText(cp.getAttribute('data-copy')); return; }
+    var fc = e.target.closest('.js-focus-comment');
+    if (fc) { var inp = fc.closest('.feed-card').querySelector('.js-comment-input'); if (inp) inp.focus(); }
+  });
+
+  // Comment: page reload ke baghair (JS band ho to normal form chalta hai)
+  document.addEventListener('submit', function (e) {
+    var form = e.target.closest('.js-comment-form');
+    if (!form) return;
+    e.preventDefault();
+    var input = form.querySelector('.js-comment-input'), err = form.querySelector('.js-comment-err'), btn = form.querySelector('button[type=submit]');
+    var text = input.value.trim();
+    if (!text) return;
+    err.textContent = ''; btn.disabled = true;
+    fetch(form.action, {
+      method: 'POST', credentials: 'same-origin',
+      headers: Object.assign({ 'Content-Type': 'application/x-www-form-urlencoded' }, hdr),
+      body: new URLSearchParams({ body: text }).toString()
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok) { err.textContent = (x.j && x.j.error) || 'Could not post your comment.'; return; }
+        var card = form.closest('.feed-card');
+        card.querySelector('.js-comments').insertAdjacentHTML('beforeend', x.j.html);
+        input.value = '';
+        if (x.j.held) { err.className = 'small text-warning-emphasis mt-1 js-comment-err'; err.textContent = 'Your comment is waiting for review. Only you can see it until then.'; }
+        else { var c = card.querySelector('.js-comment-count'); c.textContent = (parseInt(c.textContent, 10) || 0) + 1; }
+      })
+      .catch(function () { err.textContent = 'Network problem. Please try again.'; })
+      .then(function () { btn.disabled = false; });
+  });
+})();
+</script>

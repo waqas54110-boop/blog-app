@@ -96,6 +96,7 @@
           </ul>
         </li>
 
+        <li class="nav-item"><a class="nav-link" href="/feed">📸 Feed</a></li>
         <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
         <li class="nav-item"><a class="nav-link" href="/community">👥 Community</a></li>
         <li class="nav-item"><a class="nav-link" href="/leaderboard">🏆 Leaderboard</a></li>
@@ -151,6 +152,7 @@
             <% } %>
             <li><a class="dropdown-item" href="/u/<%= encodeURIComponent(user.username) %>">My Profile</a></li>
             <li><a class="dropdown-item" href="/settings/profile">✏️ Edit Profile</a></li>
+            <li><a class="dropdown-item" href="/feed?user=<%= encodeURIComponent(user.username) %>">📸 My Posts</a></li>
             <li>
               <a class="dropdown-item d-flex justify-content-between align-items-center" href="/friends<%= locals.pendingFriends > 0 ? '?tab=requests' : '' %>">
                 👫 Friends

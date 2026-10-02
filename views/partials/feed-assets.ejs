@@ -1,0 +1,51 @@
+<%# Feed ka theme (CSS). Light aur dark dono mein chalta hai (Bootstrap ke colour variables use hote hain) %>
+<style>
+  .feed-hero { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #db2777 100%); color: #fff; border-radius: 1.25rem; position: relative; overflow: hidden; }
+  .feed-hero::before { content: ""; position: absolute; right: -70px; top: -70px; width: 240px; height: 240px; border-radius: 50%; background: rgba(255,255,255,.12); }
+  .feed-hero::after { content: ""; position: absolute; right: 90px; bottom: -90px; width: 180px; height: 180px; border-radius: 50%; background: rgba(255,255,255,.08); }
+  .feed-hero > * { position: relative; z-index: 1; }
+
+  .avatar-md { width: 44px; height: 44px; font-size: 1.1rem; box-shadow: 0 0 0 2px var(--bs-body-bg), 0 0 0 4px #7c3aed; }
+  .avatar-sm { width: 30px; height: 30px; font-size: .85rem; }
+  .avatar-lg { width: 72px; height: 72px; font-size: 2rem; box-shadow: 0 0 0 3px var(--bs-body-bg), 0 0 0 6px #7c3aed; }
+
+  .feed-card, .composer, .feed-side .card { border-radius: 1rem; overflow: hidden; }
+  .feed-card { transition: box-shadow .2s ease; }
+  .feed-card:hover { box-shadow: 0 .6rem 1.4rem rgba(79,70,229,.14) !important; }
+  .feed-text { white-space: pre-wrap; word-wrap: break-word; overflow-wrap: anywhere; line-height: 1.6; }
+  .feed-text-lg { font-size: 1.35rem; line-height: 1.5; padding-top: .25rem; padding-bottom: 1rem !important; }
+
+  .feed-photo { background: var(--bs-secondary-bg); overflow: hidden; cursor: zoom-in; }
+  .feed-photo img { display: block; width: 100%; max-height: 620px; object-fit: cover; transition: transform .35s ease; }
+  .feed-photo:hover img { transform: scale(1.02); }
+  .feed-photo-full img { max-height: none; object-fit: contain; }
+
+  .fa-btn { flex: 1; background: none; border: 0; padding: .6rem .25rem; color: var(--bs-secondary-color); font-weight: 600; border-radius: .6rem; text-decoration: none; text-align: center; transition: background .15s, color .15s; cursor: pointer; }
+  .fa-btn:hover { background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+  .fa-btn.on { color: #e11d48; }
+  .fa-btn.on .ic { display: inline-block; animation: feedPop .35s ease; }
+  @keyframes feedPop { 0% { transform: scale(.6); } 60% { transform: scale(1.35); } 100% { transform: scale(1); } }
+
+  .fc-bubble { background: var(--bs-tertiary-bg); border-radius: 1.1rem; padding: .45rem .85rem; display: inline-block; max-width: 100%; }
+  .fc-bubble .comment-body { overflow-wrap: anywhere; }
+
+  .composer { border: 0; }
+  .composer textarea { border: 0; background: var(--bs-tertiary-bg); border-radius: 1.2rem; resize: none; padding: .75rem 1rem; }
+  .composer textarea:focus { box-shadow: 0 0 0 .2rem rgba(124,58,237,.25); background: var(--bs-tertiary-bg); }
+  .composer-preview { position: relative; display: inline-block; max-width: 100%; }
+  .composer-preview img { max-height: 280px; max-width: 100%; border-radius: .9rem; display: block; }
+  .composer-preview .rm { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(0,0,0,.65); color: #fff; line-height: 1; }
+  .composer-preview.busy img { opacity: .45; }
+  .btn-photo { border-radius: 2rem; font-weight: 600; background: var(--bs-tertiary-bg); border: 0; }
+  .btn-photo:hover { background: var(--bs-secondary-bg); }
+  .btn-post { border-radius: 2rem; font-weight: 600; padding-left: 1.6rem; padding-right: 1.6rem; background: linear-gradient(135deg, #4f46e5, #7c3aed); border: 0; }
+
+  .feed-tabs .nav-link { border-radius: 2rem; font-weight: 600; color: var(--bs-secondary-color); }
+  .feed-tabs .nav-link.active { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; }
+  .feed-side { position: sticky; top: 84px; }
+  .feed-side a.side-link { display: block; padding: .5rem .75rem; border-radius: .6rem; text-decoration: none; color: var(--bs-body-color); font-weight: 500; }
+  .feed-side a.side-link:hover { background: var(--bs-tertiary-bg); }
+
+  #photoModal .modal-content { background: transparent; border: 0; }
+  #photoModal img { max-width: 100%; max-height: 86vh; border-radius: .75rem; display: block; margin: 0 auto; }
+</style>

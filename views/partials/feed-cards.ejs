@@ -1,0 +1,2 @@
+<%# Feed ke cards ki list (feed page + "Load more" ka jawab). Locals: posts %>
+<% posts.forEach(function (post) { %><%- include('feed-card', { f: post }) %><% }) %>

@@ -62,8 +62,17 @@ router.get('/u/:username', async (req, res, next) => {
       bio = (b.rows[0] && b.rows[0].bio) || '';
       userLocation = (b.rows[0] && b.rows[0].location) || '';
     } catch (e) { console.error('bio/location (migration_v17.sql chali?):', e.message); }
+    // Feed posts ki ginti (migration_v18.sql). Chhupi hui posts sirf owner/admin ko ginti mein
+    let feedCount = 0;
+    try {
+      const fc = await pool.query(
+        'SELECT COUNT(*)::int AS n FROM feed_posts WHERE user_id = $1 AND (NOT is_hidden OR $2::boolean OR user_id = $3)',
+        [profile.id, !!res.locals.isAdmin, me || 0]
+      );
+      feedCount = fc.rows[0].n;
+    } catch (e) { console.error('feed count (migration_v18.sql chali?):', e.message); }
     res.render('profile', {
-      friendState, blockState, mutual, avatarVer, bio, userLocation,
+      friendState, blockState, mutual, avatarVer, bio, userLocation, feedCount,
       title: `${profile.username} · Profile`,
       metaDescription: `${profile.username} on ${config.siteName}: ${data.stats.votes} votes, ${data.stats.pts} prediction points, ${data.badges.length} badges.`,
       profile, ...data, isMe,

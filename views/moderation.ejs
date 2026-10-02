@@ -1,7 +1,7 @@
 <%- include('partials/header') %>
 
 <% const fmt = (d) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); %>
-<% const label = { comment: 'Post comment', poll_comment: 'Contest comment', poll: 'Contest', user: 'User', message: 'Private message' }; %>
+<% const label = { comment: 'Post comment', poll_comment: 'Contest comment', poll: 'Contest', user: 'User', message: 'Private message', feed_post: 'Feed post', feed_comment: 'Feed comment' }; %>
 <% const reasonLabel = { spam: 'Spam', abuse: 'Abuse', hate: 'Hate', misleading: 'Misleading', other: 'Other' }; %>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -49,7 +49,10 @@
           by <a href="/u/<%= encodeURIComponent(t.username) %>"><%= t.username %></a> on
           <a href="<%= g.link %>"><%= t.title %></a>
         </div>
-        <div class="border-start border-3 ps-3 py-1 comment-body"><%= t.body %></div>
+        <% if (t.body) { %><div class="border-start border-3 ps-3 py-1 comment-body"><%= t.body %></div><% } %>
+        <% if (g.target_type === 'feed_post' && t.image_id) { %>
+          <a href="/img/<%= t.image_id %>" target="_blank" rel="noopener"><img src="/img/<%= t.image_id %>" alt="Reported photo" class="mt-2 rounded" style="max-height:220px;max-width:100%;"></a>
+        <% } %>
       <% } %>
 
       <div class="small text-body-secondary mt-2">
@@ -66,7 +69,7 @@
             <button class="btn btn-sm btn-primary">✔ Mark handled</button>
           </form>
         <% } else if (g.target_type !== 'poll') { %>
-          <form action="/admin/moderation/act" method="POST" class="mb-0" onsubmit="return confirm('Delete this <%= g.target_type === 'message' ? 'message' : 'comment (and its replies)' %>?')">
+          <form action="/admin/moderation/act" method="POST" class="mb-0" onsubmit="return confirm('Delete this <%= g.target_type === 'message' ? 'message' : g.target_type === 'feed_post' ? 'post (with its photo and comments)' : 'comment (and its replies)' %>?')">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <input type="hidden" name="type" value="<%= g.target_type %>"><input type="hidden" name="id" value="<%= g.target_id %>">
             <input type="hidden" name="action" value="delete">

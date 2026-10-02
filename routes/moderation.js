@@ -33,6 +33,14 @@ async function lookup(type, id, meId) {
     const m = r.rows[0];
     return m && m.receiver_id === meId ? { owner: m.owner, path: `/messages/${encodeURIComponent(m.username)}`, hash: `#m${id}` } : null;
   }
+  if (type === 'feed_post') {
+    const r = await pool.query('SELECT user_id AS owner FROM feed_posts WHERE id = $1', [id]);
+    return r.rows[0] ? { owner: r.rows[0].owner, path: `/feed/${id}`, hash: '' } : null;
+  }
+  if (type === 'feed_comment') {
+    const r = await pool.query('SELECT user_id AS owner, post_id FROM feed_comments WHERE id = $1', [id]);
+    return r.rows[0] ? { owner: r.rows[0].owner, path: `/feed/${r.rows[0].post_id}`, hash: `#c${id}` } : null;
+  }
   if (type === 'comment') {
     const r = await pool.query('SELECT c.user_id AS owner, p.slug FROM comments c JOIN posts p ON p.id = c.post_id WHERE c.id = $1', [id]);
     return r.rows[0] ? { owner: r.rows[0].owner, path: `/posts/${r.rows[0].slug}`, hash: `#c${id}` } : null;
@@ -65,8 +73,8 @@ router.post('/report', requireLogin, async (req, res, next) => {
     );
 
     // Kai alag logon ne report kiya to comment foran chhupa do (admin dekh kar wapas la sakta hai)
-    if (ins.rows[0] && (type === 'comment' || type === 'poll_comment')) {
-      const table = type === 'comment' ? 'comments' : 'poll_comments';
+    if (ins.rows[0] && M.HIDEABLE[type]) {
+      const table = M.HIDEABLE[type];
       const n = await pool.query(
         `SELECT COUNT(DISTINCT reporter_id)::int AS c FROM reports
          WHERE target_type = $1 AND target_id = $2 AND status = 'open' AND reporter_id IS NOT NULL`,
@@ -114,12 +122,26 @@ router.post('/admin/moderation/act', requireAdmin, async (req, res, next) => {
     if (type === 'user' || type === 'message') return res.redirect('/admin/moderation');
 
     if (action === 'delete' && type !== 'poll') {
-      await pool.query(`DELETE FROM ${type === 'comment' ? 'comments' : 'poll_comments'} WHERE id = $1`, [id]);
+      if (type === 'feed_post') {
+        // Post ke saath uski photo ki row bhi hat jaye (agar owner ne hi upload ki thi)
+        const d = await pool.query('DELETE FROM feed_posts WHERE id = $1 RETURNING user_id, image_id', [id]);
+        if (d.rows[0] && d.rows[0].image_id) {
+          await pool.query(
+            `DELETE FROM images WHERE id = $1 AND uploaded_by = $2
+               AND NOT EXISTS (SELECT 1 FROM feed_posts WHERE image_id = $1)
+               AND NOT EXISTS (SELECT 1 FROM users WHERE avatar_image_id = $1)`,
+            [d.rows[0].image_id, d.rows[0].user_id]
+          );
+        }
+        await M.resolve(type, id, 'resolved', 'delete', me);
+        return done('Post deleted ✅');
+      }
+      await pool.query(`DELETE FROM ${M.HIDEABLE[type]} WHERE id = $1`, [id]);
       await M.resolve(type, id, 'resolved', 'delete', me);
       return done('Comment deleted ✅');
     }
     if (action === 'keep') {
-      if (type !== 'poll') await pool.query(`UPDATE ${type === 'comment' ? 'comments' : 'poll_comments'} SET is_hidden = false WHERE id = $1`, [id]);
+      if (type !== 'poll') await pool.query(`UPDATE ${M.HIDEABLE[type]} SET is_hidden = false WHERE id = $1`, [id]);
       await M.resolve(type, id, 'dismissed', 'keep', me);
       return done('Kept. Reports closed ✅');
     }

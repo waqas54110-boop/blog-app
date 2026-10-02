@@ -39,7 +39,7 @@
       document.getElementById('reportId').value = b.getAttribute('data-report-id') || '';
       var t = b.getAttribute('data-report-type');
       document.getElementById('reportTitle').textContent =
-        t === 'poll' ? '🚩 Report this contest' : t === 'user' ? '🚩 Report this user' : t === 'message' ? '🚩 Report this message' : '🚩 Report this comment';
+        t === 'poll' ? '🚩 Report this contest' : t === 'feed_post' ? '🚩 Report this post' : t === 'user' ? '🚩 Report this user' : t === 'message' ? '🚩 Report this message' : '🚩 Report this comment';
     });
   })();
 </script>
