@@ -80,7 +80,8 @@
 
     <div class="collapse navbar-collapse" id="mainNav">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item"><a class="nav-link" href="/">Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/">🏠 Home</a></li>
+        <li class="nav-item"><a class="nav-link" href="/blog">📝 Blog</a></li>
 
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -91,12 +92,11 @@
               <li><span class="dropdown-item-text text-muted">No categories yet</span></li>
             <% } %>
             <% navCategories.forEach(c => { %>
-              <li><a class="dropdown-item" href="/?category=<%= encodeURIComponent(c) %>"><%= c %></a></li>
+              <li><a class="dropdown-item" href="/blog?category=<%= encodeURIComponent(c) %>"><%= c %></a></li>
             <% }) %>
           </ul>
         </li>
 
-        <li class="nav-item"><a class="nav-link" href="/feed">📸 Feed</a></li>
         <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
         <li class="nav-item"><a class="nav-link" href="/community">👥 Community</a></li>
         <li class="nav-item"><a class="nav-link" href="/leaderboard">🏆 Leaderboard</a></li>
@@ -104,7 +104,7 @@
         <li class="nav-item"><a class="nav-link" href="/hire">💼 Hire Me</a></li>
       </ul>
 
-      <form class="d-flex me-lg-3 mb-2 mb-lg-0" action="/" method="GET" role="search">
+      <form class="d-flex me-lg-3 mb-2 mb-lg-0" action="/blog" method="GET" role="search">
         <input class="form-control form-control-sm me-2" type="search" name="q" placeholder="Search posts..." aria-label="Search">
         <button class="btn btn-sm btn-outline-primary" type="submit">Search</button>
       </form>
@@ -152,7 +152,7 @@
             <% } %>
             <li><a class="dropdown-item" href="/u/<%= encodeURIComponent(user.username) %>">My Profile</a></li>
             <li><a class="dropdown-item" href="/settings/profile">✏️ Edit Profile</a></li>
-            <li><a class="dropdown-item" href="/feed?user=<%= encodeURIComponent(user.username) %>">📸 My Posts</a></li>
+            <li><a class="dropdown-item" href="/?user=<%= encodeURIComponent(user.username) %>">📸 My Posts</a></li>
             <li>
               <a class="dropdown-item d-flex justify-content-between align-items-center" href="/friends<%= locals.pendingFriends > 0 ? '?tab=requests' : '' %>">
                 👫 Friends

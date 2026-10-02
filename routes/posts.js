@@ -34,7 +34,7 @@ const homeUrl = ({ q, category, tag }, page = 1) => {
   if (tag) params.set('tag', tag);
   if (page > 1) params.set('page', page);
   const qs = params.toString();
-  return '/' + (qs ? '?' + qs : '');
+  return '/blog' + (qs ? '?' + qs : '');
 };
 
 const CATEGORIES = [
@@ -206,8 +206,8 @@ const validatePost = (body, knownCategories = CATEGORIES) => {
   };
 };
 
-// ---------- HOME ----------
-router.get('/', async (req, res) => {
+// ---------- BLOG (pehle home tha, ab alag menu: /blog) ----------
+router.get('/blog', async (req, res) => {
   const q = (req.query.q || '').trim();
   const category = (req.query.category || '').trim();
   const tag = (req.query.tag || '').trim().toLowerCase();
@@ -358,7 +358,7 @@ router.get('/sitemap.xml', async (req, res) => {
       `SELECT p.id, p.slug, p.publish_at AS created_at FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC`
     );
     const baseUrl = baseUrlOf(req);
-    const staticUrls = ['', '/about', '/feed', '/leaderboard', '/community', '/hire'];
+    const staticUrls = ['', '/blog', '/about', '/leaderboard', '/community', '/hire'];
 
     const staticXml = staticUrls.map((u) => `
   <url><loc>${baseUrl}${u}</loc></url>`).join('');

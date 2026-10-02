@@ -23,7 +23,7 @@
           <div class="fw-bold text-break"><%= user.username %></div>
           <div class="mt-3 text-start">
             <a class="side-link" href="/u/<%= encodeURIComponent(user.username) %>">👤 My profile</a>
-            <a class="side-link" href="/feed?user=<%= encodeURIComponent(user.username) %>">📸 My posts</a>
+            <a class="side-link" href="/?user=<%= encodeURIComponent(user.username) %>">📸 My posts</a>
             <a class="side-link" href="/friends">👫 Friends</a>
             <a class="side-link" href="/messages">💬 Messages</a>
             <a class="side-link" href="/settings/profile">✏️ Edit profile</a>
@@ -75,12 +75,12 @@
     <% if (author) { %>
       <div class="alert alert-light border d-flex justify-content-between align-items-center">
         <span>Posts by <a href="/u/<%= encodeURIComponent(author.username) %>" class="fw-semibold"><%= author.username %></a></span>
-        <a href="/feed" class="btn btn-sm btn-outline-secondary">✕ Show everyone</a>
+        <a href="/" class="btn btn-sm btn-outline-secondary">✕ Show everyone</a>
       </div>
     <% } else if (user) { %>
       <ul class="nav nav-pills feed-tabs mb-3 gap-1">
-        <li class="nav-item"><a class="nav-link <%= tab === 'all' ? 'active' : '' %>" href="/feed">🌍 Everyone</a></li>
-        <li class="nav-item"><a class="nav-link <%= tab === 'following' ? 'active' : '' %>" href="/feed?tab=following">⭐ Following</a></li>
+        <li class="nav-item"><a class="nav-link <%= tab === 'all' ? 'active' : '' %>" href="/">🌍 Everyone</a></li>
+        <li class="nav-item"><a class="nav-link <%= tab === 'following' ? 'active' : '' %>" href="/?tab=following">⭐ Following</a></li>
       </ul>
     <% } %>
 
@@ -112,6 +112,7 @@
         <div class="card border-0 shadow-sm mb-3"><div class="card-body">
           <div class="fw-bold mb-2">📝 Latest from the blog</div>
           <% latestPosts.forEach(function (p) { %><a class="side-link small" href="/posts/<%= p.slug %>"><%= p.title %></a><% }) %>
+          <a class="side-link small fw-semibold" href="/blog">All blog posts →</a>
         </div></div>
       <% } %>
       <% if (people.length) { %>
@@ -144,7 +145,7 @@
       more.disabled = true; more.textContent = 'Loading...';
       var q = 'partial=1&before=' + encodeURIComponent(more.dataset.next) + '&tab=' + encodeURIComponent(more.dataset.tab) +
         (more.dataset.user ? '&user=' + encodeURIComponent(more.dataset.user) : '');
-      fetch('/feed?' + q, { credentials: 'same-origin' })
+      fetch('/?' + q, { credentials: 'same-origin' })
         .then(function (r) { if (!r.ok) throw new Error(); var next = r.headers.get('X-Next-Before'); return r.text().then(function (h) { return { h: h, next: next }; }); })
         .then(function (x) {
           document.getElementById('feedList').insertAdjacentHTML('beforeend', x.h);

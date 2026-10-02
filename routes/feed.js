@@ -73,8 +73,14 @@ router.post('/feed/image/discard', requireLogin, async (req, res) => {
   }
 });
 
-// ---------- FEED PAGE ----------
-router.get('/feed', async (req, res, next) => {
+// Purane /feed links: ab feed home page par hai (query string saath jati hai)
+router.get('/feed', (req, res) => {
+  const i = req.originalUrl.indexOf('?');
+  res.redirect(301, '/' + (i === -1 ? '' : req.originalUrl.slice(i)));
+});
+
+// ---------- FEED PAGE (home page) ----------
+router.get('/', async (req, res, next) => {
   try {
     const me = req.session.user ? req.session.user.id : null;
     const isAdmin = res.locals.isAdmin;
@@ -168,7 +174,7 @@ router.get('/feed/:id', async (req, res, next) => {
 // ---------- CREATE POST ----------
 router.post('/feed', requireLogin, async (req, res) => {
   const me = req.session.user;
-  const fail = (msg) => res.redirect('/feed?err=' + encodeURIComponent(msg));
+  const fail = (msg) => res.redirect('/?err=' + encodeURIComponent(msg));
   try {
     const body = String((req.body && req.body.body) || '').replace(/\r\n/g, '\n').trim();
     const imageId = toId(req.body && req.body.image_id);
@@ -208,9 +214,9 @@ router.post('/feed', requireLogin, async (req, res) => {
     );
     if (held) {
       await moderation.holdForReview('feed_post', ins.rows[0].id, heldReason);
-      return res.redirect('/feed?notice=' + encodeURIComponent('Your post is waiting for review by the site owner. Only you can see it until then.'));
+      return res.redirect('/?notice=' + encodeURIComponent('Your post is waiting for review by the site owner. Only you can see it until then.'));
     }
-    res.redirect('/feed?posted=1');
+    res.redirect('/?posted=1');
   } catch (err) {
     console.error('[feed create] (migration_v18.sql chali?)', err.message);
     fail('Could not save your post. Please try again.');
@@ -259,7 +265,7 @@ router.post('/feed/:id/comments', requireLogin, async (req, res) => {
   const json = wantsJson(req);
   const back = (q) => res.redirect(`/feed/${id}${q || ''}`);
   const fail = (msg, code = 400) => (json ? res.status(code).json({ error: msg }) : back('?err=' + encodeURIComponent(msg) + '#comments'));
-  if (!id) return json ? res.status(400).json({ error: 'Bad request' }) : res.redirect('/feed');
+  if (!id) return json ? res.status(400).json({ error: 'Bad request' }) : res.redirect('/');
 
   try {
     const body = String((req.body && req.body.body) || '').replace(/\r\n/g, '\n').trim();
@@ -311,7 +317,7 @@ router.post('/feed/:id/comments', requireLogin, async (req, res) => {
 // ---------- DELETE ----------
 router.post('/feed/:id/delete', requireLogin, async (req, res) => {
   const id = toId(req.params.id);
-  if (!id) return res.redirect('/feed');
+  if (!id) return res.redirect('/');
   const me = req.session.user;
   try {
     const r = await pool.query(
@@ -319,16 +325,16 @@ router.post('/feed/:id/delete', requireLogin, async (req, res) => {
       [id, me.id, res.locals.isAdmin]
     );
     if (r.rows[0]) await dropImageIfOrphan(r.rows[0].image_id, r.rows[0].user_id);
-    res.redirect('/feed?deleted=1');
+    res.redirect('/?deleted=1');
   } catch (err) {
     console.error('[feed delete]', err.message);
-    res.redirect('/feed');
+    res.redirect('/');
   }
 });
 
 router.post('/feed/comments/:id/delete', requireLogin, async (req, res) => {
   const id = toId(req.params.id);
-  if (!id) return res.redirect('/feed');
+  if (!id) return res.redirect('/');
   const me = req.session.user;
   try {
     // Comment ka apna owner, us post ka owner, ya admin
@@ -338,10 +344,10 @@ router.post('/feed/comments/:id/delete', requireLogin, async (req, res) => {
        RETURNING c.post_id`,
       [id, me.id, res.locals.isAdmin]
     );
-    res.redirect(r.rows[0] ? `/feed/${r.rows[0].post_id}#comments` : '/feed');
+    res.redirect(r.rows[0] ? `/feed/${r.rows[0].post_id}#comments` : '/');
   } catch (err) {
     console.error('[feed comment delete]', err.message);
-    res.redirect('/feed');
+    res.redirect('/');
   }
 });
 
