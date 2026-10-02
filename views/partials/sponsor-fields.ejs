@@ -33,6 +33,12 @@
       <option value="winner" <%= sv.giveaway_pool === 'winner' ? 'selected' : '' %>>Only voters who backed the winner</option>
     </select>
   </div>
+  <div class="col-12 col-md-6">
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" name="giveaway_ref_bonus" value="1" id="sp-refbonus" <%= sv.giveaway_ref_bonus ? 'checked' : '' %>>
+      <label class="form-check-label" for="sp-refbonus">Invite bonus <span class="text-body-secondary">(each friend a voter brought = 1 extra entry, max 5)</span></label>
+    </div>
+  </div>
   <div class="col-12 col-md-6 d-flex align-items-end">
     <div class="form-check">
       <input class="form-check-input" type="checkbox" name="featured" value="1" id="sp-featured" <%= sv.featured ? 'checked' : '' %>>

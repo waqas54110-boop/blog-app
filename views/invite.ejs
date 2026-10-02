@@ -1,0 +1,75 @@
+<%- include('partials/header') %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4 p-md-5">
+        <h1 class="h3 fw-bold mb-2">🎁 Invite friends</h1>
+        <p class="text-body-secondary">Share your personal link. When a friend joins, verifies their email and takes part (a vote, a prediction or a comment), they count as your referral. Referrals earn you badges and, in contests with the invite bonus, extra giveaway entries.</p>
+
+        <label class="form-label fw-semibold" for="inviteLink">Your invite link</label>
+        <div class="input-group mb-3">
+          <input id="inviteLink" class="form-control" value="<%= link %>" readonly onclick="this.select()">
+          <button class="btn btn-outline-primary" type="button" id="copyBtn">Copy</button>
+        </div>
+        <a href="<%= waUrl %>" target="_blank" rel="noopener" class="btn btn-success">Share on WhatsApp</a>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-6"><div class="card border-0 shadow-sm text-center"><div class="card-body">
+        <div class="display-6 fw-bold text-primary"><%= stats.qualified %></div>
+        <div class="text-body-secondary">Counted referrals</div>
+      </div></div></div>
+      <div class="col-6"><div class="card border-0 shadow-sm text-center"><div class="card-body">
+        <div class="display-6 fw-bold"><%= stats.joined %></div>
+        <div class="text-body-secondary">Friends joined</div>
+        <% if (stats.joined > stats.qualified) { %><div class="small text-body-secondary"><%= stats.joined - stats.qualified %> not counted yet (not verified or not active)</div><% } %>
+      </div></div></div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-4"><div class="card-body p-4">
+      <h5 class="mb-3">Badges you can earn</h5>
+      <% tiers.forEach(t => { const got = stats.qualified >= t.n; %>
+        <div class="d-flex align-items-center gap-3 mb-2 <%= got ? '' : 'text-body-secondary' %>">
+          <span class="fs-4"><%= got ? t.icon : '🔒' %></span>
+          <div class="flex-grow-1"><strong><%= t.name %></strong> <span class="small"><%= t.desc %></span></div>
+          <span class="badge <%= got ? 'text-bg-success' : 'text-bg-secondary' %>"><%= got ? 'Earned' : stats.qualified + ' / ' + t.n %></span>
+        </div>
+      <% }) %>
+      <% if (next) { %><div class="small text-body-secondary mt-2"><%= next.n - stats.qualified %> more friend<%= next.n - stats.qualified === 1 ? '' : 's' %> to unlock <strong><%= next.name %></strong>.</div><% } %>
+      <hr>
+      <div class="small text-body-secondary">In giveaways with the <strong>invite bonus</strong>, each counted friend gives you 1 extra entry (up to <%= maxBonus %> extra).</div>
+    </div></div>
+
+    <div class="card border-0 shadow-sm"><div class="card-body p-4">
+      <h5 class="mb-3">🏆 Top inviters</h5>
+      <% if (top.length === 0) { %>
+        <p class="text-body-secondary mb-0">Nobody yet. Be the first!</p>
+      <% } else { %>
+        <div class="list-group list-group-flush">
+          <% top.forEach((t, i) => { %>
+            <div class="list-group-item px-0 d-flex align-items-center gap-3">
+              <span class="fw-bold" style="width:2rem;"><%= i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.' %></span>
+              <a href="/u/<%= encodeURIComponent(t.username) %>" class="flex-grow-1 fw-semibold text-reset text-decoration-none"><%= t.username %></a>
+              <span class="badge text-bg-primary"><%= t.n %> friend<%= t.n === 1 ? '' : 's' %></span>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div></div>
+
+  </div>
+</div>
+
+<script>
+  document.getElementById('copyBtn').addEventListener('click', function () {
+    var el = document.getElementById('inviteLink'), btn = this;
+    function done() { btn.textContent = 'Copied ✅'; setTimeout(function () { btn.textContent = 'Copy'; }, 2000); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(el.value).then(done, function () { el.select(); document.execCommand('copy'); done(); });
+    else { el.select(); document.execCommand('copy'); done(); }
+  });
+</script>
+
+<%- include('partials/footer') %>

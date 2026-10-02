@@ -19,6 +19,10 @@ const growthRouter = require('./routes/growth');
 const hireRouter = require('./routes/hire');
 const votesRouter = require('./routes/votes');
 const sponsorRouter = require('./routes/sponsor');
+const profileRouter = require('./routes/profile');
+const moderationRouter = require('./routes/moderation');
+const moderationLib = require('./lib/moderation');
+const { startFollowNotifier } = require('./lib/follow');
 const { startTelegramPoster } = require('./lib/telegram');
 const { startPollScheduler } = require('./lib/polls');
 
@@ -66,6 +70,9 @@ app.post('/votes/:id/share', limiter(10, 60, 'Too many requests.'));
 app.get('/votes/:id/go', limiter(1, 30, 'Too many requests.'));
 app.post('/votes/:id/comments', limiter(5, 10, 'You are commenting too fast. Please wait a few minutes.'));
 app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
+app.post('/report', limiter(10, 10, 'You are reporting too fast. Please wait a few minutes.'));
+app.post(['/u/:username/follow', '/u/:username/unfollow', '/u/:username/follow-email'], limiter(10, 30, 'Too many requests. Please wait a few minutes.'));
+app.get('/r/:code', limiter(10, 30, 'Too many requests. Please try again in a few minutes.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
 // Ye csrf middleware se pehle hona chahiye.
@@ -104,6 +111,9 @@ app.use(async (req, res, next) => {
   res.locals.metaDescription = 'Notes and tutorials on cricket, video editing, AI, freelancing and web development.';
   res.locals.subscribed = req.query.subscribed === '1';
   res.locals.subscribeError = req.query.subscribeError || null;
+  // Report ke baad / spam filter ke "review mein hai" wale chhote messages (post aur contest page dikhate hain)
+  res.locals.reportedFlash = req.query.reported === '1';
+  res.locals.commentNotice = req.query.commentNotice ? String(req.query.commentNotice).slice(0, 200) : null;
 
   // Community links (post ke neeche banner + footer)
   res.locals.whatsappUrl = config.whatsappUrl;
@@ -143,6 +153,16 @@ app.use(async (req, res, next) => {
     console.error('locals middleware:', err.message);
   }
 
+  // Admin ke liye: moderation queue mein kitni cheezein review ka intezar kar rahi hain (alag try: migration_v13 na chali ho to site na ruke)
+  res.locals.openReports = 0;
+  if (res.locals.isAdmin) {
+    try {
+      res.locals.openReports = await moderationLib.openCount();
+    } catch (err) {
+      console.error('open reports count:', err.message);
+    }
+  }
+
   // Owner ke liye: kitni nayi "Hire Me" inquiries abhi parhi nahi (alag try: migration_v6 na chali ho to baaqi site na ruke)
   res.locals.newInquiries = 0;
   if (res.locals.isAdmin) {
@@ -166,6 +186,8 @@ app.use('/', growthRouter);
 app.use('/', hireRouter);
 app.use('/', sponsorRouter);
 app.use('/', votesRouter);
+app.use('/', profileRouter);
+app.use('/', moderationRouter);
 app.use('/', authRouter);
 
 app.use((req, res) => {
@@ -194,4 +216,5 @@ app.listen(PORT, (err) => {
   startPublisher();
   startPollScheduler(); // knockout rounds jin ka time ho gaya unhein agle round par le jata hai
   startTelegramPoster(); // naya contest / result Telegram channel mein (token set ho to)
+  startFollowNotifier(); // followers ko naya post / contest ki notification (+ email)
 });

@@ -9,6 +9,8 @@ const P = require('../lib/polls');
 const { notifyUser } = require('../lib/notify');
 const S = require('../lib/sponsor');
 const T = require('../lib/telegram');
+const spam = require('../lib/spam');
+const moderation = require('../lib/moderation');
 
 const router = express.Router();
 const IMG_RE = /^\/img\/\d{1,9}$/;
@@ -100,7 +102,7 @@ router.post('/votes', requireAdmin, async (req, res, next) => {
     if (ex.rows[0].c !== ids.length) return back('One of the images was not found. Upload again.');
 
     const id = await P.createPoll({ kind, title, options, endsAt, roundHours, userId: req.session.user.id });
-    if (sp.value.name || sp.value.prize || sp.value.logo || sp.value.featured || sp.value.pool !== 'all') await S.saveSponsor(id, sp.value);
+    if (sp.value.name || sp.value.prize || sp.value.logo || sp.value.featured || sp.value.refBonus || sp.value.pool !== 'all') await S.saveSponsor(id, sp.value);
     res.redirect('/votes/' + id);
   } catch (err) { next(err); }
 });
@@ -205,7 +207,7 @@ router.get('/votes/:id', async (req, res, next) => {
 
     // Comments (replies ke sath)
     const cr = await pool.query(
-      `SELECT c.id, c.body, c.created_at, c.user_id, c.parent_id, u.username
+      `SELECT c.id, c.body, c.created_at, c.user_id, c.parent_id, c.is_hidden, u.username
        FROM poll_comments c JOIN users u ON u.id = c.user_id
        WHERE c.poll_id = $1 ORDER BY c.created_at ASC`, [id]
     );
@@ -326,12 +328,24 @@ router.post('/votes/:id/comments', requireLogin, async (req, res) => {
       repliedTo = r.rows[0] || null;
       if (repliedTo) parentId = repliedTo.parent_id || repliedTo.id;
     }
+    // Spam filter: block = save nahi hota, hold = hidden save + moderation queue
+    const verdict = await spam.check(body, { userId: me.id, isAdmin: me.role === 'admin' });
+    if (verdict.action === 'block') {
+      return res.redirect(`/votes/${id}?commentError=${encodeURIComponent(verdict.message)}#comments`);
+    }
+    const held = verdict.action === 'hold';
+
     const ins = await pool.query(
-      'INSERT INTO poll_comments (poll_id, user_id, body, parent_id) VALUES ($1, $2, $3, $4) RETURNING id',
-      [id, me.id, body, parentId]
+      'INSERT INTO poll_comments (poll_id, user_id, body, parent_id, is_hidden) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [id, me.id, body, parentId, held]
     );
     const link = `/votes/${id}#c${ins.rows[0].id}`;
     const short = poll.title.length > 60 ? poll.title.slice(0, 57) + '...' : poll.title;
+
+    if (held) {
+      await moderation.holdForReview('poll_comment', ins.rows[0].id, verdict.reason);
+      return res.redirect(`/votes/${id}?commentNotice=${encodeURIComponent('Your comment is waiting for review by the site owner. Only you can see it until then.')}#c${ins.rows[0].id}`);
+    }
 
     if (repliedTo && repliedTo.user_id !== me.id) {
       notifyUser(repliedTo.user_id, `${me.username} replied to your comment on the contest "${short}"`, link, {

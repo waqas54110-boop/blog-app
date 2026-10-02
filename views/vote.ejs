@@ -71,6 +71,7 @@
               <div class="small text-body-secondary mb-2">
                 Eligible: <%= ex.giveaway_pool === 'winner' ? (adminX.eligibleWinner == null ? 'available once there is a clear winner' : adminX.eligibleWinner + ' verified voters who backed the winner') : adminX.eligibleAll + ' verified voters' %>
                 (admin and unverified accounts are never included).
+                <% if (ex.giveaway_ref_bonus) { %><br>🤝 Invite bonus is ON: every friend a voter brought (verified + active) adds 1 extra entry, up to 5.<% } %>
               </div>
               <% if (ex.giveaway_username) { %>
                 <div class="mb-2">Winner: <strong><%= ex.giveaway_username %></strong><% if (adminX.winnerEmail) { %> · <a href="mailto:<%= adminX.winnerEmail %>"><%= adminX.winnerEmail %></a><% } %>
@@ -101,6 +102,8 @@
         <h5 class="mb-3">Comments (<%= commentCount %>)</h5>
 
         <% if (commentError) { %><div class="alert alert-danger"><%= commentError %></div><% } %>
+        <% if (locals.commentNotice) { %><div class="alert alert-info"><%= commentNotice %></div><% } %>
+        <% if (locals.reportedFlash) { %><div class="alert alert-success">Thanks! Your report was sent to the site owner.</div><% } %>
 
         <% if (user) { %>
           <form action="/votes/<%= st.id %>/comments" method="POST" class="mb-4">
@@ -115,20 +118,31 @@
         <% if (commentCount === 0) { %><p class="text-body-secondary mb-0">No comments yet. Be the first!</p><% } %>
 
         <% const renderComment = (c, isReply) => { %>
+          <% const canSee = !c.is_hidden || isAdmin || (user && user.id === c.user_id); %>
+          <% if (!canSee) { %>
+            <div id="c<%= c.id %>" class="py-3 border-top text-body-secondary fst-italic <%= isReply ? 'reply-box' : '' %>">This comment is hidden while the site owner reviews it.</div>
+          <% return; } %>
           <div id="c<%= c.id %>" class="d-flex gap-3 py-3 border-top <%= isReply ? 'reply-box' : '' %>">
             <span class="avatar"><%= c.username.charAt(0).toUpperCase() %></span>
             <div class="flex-grow-1">
               <div class="d-flex justify-content-between align-items-start">
                 <div>
-                  <strong><%= c.username %></strong>
+                  <strong><a href="/u/<%= encodeURIComponent(c.username) %>" class="text-reset text-decoration-none"><%= c.username %></a></strong>
                   <small class="text-body-secondary ms-2"><%= new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></small>
+                  <% if (c.is_hidden) { %><span class="badge text-bg-warning ms-1">Under review<%= isAdmin ? '' : ' (only you can see this)' %></span><% } %>
                 </div>
-                <% if (user && (isAdmin || user.id === c.user_id)) { %>
-                  <form action="/vote-comments/<%= c.id %>/delete" method="POST" class="mb-0" onsubmit="return confirm('Delete this comment?')">
-                    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                    <button type="submit" class="btn btn-link btn-sm text-danger p-0">Delete</button>
-                  </form>
-                <% } %>
+                <div class="d-flex align-items-center gap-2">
+                  <% if (user && user.id !== c.user_id) { %>
+                    <button type="button" class="btn btn-link btn-sm text-body-secondary p-0" data-bs-toggle="modal" data-bs-target="#reportModal"
+                            data-report-type="poll_comment" data-report-id="<%= c.id %>">Report</button>
+                  <% } %>
+                  <% if (user && (isAdmin || user.id === c.user_id)) { %>
+                    <form action="/vote-comments/<%= c.id %>/delete" method="POST" class="mb-0" onsubmit="return confirm('Delete this comment?')">
+                      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                      <button type="submit" class="btn btn-link btn-sm text-danger p-0">Delete</button>
+                    </form>
+                  <% } %>
+                </div>
               </div>
               <div class="comment-body"><%= c.body %></div>
 
@@ -154,7 +168,14 @@
       </div>
     </section>
 
-    <div class="text-center mt-3"><a href="/votes" class="text-decoration-none">← All contests</a></div>
+    <div class="text-center mt-3">
+      <a href="/votes" class="text-decoration-none">← All contests</a>
+      <% if (user) { %>
+        <span class="text-body-secondary mx-2">·</span>
+        <button type="button" class="btn btn-link btn-sm text-body-secondary p-0 align-baseline" data-bs-toggle="modal" data-bs-target="#reportModal"
+                data-report-type="poll" data-report-id="<%= st.id %>">🚩 Report this contest</button>
+      <% } %>
+    </div>
   </div>
 </div>
 
@@ -187,5 +208,7 @@
     });
   })();
 </script>
+
+<%- include('partials/report-modal') %>
 
 <%- include('partials/footer') %>

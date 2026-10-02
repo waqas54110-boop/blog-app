@@ -2,6 +2,10 @@
 
             <h2 class="text-center mb-4">Create Account</h2>
 
+            <% if (locals.invitedBy) { %>
+              <div class="alert alert-success py-2 text-center">🎉 <strong><%= invitedBy %></strong> invited you to join!</div>
+            <% } %>
+
             <% if (error) { %>
               <div class="alert alert-danger" role="alert">
                 <%= error %>

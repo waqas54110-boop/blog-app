@@ -1,0 +1,44 @@
+<%# Report ka ek hi popup, page ke saare "Report" buttons ise kholte hain (sirf login user ko) %>
+<% if (locals.user) { %>
+<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportTitle" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <form class="modal-content" action="/report" method="POST">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="type" id="reportType" value="">
+      <input type="hidden" name="id" id="reportId" value="">
+      <div class="modal-header">
+        <h5 class="modal-title" id="reportTitle">🚩 Report</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label fw-semibold" for="reportReason">What is wrong?</label>
+        <select class="form-select mb-3" name="reason" id="reportReason" required>
+          <option value="spam">Spam or advertising</option>
+          <option value="abuse">Abuse or harassment</option>
+          <option value="hate">Hate speech</option>
+          <option value="misleading">Fake or misleading</option>
+          <option value="other">Something else</option>
+        </select>
+        <label class="form-label fw-semibold" for="reportDetails">Details <span class="text-body-secondary fw-normal">(optional)</span></label>
+        <textarea class="form-control" name="details" id="reportDetails" rows="3" maxlength="300"></textarea>
+        <div class="form-text">The site owner will review your report. You can report each item once.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-danger">Send report</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+  (function () {
+    var m = document.getElementById('reportModal');
+    m.addEventListener('show.bs.modal', function (e) {
+      var b = e.relatedTarget; if (!b) return;
+      document.getElementById('reportType').value = b.getAttribute('data-report-type') || '';
+      document.getElementById('reportId').value = b.getAttribute('data-report-id') || '';
+      document.getElementById('reportTitle').textContent = b.getAttribute('data-report-type') === 'poll' ? '🚩 Report this contest' : '🚩 Report this comment';
+    });
+  })();
+</script>
+<% } %>

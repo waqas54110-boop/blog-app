@@ -6,6 +6,7 @@ const config = require('../config');
 const { sendMail, mailConfigured } = require('../lib/mailer');
 const { esc } = require('../lib/notify');
 const google = require('../lib/google');
+const referral = require('../lib/referral');
 
 const router = express.Router();
 
@@ -72,8 +73,8 @@ async function uniqueUsername(base) {
 }
 
 // ---------- SIGNUP ----------
-router.get('/signup', (req, res) => {
-  res.render('signup', { error: null });
+router.get('/signup', async (req, res) => {
+  res.render('signup', { error: null, invitedBy: await referral.referrerName(req) });
 });
 
 router.post('/signup', async (req, res) => {
@@ -106,6 +107,7 @@ router.post('/signup', async (req, res) => {
        VALUES ($1, $2, $3, $4) RETURNING id, username, email`,
       [username, email, passwordHash, autoVerify]
     );
+    await referral.attach(r.rows[0], req, res); // invite link se aaya ho to bulane wale se jor do
     if (!autoVerify) {
       await sendVerification(r.rows[0], req);
       return res.redirect('/login?signup=verify');
@@ -270,6 +272,7 @@ router.get('/auth/google/callback', async (req, res) => {
             [username, p.email, p.sub]
           )
         ).rows[0];
+        await referral.attach(user, req, res); // naya Google account: invite link se aaya ho to jor do
       }
     }
 

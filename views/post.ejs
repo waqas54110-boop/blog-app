@@ -40,7 +40,18 @@
 
         <div class="d-flex flex-wrap align-items-center gap-2 text-body-secondary mb-4">
           <span class="avatar"><%= post.username.charAt(0).toUpperCase() %></span>
-          <span class="fw-semibold text-body"><%= post.username %></span>
+          <span class="fw-semibold text-body"><a href="/u/<%= encodeURIComponent(post.username) %>" class="text-reset text-decoration-none"><%= post.username %></a></span>
+          <% if (!user || user.id !== post.user_id) { %>
+            <% if (user) { %>
+              <form action="/u/<%= encodeURIComponent(post.username) %>/<%= post.following ? 'unfollow' : 'follow' %>" method="POST" class="d-inline mb-0">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="ret" value="/posts/<%= post.slug %>">
+                <button type="submit" class="btn btn-sm <%= post.following ? 'btn-outline-secondary' : 'btn-outline-primary' %> py-0"><%= post.following ? '✓ Following' : '➕ Follow' %></button>
+              </form>
+            <% } else { %>
+              <a href="/login" class="btn btn-sm btn-outline-primary py-0">➕ Follow</a>
+            <% } %>
+          <% } %>
           <span>&middot;</span>
           <span><%= new Date(post.publish_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) %></span>
           <span>&middot;</span>
@@ -179,6 +190,8 @@
         <% if (commentError) { %>
           <div class="alert alert-danger"><%= commentError %></div>
         <% } %>
+        <% if (locals.commentNotice) { %><div class="alert alert-info"><%= commentNotice %></div><% } %>
+        <% if (locals.reportedFlash) { %><div class="alert alert-success">Thanks! Your report was sent to the site owner.</div><% } %>
 
         <% if (user) { %>
           <form action="/posts/<%= post.id %>/comments" method="POST" class="mb-4">
@@ -196,23 +209,34 @@
         <% } %>
 
         <% const renderComment = (c, isReply) => { %>
+          <% const canSee = !c.is_hidden || isAdmin || (user && user.id === c.user_id); %>
+          <% if (!canSee) { %>
+            <div id="c<%= c.id %>" class="py-3 border-top text-body-secondary fst-italic <%= isReply ? 'reply-box' : '' %>">This comment is hidden while the site owner reviews it.</div>
+          <% return; } %>
           <div id="c<%= c.id %>" class="d-flex gap-3 py-3 border-top <%= isReply ? 'reply-box' : '' %>">
             <span class="avatar"><%= c.username.charAt(0).toUpperCase() %></span>
             <div class="flex-grow-1">
               <div class="d-flex justify-content-between align-items-start">
                 <div>
-                  <strong><%= c.username %></strong>
+                  <strong><a href="/u/<%= encodeURIComponent(c.username) %>" class="text-reset text-decoration-none"><%= c.username %></a></strong>
                   <small class="text-body-secondary ms-2">
                     <%= new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %>
                   </small>
+                  <% if (c.is_hidden) { %><span class="badge text-bg-warning ms-1">Under review<%= isAdmin ? '' : ' (only you can see this)' %></span><% } %>
                 </div>
-                <% if (user && (isAdmin || user.id === c.user_id)) { %>
-                  <form action="/comments/<%= c.id %>/delete" method="POST" class="mb-0"
-                        onsubmit="return confirm('Delete this comment?')">
+                <div class="d-flex align-items-center gap-2">
+                  <% if (user && user.id !== c.user_id) { %>
+                    <button type="button" class="btn btn-link btn-sm text-body-secondary p-0" data-bs-toggle="modal" data-bs-target="#reportModal"
+                            data-report-type="comment" data-report-id="<%= c.id %>">Report</button>
+                  <% } %>
+                  <% if (user && (isAdmin || user.id === c.user_id)) { %>
+                    <form action="/comments/<%= c.id %>/delete" method="POST" class="mb-0"
+                          onsubmit="return confirm('Delete this comment?')">
 <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                    <button type="submit" class="btn btn-link btn-sm text-danger p-0">Delete</button>
-                  </form>
-                <% } %>
+                      <button type="submit" class="btn btn-link btn-sm text-danger p-0">Delete</button>
+                    </form>
+                  <% } %>
+                </div>
               </div>
               <div class="comment-body"><%= c.body %></div>
 
@@ -284,5 +308,7 @@
     update();
   })();
 </script>
+
+<%- include('partials/report-modal') %>
 
 <%- include('partials/footer') %>

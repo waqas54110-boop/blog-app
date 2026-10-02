@@ -1,0 +1,155 @@
+<%- include('partials/header') %>
+
+<% const fmt = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); %>
+<% const link = '/u/' + encodeURIComponent(profile.username); %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-9">
+
+    <% if (followMsg) { %><div class="alert alert-success"><%= followMsg %></div><% } %>
+
+    <!-- Header card -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-4">
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <span class="avatar" style="width:72px;height:72px;font-size:2rem;"><%= profile.username.charAt(0).toUpperCase() %></span>
+          <div class="flex-grow-1">
+            <h1 class="h3 fw-bold mb-1"><%= profile.username %>
+              <% if (profile.role === 'admin') { %><span class="badge text-bg-primary align-middle fs-6">Owner</span><% } %>
+            </h1>
+            <div class="text-body-secondary">Member since <%= fmt(profile.created_at) %></div>
+            <div class="mt-1">
+              <strong><%= stats.followers %></strong> <span class="text-body-secondary">follower<%= stats.followers === 1 ? '' : 's' %></span>
+              <span class="text-body-secondary mx-1">·</span>
+              <strong><%= stats.following %></strong> <span class="text-body-secondary">following</span>
+            </div>
+          </div>
+
+          <div class="d-flex flex-column align-items-end gap-2">
+            <% if (isMe) { %>
+              <a href="/invite" class="btn btn-primary">🎁 Invite friends</a>
+            <% } else if (!user) { %>
+              <a href="/login" class="btn btn-primary">➕ Follow</a>
+            <% } else if (isFollowing) { %>
+              <form action="<%= link %>/unfollow" method="POST" class="mb-0">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="btn btn-outline-secondary">✓ Following</button>
+              </form>
+              <form action="<%= link %>/follow-email" method="POST" class="mb-0">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="btn btn-link btn-sm p-0 text-decoration-none"><%= notifyEmail ? '📧 Email alerts: on (turn off)' : '📧 Email alerts: off (turn on)' %></button>
+              </form>
+            <% } else { %>
+              <form action="<%= link %>/follow" method="POST" class="mb-0">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="btn btn-primary">➕ Follow</button>
+              </form>
+            <% } %>
+          </div>
+        </div>
+
+        <% if (badges.length) { %>
+          <hr>
+          <div class="d-flex flex-wrap gap-2">
+            <% badges.forEach(b => { %>
+              <span class="badge rounded-pill text-bg-light border fs-6 fw-normal" title="<%= b.desc %>"><%= b.icon %> <%= b.name %></span>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <hr><div class="text-body-secondary small">No badges yet. Vote, predict and comment to earn them!</div>
+        <% } %>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+      <% [
+        ['League rank', stats.rank ? '#' + stats.rank : '–', stats.rank ? 'of ' + stats.ranked + ' players' : 'no scored predictions'],
+        ['Prediction points', stats.pts, stats.correct + '/' + stats.played + ' correct'],
+        ['Contest votes', stats.votes, ''],
+        ['Comments', stats.comments, '']
+      ].forEach(s => { %>
+        <div class="col-6 col-md-3">
+          <div class="card border-0 shadow-sm text-center h-100"><div class="card-body">
+            <div class="h2 fw-bold text-primary mb-0"><%= s[1] %></div>
+            <div class="text-body-secondary"><%= s[0] %></div>
+            <% if (s[2]) { %><div class="small text-body-secondary"><%= s[2] %></div><% } %>
+          </div></div>
+        </div>
+      <% }) %>
+    </div>
+
+    <!-- Created by this user (owner) -->
+    <% if (posts.length || polls.length) { %>
+      <div class="row g-3 mb-4">
+        <% if (posts.length) { %>
+          <div class="col-12 col-md-6"><div class="card border-0 shadow-sm h-100"><div class="card-body">
+            <h5 class="mb-3">📝 Latest posts</h5>
+            <% posts.forEach(p => { %>
+              <div class="mb-2"><a href="/posts/<%= p.slug %>" class="text-decoration-none"><%= p.title %></a>
+                <div class="small text-body-secondary"><%= fmt(p.publish_at) %></div></div>
+            <% }) %>
+          </div></div></div>
+        <% } %>
+        <% if (polls.length) { %>
+          <div class="col-12 col-md-6"><div class="card border-0 shadow-sm h-100"><div class="card-body">
+            <h5 class="mb-3">🗳️ Latest contests</h5>
+            <% polls.forEach(p => { %>
+              <div class="mb-2"><a href="/votes/<%= p.id %>" class="text-decoration-none"><%= p.title %></a>
+                <div class="small text-body-secondary"><%= fmt(p.created_at) %></div></div>
+            <% }) %>
+          </div></div></div>
+        <% } %>
+      </div>
+    <% } %>
+
+    <div class="row g-3">
+      <!-- Votes -->
+      <div class="col-12 col-md-6">
+        <div class="card border-0 shadow-sm h-100"><div class="card-body">
+          <h5 class="mb-3">🗳️ Recent votes</h5>
+          <% if (votes.length === 0) { %>
+            <p class="text-body-secondary mb-0">No votes yet.</p>
+          <% } else { %>
+            <div class="list-group list-group-flush">
+              <% votes.forEach(v => { %>
+                <a href="/votes/<%= v.poll_id %>" class="list-group-item list-group-item-action px-0">
+                  <div class="fw-semibold text-truncate"><%= v.title %></div>
+                  <div class="small text-body-secondary">Voted for <strong class="text-body"><%= v.option_name %></strong> · <%= fmt(v.created_at) %></div>
+                </a>
+              <% }) %>
+            </div>
+          <% } %>
+        </div></div>
+      </div>
+
+      <!-- Predictions -->
+      <div class="col-12 col-md-6">
+        <div class="card border-0 shadow-sm h-100"><div class="card-body">
+          <h5 class="mb-3">🎯 Predictions</h5>
+          <% if (predictions.length === 0) { %>
+            <p class="text-body-secondary mb-0">No predictions to show yet. Picks for matches that have not started stay private.</p>
+          <% } else { %>
+            <div class="list-group list-group-flush">
+              <% predictions.forEach(p => {
+                   const pickName = p.pick === 'draw' ? 'Draw' : (p.pick === 'a' ? p.team_a : p.team_b); %>
+                <div class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
+                  <div class="overflow-hidden">
+                    <div class="fw-semibold text-truncate"><%= p.team_a %> vs <%= p.team_b %></div>
+                    <div class="small text-body-secondary">Picked <strong class="text-body"><%= pickName %></strong></div>
+                  </div>
+                  <% if (!p.winner) { %><span class="badge text-bg-secondary">Pending</span>
+                  <% } else if (p.points > 0) { %><span class="badge text-bg-success">+<%= p.points %></span>
+                  <% } else { %><span class="badge text-bg-danger">Wrong</span><% } %>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+        </div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<%- include('partials/footer') %>

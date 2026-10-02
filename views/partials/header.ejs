@@ -124,6 +124,12 @@
               <li><a class="dropdown-item" href="/dashboard">Dashboard</a></li>
               <li><a class="dropdown-item" href="/analytics">Analytics</a></li>
               <li>
+                <a class="dropdown-item d-flex justify-content-between align-items-center" href="/admin/moderation">
+                  Moderation
+                  <% if (locals.openReports > 0) { %><span class="badge rounded-pill bg-danger ms-2"><%= openReports %></span><% } %>
+                </a>
+              </li>
+              <li>
                 <a class="dropdown-item d-flex justify-content-between align-items-center" href="/inbox">
                   Inbox
                   <% if (locals.newInquiries > 0) { %><span class="badge rounded-pill bg-danger ms-2"><%= newInquiries %></span><% } %>
@@ -131,6 +137,8 @@
               </li>
               <li><hr class="dropdown-divider"></li>
             <% } %>
+            <li><a class="dropdown-item" href="/u/<%= encodeURIComponent(user.username) %>">My Profile</a></li>
+            <li><a class="dropdown-item" href="/invite">🎁 Invite Friends</a></li>
             <li><a class="dropdown-item" href="/bookmarks">My Bookmarks</a></li>
             <li><hr class="dropdown-divider"></li>
             <li>

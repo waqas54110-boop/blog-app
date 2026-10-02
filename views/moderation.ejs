@@ -1,0 +1,116 @@
+<%- include('partials/header') %>
+
+<% const fmt = (d) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); %>
+<% const label = { comment: 'Post comment', poll_comment: 'Contest comment', poll: 'Contest' }; %>
+<% const reasonLabel = { spam: 'Spam', abuse: 'Abuse', hate: 'Hate', misleading: 'Misleading', other: 'Other' }; %>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h2 class="mb-0">🛡️ Moderation queue <% if (groups.length) { %><span class="badge bg-danger align-middle fs-6"><%= groups.length %></span><% } %></h2>
+  <a href="/dashboard" class="btn btn-outline-secondary btn-sm">← Dashboard</a>
+</div>
+
+<% if (notice) { %><div class="alert alert-success"><%= notice %></div><% } %>
+
+<p class="text-body-secondary small">
+  Comments reported by <%= autohide %> different people are hidden automatically until you review them.
+  Comments caught by the spam filter wait here too (marked “Spam filter”).
+</p>
+
+<% if (groups.length === 0) { %>
+  <div class="card border-0 shadow-sm mb-4"><div class="card-body text-center text-body-secondary py-5">Nothing to review. 🎉</div></div>
+<% } %>
+
+<% groups.forEach(g => { const t = g.target; %>
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <span class="badge text-bg-secondary"><%= label[g.target_type] %></span>
+        <span class="badge text-bg-danger"><%= g.n %> report<%= g.n === 1 ? '' : 's' %></span>
+        <% g.reasons.forEach(r => { %><span class="badge text-bg-warning"><%= reasonLabel[r] || r %></span><% }) %>
+        <% if (g.auto) { %><span class="badge text-bg-info">Spam filter</span><% } %>
+        <% if (t.is_hidden) { %><span class="badge text-bg-dark">Hidden from public</span><% } %>
+        <span class="small text-body-secondary ms-auto">first report <%= fmt(g.first_at) %></span>
+      </div>
+
+      <% if (g.target_type === 'poll') { %>
+        <div class="fw-semibold"><a href="<%= g.link %>" class="text-decoration-none"><%= t.title %></a>
+          <% if (t.is_closed) { %><span class="badge text-bg-secondary ms-1">Closed</span><% } %></div>
+      <% } else { %>
+        <div class="small text-body-secondary mb-1">
+          by <a href="/u/<%= encodeURIComponent(t.username) %>"><%= t.username %></a> on
+          <a href="<%= g.link %>"><%= t.title %></a>
+        </div>
+        <div class="border-start border-3 ps-3 py-1 comment-body"><%= t.body %></div>
+      <% } %>
+
+      <div class="small text-body-secondary mt-2">
+        <% if (g.reporters) { %>Reported by: <%= g.reporters %>.<% } %>
+        <% (g.notes || []).forEach(n => { %><div>“<%= n %>”</div><% }) %>
+      </div>
+
+      <div class="d-flex flex-wrap gap-2 mt-3">
+        <% if (g.target_type !== 'poll') { %>
+          <form action="/admin/moderation/act" method="POST" class="mb-0" onsubmit="return confirm('Delete this comment (and its replies)?')">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="type" value="<%= g.target_type %>"><input type="hidden" name="id" value="<%= g.target_id %>">
+            <input type="hidden" name="action" value="delete">
+            <button class="btn btn-sm btn-danger">🗑 Delete</button>
+          </form>
+        <% } else if (!t.is_closed) { %>
+          <form action="/admin/moderation/act" method="POST" class="mb-0" onsubmit="return confirm('Close voting on this contest?')">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="type" value="poll"><input type="hidden" name="id" value="<%= g.target_id %>">
+            <input type="hidden" name="action" value="close">
+            <button class="btn btn-sm btn-danger">⛔ Close contest</button>
+          </form>
+        <% } %>
+        <form action="/admin/moderation/act" method="POST" class="mb-0">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="type" value="<%= g.target_type %>"><input type="hidden" name="id" value="<%= g.target_id %>">
+          <input type="hidden" name="action" value="keep">
+          <button class="btn btn-sm btn-outline-success">✓ Keep<%= t.is_hidden ? ' & show' : '' %></button>
+        </form>
+        <a href="<%= g.link %>" class="btn btn-sm btn-outline-secondary">Open</a>
+      </div>
+    </div>
+  </div>
+<% }) %>
+
+<div class="row g-3 mt-2">
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <h5>🚫 Spam words</h5>
+      <p class="small text-body-secondary">One word or phrase per line. A comment containing one is rejected. Add rude words here too if you want. Links (3+), repeated text, ALL CAPS and links from brand-new accounts are held for review automatically.</p>
+      <form action="/admin/moderation/words" method="POST" class="mb-0">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <textarea class="form-control font-monospace mb-2" name="words" rows="10" maxlength="20000"><%= words.join('\n') %></textarea>
+        <button class="btn btn-primary btn-sm">Save words</button>
+      </form>
+    </div></div>
+  </div>
+
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <h5>🕘 Recently handled</h5>
+      <% if (handled.length === 0) { %>
+        <p class="text-body-secondary mb-0">Nothing yet.</p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <tbody>
+              <% handled.forEach(h => { %>
+                <tr>
+                  <td><%= label[h.target_type] %> #<%= h.target_id %></td>
+                  <td><span class="badge <%= h.action === 'delete' || h.action === 'close' ? 'text-bg-danger' : 'text-bg-success' %>"><%= h.action || h.status %></span></td>
+                  <td class="small text-body-secondary"><%= h.admin || '' %><br><%= h.handled_at ? fmt(h.handled_at) : '' %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div></div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

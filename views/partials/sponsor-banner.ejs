@@ -21,6 +21,7 @@
       <% } else if (bx.prize) { %>
         <div class="small text-body-secondary">
           <%= bx.giveaway_pool === 'winner' ? 'A random winner is drawn from verified voters who backed the winning side.' : 'A random winner is drawn from all verified voters when the contest ends.' %>
+          <% if (bx.giveaway_ref_bonus) { %> Bring friends with your <a href="/invite">invite link</a> for extra entries!<% } %>
         </div>
       <% } %>
     </div>

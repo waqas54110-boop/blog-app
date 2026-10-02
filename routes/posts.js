@@ -12,6 +12,8 @@ const card = require('../lib/card');
 const polls = require('../lib/polls');
 const sponsorLib = require('../lib/sponsor');
 const indexnow = require('../lib/indexnow');
+const spam = require('../lib/spam');
+const moderation = require('../lib/moderation');
 
 const router = express.Router();
 const PER_PAGE = Math.min(Math.max(parseInt(process.env.POSTS_PER_PAGE, 10) || 6, 1), 30);
@@ -390,6 +392,7 @@ router.get('/leaderboard', async (req, res) => {
     const result = await pool.query(
       `SELECT u.username, COUNT(*)::int AS comment_count
        FROM comments c JOIN users u ON u.id = c.user_id
+       WHERE NOT c.is_hidden
        GROUP BY u.username
        ORDER BY comment_count DESC
        LIMIT 10`
@@ -646,7 +649,8 @@ router.get('/posts/:ref', async (req, res) => {
               (p.is_draft = false AND p.publish_at <= now()) AS is_live,
               (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id)::int AS like_count,
               EXISTS (SELECT 1 FROM likes l WHERE l.post_id = p.id AND l.user_id = $2::int) AS liked,
-              EXISTS (SELECT 1 FROM bookmarks b WHERE b.post_id = p.id AND b.user_id = $2::int) AS bookmarked
+              EXISTS (SELECT 1 FROM bookmarks b WHERE b.post_id = p.id AND b.user_id = $2::int) AS bookmarked,
+              EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $2::int AND f.followee_id = p.user_id) AS following
        FROM posts p JOIN users u ON u.id = p.user_id
        WHERE ${byId ? 'p.id = $1::int' : 'p.slug = $1::text'}`,
       [ref, uid]
@@ -687,7 +691,7 @@ router.get('/posts/:ref', async (req, res) => {
         [post.category, post.id]
       ),
       pool.query(
-        `SELECT c.id, c.body, c.created_at, c.user_id, c.parent_id, u.username
+        `SELECT c.id, c.body, c.created_at, c.user_id, c.parent_id, c.is_hidden, u.username
          FROM comments c JOIN users u ON u.id = c.user_id
          WHERE c.post_id = $1
          ORDER BY c.created_at ASC`,
@@ -903,12 +907,24 @@ router.post('/posts/:id/comments', requireLogin, async (req, res) => {
       if (repliedTo) parentId = repliedTo.parent_id || repliedTo.id;
     }
 
+    // Spam filter: block = save nahi hota, hold = hidden save + moderation queue
+    const verdict = await spam.check(body, { userId: me.id, isAdmin: res.locals.isAdmin });
+    if (verdict.action === 'block') {
+      return res.redirect(`/posts/${post.slug}?commentError=${encodeURIComponent(verdict.message)}#comments`);
+    }
+    const held = verdict.action === 'hold';
+
     const ins = await pool.query(
-      'INSERT INTO comments (post_id, user_id, body, parent_id) VALUES ($1, $2, $3, $4) RETURNING id',
-      [id, me.id, body, parentId]
+      'INSERT INTO comments (post_id, user_id, body, parent_id, is_hidden) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [id, me.id, body, parentId, held]
     );
     const link = `/posts/${post.slug}#c${ins.rows[0].id}`;
     const short = post.title.length > 60 ? post.title.slice(0, 57) + '...' : post.title;
+
+    if (held) {
+      await moderation.holdForReview('comment', ins.rows[0].id, verdict.reason);
+      return res.redirect(`/posts/${post.slug}?commentNotice=${encodeURIComponent('Your comment is waiting for review by the site owner. Only you can see it until then.')}#c${ins.rows[0].id}`);
+    }
 
     if (repliedTo && repliedTo.user_id !== me.id) {
       // Jis ne comment kiya tha use in-app notification + email
