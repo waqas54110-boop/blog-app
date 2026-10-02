@@ -86,6 +86,7 @@ app.post('/avatar/remove', limiter(10, 10, 'Too many requests. Please wait a few
 app.post('/upload-feed-image', limiter(30, 20, 'Too many photo uploads. Please wait a while.'));
 app.post('/feed', limiter(10, 8, 'You are posting too fast. Please wait a few minutes.'));
 app.post('/feed/:id/comments', limiter(5, 12, 'You are commenting too fast. Please wait a few minutes.'));
+app.post('/feed/views', limiter(10, 300, 'Too many requests. Please try again in a few minutes.'));
 app.post('/feed/:id/like', limiter(10, 80, 'Too many likes. Please wait a few minutes.'));
 app.get('/r/:code', limiter(10, 30, 'Too many requests. Please try again in a few minutes.'));
 

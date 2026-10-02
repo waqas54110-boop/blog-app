@@ -49,7 +49,10 @@
 
   <div class="d-flex justify-content-between px-3 py-2 small text-body-secondary">
     <span class="js-likes <%= f.likes ? '' : 'invisible' %>">❤️ <span class="js-like-count"><%= f.likes %></span></span>
-    <a href="/feed/<%= f.id %>#comments" class="text-reset text-decoration-none">💬 <span class="js-comment-count"><%= f.comments %></span></a>
+    <span>
+      <span class="me-2" title="Views">👁 <span class="js-view-count"><%= f.views || 0 %></span></span>
+      <a href="/feed/<%= f.id %>#comments" class="text-reset text-decoration-none">💬 <span class="js-comment-count"><%= f.comments %></span></a>
+    </span>
   </div>
 
   <div class="d-flex border-top mx-3 py-1 gap-1">

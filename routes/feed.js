@@ -11,6 +11,7 @@ const Friends = require('../lib/friends');
 const Blocks = require('../lib/blocks');
 const { notifyUser } = require('../lib/notify');
 const { detectImage } = require('./uploads');
+const { isBot } = require('../lib/analytics');
 
 const router = express.Router();
 const BODY_MAX = 2000;
@@ -169,6 +170,27 @@ router.get('/feed/:id', async (req, res, next) => {
       },
     });
   } catch (err) { next(err); }
+});
+
+// ---------- VIEW COUNT ----------
+// Browser jab card ko ~1 second screen par dekh leta hai to ids bhejta hai (ek browser session mein har post sirf ek baar).
+// Bots, admin aur post ke apne owner ke views ginti mein nahi aate.
+router.post('/feed/views', async (req, res) => {
+  try {
+    if (isBot(req) || res.locals.isAdmin) return res.json({ ok: true });
+    const me = req.session.user ? req.session.user.id : 0;
+    const ids = String(req.body.ids || '').split(',').map(toId).filter(Boolean).slice(0, 20);
+    if (ids.length) {
+      await pool.query(
+        'UPDATE feed_posts SET views = views + 1 WHERE id = ANY($1::int[]) AND NOT is_hidden AND user_id <> $2',
+        [ids, me]
+      );
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[feed views] (migration_v19.sql chali?):', err.message);
+    res.json({ ok: false });
+  }
 });
 
 // ---------- CREATE POST ----------

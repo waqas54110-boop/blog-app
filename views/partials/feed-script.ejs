@@ -48,6 +48,55 @@
     if (fc) { var inp = fc.closest('.feed-card').querySelector('.js-comment-input'); if (inp) inp.focus(); }
   });
 
+  // Views: card 50% screen par 1 second rahe to ginti (ek browser session mein har post ek baar)
+  (function () {
+    if (!('IntersectionObserver' in window)) return;
+    var seen = {};
+    try { seen = JSON.parse(sessionStorage.getItem('feedSeen') || '{}'); } catch (e) {}
+    var queue = [], timers = new WeakMap(), flushT = null;
+
+    function flush() {
+      flushT = null;
+      if (!queue.length) return;
+      var ids = queue.splice(0, 20).join(',');
+      fetch('/feed/views', {
+        method: 'POST', credentials: 'same-origin', keepalive: true,
+        headers: Object.assign({ 'Content-Type': 'application/x-www-form-urlencoded' }, hdr),
+        body: new URLSearchParams({ ids: ids }).toString()
+      }).catch(function () {});
+      if (queue.length) flushT = setTimeout(flush, 500);
+    }
+
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) {
+        var card = en.target, id = card.getAttribute('data-id');
+        if (en.isIntersecting) {
+          if (seen[id] || timers.has(card)) return;
+          timers.set(card, setTimeout(function () {
+            timers.delete(card);
+            if (seen[id]) return;
+            seen[id] = 1;
+            try { sessionStorage.setItem('feedSeen', JSON.stringify(seen)); } catch (e) {}
+            queue.push(id);
+            var vc = card.querySelector('.js-view-count');
+            if (vc) vc.textContent = (parseInt(vc.textContent, 10) || 0) + 1;
+            if (!flushT) flushT = setTimeout(flush, 1500);
+          }, 1000));
+        } else if (timers.has(card)) {
+          clearTimeout(timers.get(card)); timers.delete(card);
+        }
+      });
+    }, { threshold: 0.5 });
+
+    function observeAll() {
+      document.querySelectorAll('.feed-card:not([data-vw])').forEach(function (c) { c.setAttribute('data-vw', '1'); io.observe(c); });
+    }
+    observeAll();
+    // "Load more" se aane wale naye cards bhi
+    new MutationObserver(observeAll).observe(document.body, { childList: true, subtree: true });
+    window.addEventListener('pagehide', flush);
+  })();
+
   // Comment: page reload ke baghair (JS band ho to normal form chalta hai)
   document.addEventListener('submit', function (e) {
     var form = e.target.closest('.js-comment-form');
