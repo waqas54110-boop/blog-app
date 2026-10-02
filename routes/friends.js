@@ -33,10 +33,16 @@ router.get('/friends', requireLogin, async (req, res, next) => {
     const [incoming, outgoing, friends, blocked] = await Promise.all([
       F.incoming(me.id), F.outgoing(me.id), F.friendList(me.id), Blocks.blockedList(me.id),
     ]);
-    const people = tab === 'people' ? await F.people(me.id, q) : [];
+    // "People you may know" sirf tab dikhta hai jab search nahi ho rahi
+    let suggestions = [];
+    if (tab === 'people' && !q) {
+      try { suggestions = await F.suggestions(me.id, 8); } catch (e) { console.error('suggestions:', e.message); }
+    }
+    const suggestedIds = new Set(suggestions.map((x) => x.id));
+    const people = tab === 'people' ? (await F.people(me.id, q)).filter((p) => !suggestedIds.has(p.id)) : [];
     res.render('friends', {
       title: 'Friends',
-      tab, q, people, incoming, outgoing, friends, blocked,
+      tab, q, people, suggestions, incoming, outgoing, friends, blocked,
       msg: req.query.msg ? String(req.query.msg).slice(0, 120) : null,
     });
   } catch (err) { next(err); }

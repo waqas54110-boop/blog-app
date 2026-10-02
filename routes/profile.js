@@ -38,10 +38,14 @@ router.get('/u/:username', async (req, res, next) => {
     const isMe = me === profile.id;
     let friendState = 'none';
     let blockState = 'none'; // none | by_me | me
+    let mutual = { count: 0, list: [] }; // "3 mutual friends"
     if (me && !isMe) {
       try {
         blockState = await Blocks.stateFor(me, profile.id);
-        if (blockState === 'none') friendState = await Friends.stateBetween(me, profile.id);
+        if (blockState === 'none') {
+          friendState = await Friends.stateBetween(me, profile.id);
+          mutual = await Friends.mutualFriends(me, profile.id, 3);
+        }
       } catch (e) { console.error('friend/block state (migration_v14/v15 chali?):', e.message); }
     }
     // Profile photo ka version (browser cache badalne ke liye)
@@ -51,7 +55,7 @@ router.get('/u/:username', async (req, res, next) => {
       avatarVer = (a.rows[0] && a.rows[0].avatar_image_id) || 0;
     } catch (e) { console.error('avatar (migration_v15.sql chali?):', e.message); }
     res.render('profile', {
-      friendState, blockState, avatarVer,
+      friendState, blockState, mutual, avatarVer,
       title: `${profile.username} · Profile`,
       metaDescription: `${profile.username} on ${config.siteName}: ${data.stats.votes} votes, ${data.stats.pts} prediction points, ${data.badges.length} badges.`,
       profile, ...data, isMe,

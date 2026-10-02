@@ -24,6 +24,12 @@
               <span class="text-body-secondary mx-1">·</span>
               <strong><%= stats.following %></strong> <span class="text-body-secondary">following</span>
             </div>
+            <% if (mutual && mutual.count > 0) { %>
+              <div class="small text-body-secondary mt-1">
+                👥 <strong><%= mutual.count %></strong> mutual friend<%= mutual.count === 1 ? '' : 's' %>:
+                <% mutual.list.forEach((m, i) => { %><a href="/u/<%= encodeURIComponent(m.username) %>" class="text-reset"><%= m.username %></a><%= i < mutual.list.length - 1 ? ', ' : '' %><% }) %><% if (mutual.count > mutual.list.length) { %> and <%= mutual.count - mutual.list.length %> more<% } %>
+              </div>
+            <% } %>
           </div>
 
           <div class="d-flex flex-column align-items-end gap-2">
