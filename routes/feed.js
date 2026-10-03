@@ -9,6 +9,8 @@ const moderation = require('../lib/moderation');
 const Feed = require('../lib/feed');
 const Friends = require('../lib/friends');
 const Blocks = require('../lib/blocks');
+const Images = require('../lib/images');
+const Groups = require('../lib/groups');
 const { notifyUser } = require('../lib/notify');
 const { detectImage } = require('./uploads');
 const { isBot } = require('../lib/analytics');
@@ -31,15 +33,7 @@ const requireLogin = (req, res, next) => {
 };
 
 // Image ki row hatao, lekin sirf agar wo kisi feed post / profile photo se juri na ho aur owner ne hi upload ki ho
-async function dropImageIfOrphan(imageId, ownerId) {
-  if (!imageId) return;
-  await pool.query(
-    `DELETE FROM images WHERE id = $1 AND uploaded_by = $2
-       AND NOT EXISTS (SELECT 1 FROM feed_posts WHERE image_id = $1)
-       AND NOT EXISTS (SELECT 1 FROM users WHERE avatar_image_id = $1)`,
-    [imageId, ownerId]
-  );
-}
+const dropImageIfOrphan = (imageId, ownerId) => Images.dropIfOrphan(imageId, ownerId);
 
 // ---------- PHOTO UPLOAD (har login user) ----------
 // Browser pehle photo ko max 1600px JPEG bana deta hai, body seedhi JPEG bytes (app.js mein express.raw, hadd 2 MB)
@@ -85,7 +79,7 @@ router.get('/', async (req, res, next) => {
   try {
     const me = req.session.user ? req.session.user.id : null;
     const isAdmin = res.locals.isAdmin;
-    const tab = req.query.tab === 'following' && me ? 'following' : 'all';
+    const tab = (req.query.tab === 'following' || req.query.tab === 'groups') && me ? req.query.tab : 'all';
     const before = toId(req.query.before);
 
     let author = null;
@@ -125,8 +119,13 @@ router.get('/', async (req, res, next) => {
       catch (e) { console.error('[feed] suggestions (migration_v14 chali?):', e.message); }
     }
 
+    // Right sidebar: mashhoor groups (migration_v20 na chali ho to feed phir bhi chale)
+    let popularGroups = [];
+    try { popularGroups = await Groups.popular(5, me || 0); }
+    catch (e) { console.error('[feed] groups (migration_v20.sql chali?):', e.message); }
+
     res.render('feed', {
-      ...common,
+      ...common, popularGroups,
       title: author ? `${author.username} · Feed posts` : 'Community Feed',
       metaDescription: `Photos and posts from the ${config.siteName} community. Share your own photo, like and comment.`,
       nextBefore: hasMore && posts.length ? posts[posts.length - 1].id : null,
@@ -153,11 +152,13 @@ router.get('/feed/:id', async (req, res, next) => {
     const f = posts[0];
     if (!f) return next();
     await Feed.attach(posts, { me, isAdmin }, true);
+    // Group ki post par group admin ko bhi delete ka haq (card / comment is flag se button dikhate hain)
+    const groupAdmin = !!(f.group_id && me && (await Groups.roleOf(f.group_id, me)) === 'admin');
 
     const base = baseUrl(req);
     const text = f.body ? snippet(f.body.replace(/\s+/g, ' '), 140) : 'Shared a photo';
     res.render('feed-post', {
-      f, posts, ago: Feed.timeAgo, shareBase: base, full: true,
+      f, posts, ago: Feed.timeAgo, shareBase: base, full: true, groupAdmin,
       title: `${f.username}: ${snippet(text, 60)}`,
       metaDescription: text,
       ogType: 'article',
@@ -196,8 +197,19 @@ router.post('/feed/views', async (req, res) => {
 // ---------- CREATE POST ----------
 router.post('/feed', requireLogin, async (req, res) => {
   const me = req.session.user;
-  const fail = (msg) => res.redirect('/?err=' + encodeURIComponent(msg));
+  let home = '/'; // aam post: home feed. Group post: us group ka page
+  const fail = (msg) => res.redirect(home + '?err=' + encodeURIComponent(msg));
   try {
+    // Group ki post: group sach mein ho aur likhne wala uska member ho
+    let groupId = null;
+    if (req.body && req.body.group_id) {
+      const gid = toId(req.body.group_id);
+      const g = gid ? (await pool.query('SELECT id, slug FROM groups WHERE id = $1', [gid])).rows[0] : null;
+      if (!g) return fail('Group not found.');
+      home = '/groups/' + g.slug;
+      if (!(await Groups.roleOf(g.id, me.id))) return fail('Join this group first to post in it.');
+      groupId = g.id;
+    }
     const body = String((req.body && req.body.body) || '').replace(/\r\n/g, '\n').trim();
     const imageId = toId(req.body && req.body.image_id);
     if (!body && !imageId) return fail('Write something or add a photo first.');
@@ -206,9 +218,7 @@ router.post('/feed', requireLogin, async (req, res) => {
     // Photo sach mein isi user ki upload ki hui ho, aur kisi aur post / profile photo ki na ho
     if (imageId) {
       const ok = await pool.query(
-        `SELECT 1 FROM images WHERE id = $1 AND uploaded_by = $2
-           AND NOT EXISTS (SELECT 1 FROM feed_posts WHERE image_id = $1)
-           AND NOT EXISTS (SELECT 1 FROM users WHERE avatar_image_id = $1)`,
+        `SELECT 1 FROM images WHERE id = $1 AND uploaded_by = $2 AND ${Images.unusedSql('$1')}`,
         [imageId, me.id]
       );
       if (!ok.rows[0]) return fail('That photo could not be used. Please add it again.');
@@ -231,14 +241,14 @@ router.post('/feed', requireLogin, async (req, res) => {
     }
 
     const ins = await pool.query(
-      'INSERT INTO feed_posts (user_id, body, image_id, is_hidden) VALUES ($1, $2, $3, $4) RETURNING id',
-      [me.id, body, imageId, held]
+      'INSERT INTO feed_posts (user_id, body, image_id, is_hidden, group_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [me.id, body, imageId, held, groupId]
     );
     if (held) {
       await moderation.holdForReview('feed_post', ins.rows[0].id, heldReason);
-      return res.redirect('/?notice=' + encodeURIComponent('Your post is waiting for review by the site owner. Only you can see it until then.'));
+      return res.redirect(home + '?notice=' + encodeURIComponent('Your post is waiting for review by the site owner. Only you can see it until then.'));
     }
-    res.redirect('/?posted=1');
+    res.redirect(home + '?posted=1');
   } catch (err) {
     console.error('[feed create] (migration_v18.sql chali?)', err.message);
     fail('Could not save your post. Please try again.');
@@ -342,12 +352,22 @@ router.post('/feed/:id/delete', requireLogin, async (req, res) => {
   if (!id) return res.redirect('/');
   const me = req.session.user;
   try {
+    // Post ka owner, site admin, ya us group ka admin
     const r = await pool.query(
-      `DELETE FROM feed_posts WHERE id = $1 AND ($3::boolean OR user_id = $2) RETURNING user_id, image_id`,
+      `DELETE FROM feed_posts WHERE id = $1 AND ($3::boolean OR user_id = $2
+         OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = feed_posts.group_id AND gm.user_id = $2 AND gm.role = 'admin'))
+       RETURNING user_id, image_id, group_id`,
       [id, me.id, res.locals.isAdmin]
     );
-    if (r.rows[0]) await dropImageIfOrphan(r.rows[0].image_id, r.rows[0].user_id);
-    res.redirect('/?deleted=1');
+    let back = '/';
+    if (r.rows[0]) {
+      await dropImageIfOrphan(r.rows[0].image_id, r.rows[0].user_id);
+      if (r.rows[0].group_id) {
+        const g = await pool.query('SELECT slug FROM groups WHERE id = $1', [r.rows[0].group_id]);
+        if (g.rows[0]) back = '/groups/' + g.rows[0].slug;
+      }
+    }
+    res.redirect(back + '?deleted=1');
   } catch (err) {
     console.error('[feed delete]', err.message);
     res.redirect('/');
@@ -362,7 +382,8 @@ router.post('/feed/comments/:id/delete', requireLogin, async (req, res) => {
     // Comment ka apna owner, us post ka owner, ya admin
     const r = await pool.query(
       `DELETE FROM feed_comments c USING feed_posts f
-       WHERE c.id = $1 AND f.id = c.post_id AND ($3::boolean OR c.user_id = $2 OR f.user_id = $2)
+       WHERE c.id = $1 AND f.id = c.post_id AND ($3::boolean OR c.user_id = $2 OR f.user_id = $2
+         OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = f.group_id AND gm.user_id = $2 AND gm.role = 'admin'))
        RETURNING c.post_id`,
       [id, me.id, res.locals.isAdmin]
     );

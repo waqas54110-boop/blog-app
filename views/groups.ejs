@@ -1,0 +1,73 @@
+<%- include('partials/header') %>
+<%- include('partials/feed-assets') %>
+
+<div class="feed-hero p-4 p-md-5 mb-4 shadow-sm">
+  <h1 class="fw-bold mb-1 fs-2">🫂 Groups</h1>
+  <p class="mb-0 opacity-75">Cricket, freelancing and more. Join a group to post in its own feed.</p>
+</div>
+
+<% if (deleted) { %><div class="alert alert-success">Group deleted.</div><% } %>
+<% if (notice) { %><div class="alert alert-warning"><%= notice %></div><% } %>
+<% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+
+<div class="d-flex flex-wrap gap-2 align-items-center mb-4">
+  <form action="/groups" method="GET" class="d-flex gap-2 flex-grow-1" role="search" style="max-width: 460px;">
+    <input type="search" name="q" value="<%= q %>" class="form-control rounded-pill" placeholder="Search groups..." maxlength="60" aria-label="Search groups">
+    <button class="btn btn-outline-primary rounded-pill px-3" type="submit">Search</button>
+  </form>
+  <% if (user && canCreate) { %>
+    <a href="/groups/new" class="btn btn-primary btn-post ms-auto">➕ Create group</a>
+  <% } else if (!user) { %>
+    <a href="/login" class="btn btn-outline-primary rounded-pill ms-auto">Log in to join</a>
+  <% } %>
+</div>
+
+<% if (groups.length === 0) { %>
+  <div class="card border-0 shadow-sm"><div class="card-body text-center text-body-secondary py-5">
+    <div class="fs-1 mb-2">🌱</div>
+    <% if (q) { %>No groups found for "<%= q %>". <a href="/groups">Show all groups</a>.<% } else { %>No groups yet.<% if (user && canCreate) { %> <a href="/groups/new">Create the first one!</a><% } %><% } %>
+  </div></div>
+<% } else { %>
+  <% if (user && !q && mine.length) { %><h2 class="fs-5 fw-bold mb-3">Your groups</h2><% } %>
+  <div class="row g-3 mb-4">
+    <% groups.forEach(function (g, idx) { %>
+      <% if (user && !q && mine.length && idx === mine.length) { %>
+        </div><h2 class="fs-5 fw-bold mb-3">Discover</h2><div class="row g-3 mb-4">
+      <% } %>
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="card border-0 shadow-sm h-100 group-card">
+          <div class="card-body d-flex flex-column">
+            <div class="d-flex align-items-center gap-3 mb-2">
+              <span class="group-emoji"><%= g.emoji %></span>
+              <div style="min-width:0;">
+                <a href="/groups/<%= g.slug %>" class="fw-bold text-reset text-decoration-none stretched-link text-break"><%= g.name %></a>
+                <div class="small text-body-secondary"><%= g.members %> member<%= g.members === 1 ? '' : 's' %> · <%= g.posts %> post<%= g.posts === 1 ? '' : 's' %></div>
+              </div>
+            </div>
+            <% if (g.description) { %><p class="small text-body-secondary mb-3 text-break"><%= g.description %></p><% } %>
+            <div class="mt-auto position-relative" style="z-index:2;">
+              <% if (user && g.joined) { %>
+                <span class="badge text-bg-success rounded-pill px-3 py-2">✓ Joined</span>
+              <% } else if (user) { %>
+                <form action="/groups/<%= g.slug %>/join" method="POST" class="mb-0">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="list">
+                  <button class="btn btn-sm btn-primary rounded-pill px-3">Join</button>
+                </form>
+              <% } else { %>
+                <a href="/login" class="btn btn-sm btn-outline-primary rounded-pill px-3">Log in to join</a>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+<% } %>
+
+<style>
+  .group-emoji { width: 52px; height: 52px; border-radius: 1rem; display: inline-flex; align-items: center; justify-content: center; font-size: 1.7rem; flex-shrink: 0; background: linear-gradient(135deg, rgba(79,70,229,.15), rgba(219,39,119,.15)); }
+  .group-card { border-radius: 1rem; transition: box-shadow .2s ease, transform .15s ease; }
+  .group-card:hover { box-shadow: 0 .6rem 1.4rem rgba(79,70,229,.16) !important; transform: translateY(-2px); }
+</style>
+
+<%- include('partials/footer') %>

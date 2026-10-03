@@ -28,6 +28,9 @@ const avatarRouter = require('./routes/avatar');
 const moderationRouter = require('./routes/moderation');
 const moderationLib = require('./lib/moderation');
 const feedRouter = require('./routes/feed');
+const storiesRouter = require('./routes/stories');
+const groupsRouter = require('./routes/groups');
+const { startCleaner: startStoryCleaner } = require('./lib/stories');
 const { startFollowNotifier } = require('./lib/follow');
 const { startTelegramPoster } = require('./lib/telegram');
 const { startPollScheduler } = require('./lib/polls');
@@ -56,7 +59,8 @@ const limiter = (windowMinutes, limit, message, opts = {}) =>
 // ek page par kai images hoti hain aur video har seek par chhoti requests bhejti hai
 app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try again.', {
   // /votes/:id/state.json (live counting) ka apna alag limit neeche hai
-  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path),
+  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path)
+    || req.path.startsWith('/stories/') || req.path.startsWith('/icons/') || req.path === '/sw.js' || req.path === '/manifest.webmanifest' || req.path === '/offline',
 }));
 app.post(['/login', '/signup'], limiter(15, 15, 'Too many login/signup attempts. Please try again in 15 minutes.'));
 app.post('/subscribe', limiter(60, 6, 'Too many subscribe attempts. Please try again later.'));
@@ -88,6 +92,14 @@ app.post('/feed', limiter(10, 8, 'You are posting too fast. Please wait a few mi
 app.post('/feed/:id/comments', limiter(5, 12, 'You are commenting too fast. Please wait a few minutes.'));
 app.post('/feed/views', limiter(10, 300, 'Too many requests. Please try again in a few minutes.'));
 app.post('/feed/:id/like', limiter(10, 80, 'Too many likes. Please wait a few minutes.'));
+app.post('/stories', limiter(30, 15, 'You are posting stories too fast. Please wait a while.'));
+app.post('/stories/:id/seen', limiter(10, 400, 'Too many requests. Please try again in a few minutes.'));
+app.post('/stories/:id/delete', limiter(10, 30, 'Too many requests. Please wait a few minutes.'));
+app.get('/stories/tray.json', limiter(5, 60, 'Too many requests. Please try again in a few minutes.'));
+app.get('/stories/:id/viewers', limiter(5, 60, 'Too many requests. Please try again in a few minutes.'));
+app.post('/groups', limiter(60, 5, 'You are creating groups too fast. Please try again later.'));
+app.post(['/groups/:slug/join', '/groups/:slug/leave'], limiter(10, 40, 'Too many requests. Please wait a few minutes.'));
+app.post('/groups/:slug/delete', limiter(10, 10, 'Too many requests. Please wait a few minutes.'));
 app.get('/r/:code', limiter(10, 30, 'Too many requests. Please try again in a few minutes.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
@@ -234,6 +246,8 @@ app.use('/', messagesRouter);
 app.use('/', avatarRouter);
 app.use('/', moderationRouter);
 app.use('/', feedRouter);
+app.use('/', storiesRouter);
+app.use('/', groupsRouter);
 app.use('/', authRouter);
 
 app.use((req, res) => {
@@ -262,5 +276,6 @@ app.listen(PORT, (err) => {
   startPublisher();
   startPollScheduler(); // knockout rounds jin ka time ho gaya unhein agle round par le jata hai
   startTelegramPoster(); // naya contest / result Telegram channel mein (token set ho to)
+  startStoryCleaner(); // 24 ghante purani stories (aur un ki photos) hata deta hai
   startFollowNotifier(); // followers ko naya post / contest ki notification (+ email)
 });

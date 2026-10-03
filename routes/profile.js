@@ -66,7 +66,7 @@ router.get('/u/:username', async (req, res, next) => {
     let feedCount = 0;
     try {
       const fc = await pool.query(
-        'SELECT COUNT(*)::int AS n FROM feed_posts WHERE user_id = $1 AND (NOT is_hidden OR $2::boolean OR user_id = $3)',
+        'SELECT COUNT(*)::int AS n FROM feed_posts WHERE user_id = $1 AND group_id IS NULL AND (NOT is_hidden OR $2::boolean OR user_id = $3)',
         [profile.id, !!res.locals.isAdmin, me || 0]
       );
       feedCount = fc.rows[0].n;

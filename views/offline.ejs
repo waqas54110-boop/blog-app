@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#4f46e5">
+  <title>You're offline · <%= locals.siteName || 'My Blog' %></title>
+  <%# Ye page internet ke baghair khulta hai, is liye CDN / bahar ki koi file nahi: sab kuch yahin andar %>
+  <style>
+    :root { --bg: #f5f6fa; --card: #ffffff; --text: #1f2330; --muted: #6b7280; }
+    @media (prefers-color-scheme: dark) { :root { --bg: #14161f; --card: #1e212d; --text: #eceef5; --muted: #9aa1b4; } }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; align-items: center; justify-content: center;
+      padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+    }
+    .box { width: 100%; max-width: 420px; background: var(--card); border-radius: 1.25rem; overflow: hidden; text-align: center; box-shadow: 0 .75rem 2rem rgba(79,70,229,.15); }
+    .top { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #db2777 100%); color: #fff; padding: 2rem 1rem 1.5rem; }
+    .top .emoji { font-size: 3.2rem; line-height: 1; }
+    .top h1 { margin: .6rem 0 0; font-size: 1.5rem; }
+    .body { padding: 1.5rem 1.5rem 1.75rem; }
+    p { margin: 0 0 1.25rem; color: var(--muted); line-height: 1.6; }
+    button { font: inherit; font-weight: 600; color: #fff; border: 0; border-radius: 2rem; padding: .7rem 1.8rem; cursor: pointer; background: linear-gradient(135deg, #4f46e5, #7c3aed); }
+    button:active { transform: scale(.97); }
+    .status { margin-top: 1rem; font-size: .85rem; color: var(--muted); min-height: 1.2em; }
+  </style>
+</head>
+<body>
+  <main class="box">
+    <div class="top">
+      <div class="emoji" aria-hidden="true">📡</div>
+      <h1>You're offline</h1>
+    </div>
+    <div class="body">
+      <p>No internet connection right now. Check your Wi-Fi or mobile data, then try again. This page will reload by itself when you're back online.</p>
+      <button type="button" id="retry">Try again</button>
+      <div class="status" id="status" role="status"></div>
+    </div>
+  </main>
+  <script>
+    (function () {
+      var status = document.getElementById('status');
+      function go() { location.href = '/'; }
+      document.getElementById('retry').addEventListener('click', function () {
+        status.textContent = 'Checking connection…';
+        // Asli check: server tak pahunch sakte hain ya nahi (navigator.onLine par poora bharosa nahi)
+        fetch('/manifest.webmanifest', { cache: 'no-store' })
+          .then(function (r) { if (r.ok) go(); else throw new Error(); })
+          .catch(function () { status.textContent = 'Still offline. Please try again in a moment.'; });
+      });
+      window.addEventListener('online', go);
+    })();
+  </script>
+</body>
+</html>

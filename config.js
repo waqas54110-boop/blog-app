@@ -17,4 +17,6 @@ module.exports = {
   // Telegram channel mein contest khud post karne ke liye (dono khali = band)
   telegramToken: process.env.TELEGRAM_BOT_TOKEN || '',
   telegramChat: process.env.TELEGRAM_CHAT_ID || '',   // @channelname ya -100xxxxxxxxxx
+  // Groups: 1 likhein to naya group sirf admin bana sakta hai (default: har login user, max 5 groups)
+  groupsAdminOnly: process.env.GROUPS_ADMIN_ONLY === '1',
 };

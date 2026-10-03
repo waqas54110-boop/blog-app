@@ -24,6 +24,19 @@
   <% } %>
   <meta name="theme-color" content="#4f46e5">
   <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/icons/180.png">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="<%= locals.siteName || 'My Blog' %>">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <script>
+    // "Install app" ka event page load ke baad kabhi bhi aa sakta hai: pehle hi pakad kar rakh lo
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      window.__installEvt = e;
+      document.dispatchEvent(new Event('install-ready'));
+    });
+  </script>
   <link rel="alternate" type="application/rss+xml" title="My Blog RSS Feed" href="/rss.xml">
   <% (locals.jsonLd || []).forEach(function (block) { %>
   <script type="application/ld+json"><%- safeJson(block) %></script>
@@ -98,6 +111,7 @@
         </li>
 
         <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
+        <li class="nav-item"><a class="nav-link" href="/groups">🫂 Groups</a></li>
         <li class="nav-item"><a class="nav-link" href="/community">👥 Community</a></li>
         <li class="nav-item"><a class="nav-link" href="/leaderboard">🏆 Leaderboard</a></li>
         <li class="nav-item"><a class="nav-link" href="/votes">🗳️ Vote</a></li>
@@ -110,6 +124,7 @@
       </form>
 
       <button id="themeToggle" class="btn btn-sm btn-outline-secondary me-lg-2 mb-2 mb-lg-0" type="button">🌙 Dark</button>
+      <button id="installBtn" class="btn btn-sm btn-primary me-lg-2 mb-2 mb-lg-0 d-none" type="button">📲 Install app</button>
 
       <% if (user) { %>
         <a href="/notifications" class="btn btn-sm btn-outline-secondary position-relative me-lg-2 mb-2 mb-lg-0" title="Notifications">

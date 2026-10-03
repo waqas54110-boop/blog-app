@@ -1,0 +1,34 @@
+<%- include('partials/header') %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="/groups" class="btn btn-sm btn-outline-secondary rounded-pill mb-3">← All groups</a>
+    <div class="card border-0 shadow-sm" style="border-radius:1rem;">
+      <div class="card-body p-4">
+        <h1 class="fs-4 fw-bold mb-3">➕ Create a group</h1>
+        <% if (error) { %><div class="alert alert-danger"><%= error %></div><% } %>
+        <form action="/groups" method="POST">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="row g-3">
+            <div class="col-4 col-sm-3">
+              <label class="form-label fw-semibold" for="gEmoji">Icon</label>
+              <input id="gEmoji" name="emoji" class="form-control text-center fs-4" maxlength="8" value="<%= form.emoji %>" placeholder="🏏">
+            </div>
+            <div class="col-8 col-sm-9">
+              <label class="form-label fw-semibold" for="gName">Group name</label>
+              <input id="gName" name="name" class="form-control" required minlength="3" maxlength="<%= NAME_MAX %>" value="<%= form.name %>" placeholder="e.g. Cricket Talk">
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" for="gDesc">What is this group about?</label>
+              <textarea id="gDesc" name="description" class="form-control" rows="3" maxlength="<%= DESC_MAX %>" placeholder="A short description (optional)"><%= form.description %></textarea>
+            </div>
+          </div>
+          <p class="small text-body-secondary mt-3 mb-3">Anyone with an account can join and see this group's posts. You will be the group admin and can delete posts and comments in it.</p>
+          <button class="btn btn-primary btn-post">Create group</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

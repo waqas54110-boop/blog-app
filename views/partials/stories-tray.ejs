@@ -1,0 +1,422 @@
+<%# Stories: feed ke upar gol icons, poori screen viewer, aur story banane ka popup. Sirf login user ke liye include hota hai %>
+<style>
+  .story-tray { border-radius: 1rem; overflow: hidden; }
+  .story-row { display: flex; gap: .95rem; overflow-x: auto; padding: .9rem 1rem .75rem; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .story-row::-webkit-scrollbar { display: none; }
+  .story-tile { flex: 0 0 auto; width: 68px; background: none; border: 0; padding: 0; text-align: center; color: var(--bs-body-color); cursor: pointer; }
+  .story-ring { width: 68px; height: 68px; border-radius: 50%; padding: 3px; background: linear-gradient(135deg, #f59e0b, #db2777 55%, #7c3aed); transition: transform .15s ease; }
+  .story-tile:hover .story-ring { transform: scale(1.06); }
+  .story-ring.seen { background: var(--bs-border-color); }
+  .story-ring .in { width: 100%; height: 100%; border-radius: 50%; background: var(--bs-body-bg); padding: 2px; }
+  .story-ring .avatar { width: 100%; height: 100%; font-size: 1.4rem; }
+  .story-add { position: relative; }
+  .story-add .ring-plain { width: 68px; height: 68px; border-radius: 50%; padding: 3px; background: var(--bs-border-color); }
+  .story-add .plus { position: absolute; right: -1px; bottom: 16px; width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; font-weight: 700; line-height: 22px; text-align: center; border: 2px solid var(--bs-body-bg); font-size: 1rem; }
+  .story-name { display: block; margin-top: .3rem; font-size: .75rem; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .story-skel { flex: 0 0 auto; width: 68px; height: 68px; border-radius: 50%; background: var(--bs-secondary-bg); opacity: .6; }
+
+  /* ----- Viewer ----- */
+  .sv, .sc { position: fixed; inset: 0; z-index: 2100; background: rgba(0,0,0,.88); display: flex; align-items: center; justify-content: center; }
+  .sv[hidden], .sc[hidden] { display: none; }
+  html.story-open { overflow: hidden; }
+  .sv-stage { position: relative; width: min(100vw, 420px); height: min(100dvh, 780px); background: #000; overflow: hidden; color: #fff; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+  @media (min-width: 480px) { .sv-stage { border-radius: 1rem; } }
+  .sv-media { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+  .sv-img { width: 100%; height: 100%; object-fit: contain; background: #000; -webkit-user-drag: none; }
+  .sv-text { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; padding: 4.5rem 1.75rem; text-align: center; font-weight: 700; font-size: clamp(1.3rem, 5.5vw, 1.9rem); line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .sv-shade { position: absolute; left: 0; right: 0; top: 0; height: 110px; background: linear-gradient(rgba(0,0,0,.55), transparent); pointer-events: none; }
+  .sv-bars { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 8px); left: 8px; right: 8px; display: flex; gap: 4px; z-index: 3; }
+  .sv-bar { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,.35); overflow: hidden; }
+  .sv-bar i { display: block; height: 100%; width: 0; background: #fff; }
+  .sv-head { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 18px); left: 10px; right: 8px; display: flex; align-items: center; gap: .55rem; z-index: 3; }
+  .sv-head .avatar { width: 36px; height: 36px; font-size: 1rem; }
+  .sv-head .nm { font-weight: 600; font-size: .95rem; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .sv-head .tm { font-size: .8rem; opacity: .8; margin-left: .3rem; }
+  .sv-btn { background: none; border: 0; color: #fff; font-size: 1.15rem; width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+  .sv-btn:hover { background: rgba(255,255,255,.15); }
+  .sv-zone { position: absolute; top: 70px; bottom: 70px; background: none; border: 0; padding: 0; z-index: 2; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .sv-zone.l { left: 0; width: 32%; }
+  .sv-zone.r { right: 0; width: 68%; }
+  .sv-cap { position: absolute; left: 0; right: 0; bottom: 56px; padding: 2.2rem 1.1rem .8rem; background: linear-gradient(transparent, rgba(0,0,0,.7)); text-align: center; white-space: pre-wrap; overflow-wrap: anywhere; z-index: 2; pointer-events: none; }
+  .sv-cap:empty { display: none; }
+  .sv-foot { position: absolute; left: 0; right: 0; bottom: 0; height: 56px; padding-bottom: env(safe-area-inset-bottom, 0px); display: flex; align-items: center; justify-content: center; z-index: 3; }
+  .sv-views { background: rgba(255,255,255,.14); border: 0; color: #fff; border-radius: 2rem; padding: .3rem .95rem; font-size: .85rem; font-weight: 600; cursor: pointer; }
+  .sv-viewers { position: absolute; left: 0; right: 0; bottom: 0; max-height: 55%; overflow-y: auto; background: var(--bs-body-bg); color: var(--bs-body-color); border-radius: 1rem 1rem 0 0; padding: .9rem 1.1rem 1.2rem; z-index: 5; }
+  .sv-viewers h6 { display: flex; justify-content: space-between; align-items: center; margin: 0 0 .5rem; }
+  .sv-nav { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(255,255,255,.18); color: #fff; border: 0; width: 44px; height: 44px; border-radius: 50%; font-size: 1.3rem; display: none; cursor: pointer; }
+  .sv-nav.l { left: max(12px, calc(50% - 420px)); }
+  .sv-nav.r { right: max(12px, calc(50% - 420px)); }
+  @media (min-width: 640px) { .sv-nav { display: block; } }
+  .sv-x { position: absolute; top: 12px; right: 14px; color: #fff; z-index: 6; display: none; }
+  @media (min-width: 480px) { .sv-x { display: inline-flex; } }
+
+  /* ----- Creator ----- */
+  .sc-card { width: min(94vw, 400px); max-height: 94dvh; overflow-y: auto; background: var(--bs-body-bg); color: var(--bs-body-color); border-radius: 1.1rem; padding: 1rem 1.1rem 1.1rem; }
+  .sc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: .6rem; }
+  .sc-tabs { display: flex; gap: .4rem; margin-bottom: .75rem; }
+  .sc-tabs button { flex: 1; border: 0; border-radius: 2rem; padding: .45rem; font-weight: 600; background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); cursor: pointer; }
+  .sc-tabs button.on { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; }
+  .sc-prev { position: relative; border-radius: .9rem; overflow: hidden; aspect-ratio: 9 / 13; max-height: 52dvh; margin: 0 auto; background: #4f46e5; display: flex; align-items: center; justify-content: center; }
+  .sc-prev textarea { width: 100%; height: 100%; background: transparent; border: 0; outline: 0; resize: none; color: #fff; text-align: center; font-weight: 700; font-size: 1.5rem; line-height: 1.35; padding: 38% 1.2rem 1rem; }
+  .sc-prev textarea::placeholder { color: rgba(255,255,255,.7); }
+  .sc-prev img { width: 100%; height: 100%; object-fit: contain; background: #000; }
+  .sc-prev img.busy { opacity: .45; }
+  .sc-pick { position: absolute; background: rgba(255,255,255,.95); color: #1f2330; border: 0; border-radius: 2rem; padding: .6rem 1.3rem; font-weight: 600; cursor: pointer; }
+  .sc-sw { display: flex; gap: .5rem; justify-content: center; margin-top: .75rem; }
+  .sc-sw button { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--bs-body-bg); box-shadow: 0 0 0 1px var(--bs-border-color); cursor: pointer; padding: 0; }
+  .sc-sw button.on { box-shadow: 0 0 0 3px #7c3aed; }
+  .sc-cap { margin-top: .75rem; }
+</style>
+
+<div class="card border-0 shadow-sm mb-3 story-tray" id="storyTray" aria-label="Stories">
+  <div class="story-row" id="storyRow"><span class="story-skel"></span><span class="story-skel"></span><span class="story-skel"></span><span class="story-skel"></span></div>
+</div>
+
+<%# ---- Story dekhne ka viewer ---- %>
+<div class="sv" id="sv" hidden role="dialog" aria-modal="true" aria-label="Story viewer">
+  <button type="button" class="sv-btn sv-x" id="svX" aria-label="Close">✕</button>
+  <button type="button" class="sv-nav l" id="svNavL" aria-label="Previous">‹</button>
+  <div class="sv-stage" id="svStage">
+    <div class="sv-media" id="svMedia"></div>
+    <div class="sv-shade"></div>
+    <div class="sv-bars" id="svBars"></div>
+    <div class="sv-head">
+      <span id="svAv"></span>
+      <span><span class="nm" id="svName"></span><span class="tm" id="svTime"></span></span>
+      <span class="ms-auto d-flex">
+        <button type="button" class="sv-btn" id="svDel" aria-label="Delete story" hidden>🗑️</button>
+        <button type="button" class="sv-btn" id="svClose" aria-label="Close">✕</button>
+      </span>
+    </div>
+    <button type="button" class="sv-zone l" id="svPrev" aria-label="Previous"></button>
+    <button type="button" class="sv-zone r" id="svNext" aria-label="Next"></button>
+    <div class="sv-cap" id="svCap"></div>
+    <div class="sv-foot"><button type="button" class="sv-views" id="svViews" hidden></button></div>
+    <div class="sv-viewers" id="svViewers" hidden>
+      <h6><span>Seen by</span><button type="button" class="btn-close" id="svViewersX" aria-label="Close"></button></h6>
+      <div id="svViewersList" class="small"></div>
+    </div>
+  </div>
+  <button type="button" class="sv-nav r" id="svNavR" aria-label="Next">›</button>
+</div>
+
+<%# ---- Story banane ka popup ---- %>
+<div class="sc" id="sc" hidden role="dialog" aria-modal="true" aria-label="Create story">
+  <div class="sc-card">
+    <div class="sc-top"><strong>Create story</strong><button type="button" class="btn-close" id="scClose" aria-label="Close"></button></div>
+    <div class="sc-tabs"><button type="button" class="on" data-mode="text">Aa Text</button><button type="button" data-mode="photo">📷 Photo</button></div>
+    <div class="sc-prev" id="scPrev">
+      <textarea id="scText" maxlength="300" placeholder="Type something..."></textarea>
+      <img id="scImg" alt="Story photo preview" hidden>
+      <button type="button" class="sc-pick" id="scPick" hidden>Choose a photo</button>
+    </div>
+    <input type="file" id="scFile" accept="image/*" class="d-none">
+    <input type="text" id="scCap" class="form-control sc-cap" maxlength="300" placeholder="Add a caption (optional)" hidden>
+    <div class="sc-sw" id="scSw"></div>
+    <div class="small text-danger mt-2" id="scMsg"></div>
+    <button type="button" class="btn btn-primary w-100 mt-2 fw-semibold rounded-pill" id="scShare">Share story</button>
+    <div class="small text-body-secondary text-center mt-2">Your story disappears after 24 hours.</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var csrf = <%- JSON.stringify(csrfToken || '') %>;
+  var me = <%- safeJson(user.username) %>;
+  var BG = [
+    'linear-gradient(135deg,#4f46e5,#7c3aed)', 'linear-gradient(135deg,#db2777,#f97316)', 'linear-gradient(135deg,#0ea5e9,#22c55e)',
+    'linear-gradient(135deg,#111827,#4b5563)', 'linear-gradient(135deg,#f59e0b,#ef4444)', 'linear-gradient(135deg,#14b8a6,#3b82f6)'
+  ];
+  var tray = document.getElementById('storyTray'), row = document.getElementById('storyRow');
+  var groups = [], isAdmin = false;
+
+  function $(id) { return document.getElementById(id); }
+  function h(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function avatar(name) {
+    var a = h('span', 'avatar', name.charAt(0).toUpperCase());
+    var img = document.createElement('img'); img.src = '/a/' + encodeURIComponent(name); img.alt = ''; img.loading = 'lazy';
+    img.onerror = function () { img.remove(); }; a.appendChild(img); return a;
+  }
+  function ago(iso) {
+    var m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
+    if (m < 1) return 'just now'; if (m < 60) return m + 'm'; return Math.floor(m / 60) + 'h';
+  }
+  function api(url, opts) {
+    opts = opts || {}; opts.credentials = 'same-origin';
+    opts.headers = Object.assign({ 'x-csrf-token': csrf, 'X-Requested-With': 'fetch' }, opts.headers || {});
+    return fetch(url, opts).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); });
+  }
+  function form(data) {
+    return { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: Object.keys(data).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]); }).join('&') };
+  }
+
+  /* ===================== TRAY ===================== */
+  function render() {
+    row.textContent = '';
+    var mine = groups.filter(function (g) { return g.isMe; })[0];
+
+    var add = h('button', 'story-tile story-add'); add.type = 'button'; add.setAttribute('aria-label', 'Add to your story');
+    var plain = h('div', 'ring-plain'), inn = h('div', 'in'); inn.appendChild(avatar(me)); plain.appendChild(inn);
+    add.appendChild(plain); add.appendChild(h('span', 'plus', '+')); add.appendChild(h('span', 'story-name', mine ? 'Add more' : 'Add story'));
+    add.addEventListener('click', openCreate);
+    row.appendChild(add);
+
+    groups.forEach(function (g, i) {
+      var t = h('button', 'story-tile'); t.type = 'button';
+      t.setAttribute('aria-label', 'View ' + (g.isMe ? 'your' : g.username + "'s") + ' story');
+      var ring = h('div', 'story-ring' + (g.allSeen ? ' seen' : '')), inner = h('div', 'in');
+      inner.appendChild(avatar(g.username)); ring.appendChild(inner);
+      t.appendChild(ring); t.appendChild(h('span', 'story-name', g.isMe ? 'Your story' : g.username));
+      t.addEventListener('click', function () { openViewer(i); });
+      row.appendChild(t);
+    });
+  }
+
+  function load() {
+    return fetch('/stories/tray.json', { credentials: 'same-origin' })
+      .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+      .then(function (d) { groups = d.groups || []; isAdmin = !!d.isAdmin; render(); })
+      .catch(function () { tray.hidden = true; }); // migration chali na ho to tray chupa rahe, feed chalta rahe
+  }
+
+  /* ===================== VIEWER ===================== */
+  var sv = $('sv'), stage = $('svStage');
+  var gi = 0, ii = 0, elapsed = 0, dur = 5000, last = 0, raf = 0, paused = false, running = false, isOpen = false;
+  var holdAt = 0, held = false, panelOpen = false;
+
+  function itemDur(it) { return it.image ? 5000 : Math.min(9000, 4000 + it.body.length * 40); }
+
+  function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = 0; }
+  function begin() { elapsed = 0; last = performance.now(); running = true; if (!raf) raf = requestAnimationFrame(tick); }
+  function tick(now) {
+    raf = 0; if (!isOpen || !running) return;
+    if (!paused && !panelOpen && !document.hidden) elapsed += now - last;
+    last = now;
+    var bar = $('svBars').children[ii];
+    if (bar) bar.firstChild.style.width = Math.min(100, (elapsed / dur) * 100) + '%';
+    if (elapsed >= dur) { next(); return; }
+    raf = requestAnimationFrame(tick);
+  }
+
+  function openViewer(index) {
+    gi = index; var g = groups[gi];
+    var firstUnseen = g.items.findIndex(function (x) { return !x.seen; });
+    ii = firstUnseen === -1 ? 0 : firstUnseen;
+    isOpen = true; sv.hidden = false; document.documentElement.classList.add('story-open');
+    show();
+  }
+
+  function closeViewer() {
+    stop(); isOpen = false; sv.hidden = true; panelOpen = false; $('svViewers').hidden = true;
+    $('svMedia').textContent = ''; document.documentElement.classList.remove('story-open');
+    groups.forEach(function (g) { g.allSeen = g.items.every(function (x) { return x.seen; }); });
+    render();
+  }
+
+  function show() {
+    stop(); paused = false; panelOpen = false; $('svViewers').hidden = true;
+    var g = groups[gi], it = g.items[ii];
+
+    var bars = $('svBars'); bars.textContent = '';
+    g.items.forEach(function (_, k) { var b = h('div', 'sv-bar'), f = document.createElement('i'); f.style.width = k < ii ? '100%' : '0'; b.appendChild(f); bars.appendChild(b); });
+
+    var av = $('svAv'); av.textContent = ''; av.appendChild(avatar(g.username));
+    $('svName').textContent = g.isMe ? 'Your story' : g.username;
+    $('svTime').textContent = ago(it.at);
+    $('svDel').hidden = !(g.isMe || isAdmin);
+    var vb = $('svViews'); vb.hidden = !g.isMe; if (g.isMe) vb.textContent = '👁 ' + it.views + (it.views === 1 ? ' view' : ' views');
+
+    var media = $('svMedia'); media.textContent = '';
+    var cap = $('svCap'); cap.textContent = it.body && it.image ? it.body : '';
+    dur = itemDur(it);
+
+    if (it.image) {
+      var img = new Image(); img.className = 'sv-img'; img.alt = '';
+      var ready = false;
+      img.onload = function () { if (!ready && isOpen && groups[gi] === g && g.items[ii] === it) { ready = true; begin(); } };
+      img.onerror = function () { if (isOpen && g.items[ii] === it) next(); };
+      media.appendChild(img); img.src = it.image;
+    } else {
+      var t = h('div', 'sv-text', it.body); t.style.background = BG[it.bg] || BG[0]; media.appendChild(t);
+      begin();
+    }
+
+    if (!g.isMe && !it.seen) {
+      it.seen = true;
+      api('/stories/' + it.id + '/seen', { method: 'POST' });
+    }
+  }
+
+  function next() {
+    var g = groups[gi];
+    if (ii < g.items.length - 1) { ii++; show(); }
+    else if (gi < groups.length - 1) { gi++; ii = 0; show(); }
+    else closeViewer();
+  }
+  function prev() {
+    if (ii > 0) { ii--; show(); }
+    else if (gi > 0) { gi--; ii = 0; show(); }
+    else { elapsed = 0; last = performance.now(); }
+  }
+
+  // Dabaye rakhne par ruk jaye, jaldi tap par aage / peeche
+  function press(e) { holdAt = Date.now(); held = false; paused = true; }
+  function release() { if (holdAt && Date.now() - holdAt > 300) held = true; holdAt = 0; paused = false; last = performance.now(); }
+  ['svPrev', 'svNext'].forEach(function (id) {
+    var z = $(id);
+    z.addEventListener('pointerdown', press);
+    z.addEventListener('pointerup', release);
+    z.addEventListener('pointerleave', function () { if (holdAt) release(); });
+    z.addEventListener('pointercancel', release);
+  });
+  $('svNext').addEventListener('click', function () { if (held) { held = false; return; } next(); });
+  $('svPrev').addEventListener('click', function () { if (held) { held = false; return; } prev(); });
+  $('svNavR').addEventListener('click', next);
+  $('svNavL').addEventListener('click', prev);
+  $('svClose').addEventListener('click', closeViewer);
+  $('svX').addEventListener('click', closeViewer);
+  sv.addEventListener('click', function (e) { if (e.target === sv) closeViewer(); });
+
+  document.addEventListener('keydown', function (e) {
+    if (isOpen) {
+      if (e.key === 'Escape') closeViewer();
+      else if (e.key === 'ArrowRight') next();
+      else if (e.key === 'ArrowLeft') prev();
+    } else if (!$('sc').hidden && e.key === 'Escape') closeCreate(true);
+  });
+
+  $('svDel').addEventListener('click', function () {
+    var g = groups[gi], it = g.items[ii];
+    if (!confirm('Delete this story?')) return;
+    paused = true;
+    api('/stories/' + it.id + '/delete', { method: 'POST' }).then(function (x) {
+      if (!x.ok) { paused = false; alert((x.j && x.j.error) || 'Could not delete the story.'); return; }
+      g.items.splice(ii, 1);
+      if (!g.items.length) {
+        groups.splice(gi, 1);
+        if (!groups.length) return closeViewer();
+        if (gi >= groups.length) gi = groups.length - 1;
+        ii = 0;
+      } else if (ii >= g.items.length) ii = g.items.length - 1;
+      show();
+    }).catch(function () { paused = false; alert('Network problem. Please try again.'); });
+  });
+
+  $('svViews').addEventListener('click', function () {
+    var it = groups[gi].items[ii], list = $('svViewersList');
+    panelOpen = true; $('svViewers').hidden = false; list.textContent = 'Loading...';
+    api('/stories/' + it.id + '/viewers').then(function (x) {
+      list.textContent = '';
+      if (!x.ok) { list.textContent = (x.j && x.j.error) || 'Could not load.'; return; }
+      if (!x.j.viewers.length) { list.textContent = 'No views yet.'; return; }
+      x.j.viewers.forEach(function (v) {
+        var r = h('div', 'd-flex align-items-center gap-2 py-1'); var a = avatar(v.username); a.style.width = a.style.height = '30px'; a.style.fontSize = '.85rem';
+        r.appendChild(a); r.appendChild(h('span', 'flex-grow-1 text-truncate', v.username)); r.appendChild(h('span', 'text-body-secondary', ago(v.viewed_at)));
+        list.appendChild(r);
+      });
+    }).catch(function () { list.textContent = 'Network problem.'; });
+  });
+  $('svViewersX').addEventListener('click', function () { panelOpen = false; $('svViewers').hidden = true; last = performance.now(); });
+
+  /* ===================== CREATOR ===================== */
+  var sc = $('sc'), mode = 'text', bg = 0, imageId = '', busy = false, blobUrl = null;
+  var prevBox = $('scPrev'), txt = $('scText'), img = $('scImg'), pick = $('scPick'), file = $('scFile'), cap = $('scCap'), msg = $('scMsg'), share = $('scShare');
+
+  var sw = $('scSw');
+  BG.forEach(function (g, i) {
+    var b = h('button'); b.type = 'button'; b.style.background = g; b.setAttribute('aria-label', 'Background ' + (i + 1));
+    b.addEventListener('click', function () { bg = i; paint(); }); sw.appendChild(b);
+  });
+
+  function paint() {
+    var isText = mode === 'text';
+    Array.prototype.forEach.call(document.querySelectorAll('.sc-tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-mode') === mode); });
+    prevBox.style.background = isText ? BG[bg] : '#000';
+    txt.hidden = !isText; sw.hidden = !isText;
+    img.hidden = isText || !blobUrl; pick.hidden = isText || !!blobUrl; cap.hidden = isText || !blobUrl;
+    Array.prototype.forEach.call(sw.children, function (b, i) { b.classList.toggle('on', i === bg); });
+  }
+
+  function resetCreator() {
+    if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+    img.removeAttribute('src'); img.classList.remove('busy'); imageId = ''; file.value = ''; busy = false;
+    txt.value = ''; cap.value = ''; msg.textContent = ''; mode = 'text'; bg = 0; share.disabled = false; share.textContent = 'Share story';
+    paint();
+  }
+  function discardUpload() {
+    if (imageId) api('/feed/image/discard', form({ id: imageId }));
+    imageId = '';
+  }
+  function openCreate() { resetCreator(); sc.hidden = false; document.documentElement.classList.add('story-open'); txt.focus(); }
+  function closeCreate(discard) {
+    if (discard) discardUpload();
+    sc.hidden = true; document.documentElement.classList.remove('story-open'); resetCreator();
+  }
+  $('scClose').addEventListener('click', function () { closeCreate(true); });
+  sc.addEventListener('click', function (e) { if (e.target === sc) closeCreate(true); });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.sc-tabs button'), function (b) {
+    b.addEventListener('click', function () { mode = b.getAttribute('data-mode'); msg.textContent = ''; paint(); });
+  });
+  pick.addEventListener('click', function () { file.click(); });
+  img.addEventListener('click', function () { if (!busy) file.click(); });
+
+  function upload(blob) {
+    busy = true; share.disabled = true; msg.textContent = '';
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    blobUrl = URL.createObjectURL(blob); img.src = blobUrl; img.classList.add('busy'); paint();
+    fetch('/upload-feed-image', { method: 'POST', headers: { 'Content-Type': 'image/jpeg', 'x-csrf-token': csrf }, body: blob, credentials: 'same-origin' })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (x.ok && x.j.id) { imageId = String(x.j.id); img.classList.remove('busy'); busy = false; share.disabled = false; }
+        else fail((x.j && x.j.error) || 'Photo upload failed. Please try again.');
+      })
+      .catch(function () { fail('Photo upload failed. Please try again.'); });
+  }
+  function fail(m) {
+    if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; }
+    img.removeAttribute('src'); img.classList.remove('busy'); imageId = ''; file.value = ''; busy = false; share.disabled = false;
+    msg.textContent = m; paint();
+  }
+
+  file.addEventListener('change', function () {
+    var f = file.files[0]; if (!f) return;
+    msg.textContent = '';
+    if (!/^image\//.test(f.type)) { msg.textContent = 'Please choose an image.'; file.value = ''; return; }
+    discardUpload();
+    var im = new Image(), url = URL.createObjectURL(f);
+    im.onload = function () {
+      function encode(max, q, cb) {
+        var s = Math.min(1, max / Math.max(im.width, im.height));
+        var c = document.createElement('canvas'); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+        var ctx = c.getContext('2d'); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(im, 0, 0, c.width, c.height);
+        c.toBlob(cb, 'image/jpeg', q);
+      }
+      // Story phone screen par dekhi jati hai, is liye 1280px kaafi hai (tez upload)
+      encode(1280, 0.85, function (blob) {
+        if (blob && blob.size > 1900000) return encode(1080, 0.65, function (b2) { URL.revokeObjectURL(url); b2 ? upload(b2) : fail('Could not read this image.'); });
+        URL.revokeObjectURL(url); blob ? upload(blob) : fail('Could not read this image.');
+      });
+    };
+    im.onerror = function () { URL.revokeObjectURL(url); file.value = ''; msg.textContent = 'Could not read this image. Please try a JPG or PNG photo.'; };
+    im.src = url;
+  });
+
+  share.addEventListener('click', function () {
+    if (busy) { msg.textContent = 'Photo is still uploading...'; return; }
+    var body = (mode === 'text' ? txt.value : cap.value).trim();
+    if (mode === 'text' && !body) { msg.textContent = 'Type something first.'; return; }
+    if (mode === 'photo' && !imageId) { msg.textContent = 'Choose a photo first.'; return; }
+    share.disabled = true; share.textContent = 'Sharing...'; msg.textContent = '';
+    api('/stories', form({ body: body, image_id: mode === 'photo' ? imageId : '', bg: bg })).then(function (x) {
+      if (!x.ok) { msg.textContent = (x.j && x.j.error) || 'Could not post your story.'; share.disabled = false; share.textContent = 'Share story'; return; }
+      imageId = ''; // ab story se juri hai, discard nahi karni
+      closeCreate(false); load();
+    }).catch(function () { msg.textContent = 'Network problem. Please try again.'; share.disabled = false; share.textContent = 'Share story'; });
+  });
+
+  paint();
+  load();
+})();
+</script>

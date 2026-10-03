@@ -1,5 +1,5 @@
 <%# Ek feed comment. Locals: c, f (id, user_id), ago %>
-<% const canDel = locals.user && (locals.isAdmin || user.id === c.user_id || user.id === f.user_id); %>
+<% const canDel = locals.user && (locals.isAdmin || locals.groupAdmin || user.id === c.user_id || user.id === f.user_id); %>
 <div class="fc-comment d-flex gap-2 mb-2" id="c<%= c.id %>">
   <a href="/u/<%= encodeURIComponent(c.username) %>" class="flex-shrink-0 text-decoration-none">
     <span class="avatar avatar-sm"><%= c.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(c.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>

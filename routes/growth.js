@@ -1,5 +1,7 @@
 // Traffic features ke routes: share-card images, PWA (manifest + service worker + icons),
 // push subscribe/unsubscribe, aur IndexNow key file.
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const pool = require('../db');
 const config = require('../config');
@@ -61,10 +63,11 @@ router.get(/^\/og\/([a-z0-9-]{1,120})\.png$/, async (req, res) => {
 });
 
 // ---------- PWA ----------
-router.get(/^\/icons\/(192|512)\.png$/, async (req, res) => {
+router.get(/^\/icons\/(180|192|512|maskable-512)\.png$/, async (req, res) => {
   if (!card.isAvailable()) return res.status(404).end();
   try {
-    sendPng(res, await card.renderIcon(Number(req.params[0]), siteLetter()), 86400);
+    const maskable = req.params[0] === 'maskable-512'; // Android ka gol / squircle crop: letter beech ke safe hisse mein
+    sendPng(res, await card.renderIcon(maskable ? 512 : Number(req.params[0]), siteLetter(), maskable), 86400);
   } catch (err) {
     console.error('[card] icon:', err.message);
     res.status(404).end();
@@ -76,55 +79,43 @@ router.get('/manifest.webmanifest', (req, res) => {
     ? [
         { src: '/icons/192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
         { src: '/icons/512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        { src: '/icons/maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
       ]
     : [];
   res.set('Cache-Control', 'public, max-age=3600');
   res.type('application/manifest+json').send(JSON.stringify({
+    id: '/',
     name: config.siteName,
     short_name: config.siteName.slice(0, 12),
+    description: 'Community feed, stories, groups, blog and contests.',
+    lang: 'en',
     start_url: '/',
     scope: '/',
     display: 'standalone',
     background_color: '#ffffff',
     theme_color: '#4f46e5',
+    categories: ['social', 'news'],
     icons,
+    // Home screen icon par long-press karne par shortcuts
+    shortcuts: [
+      { name: 'Feed', url: '/' },
+      { name: 'Groups', url: '/groups' },
+      { name: 'Blog', url: '/blog' },
+    ],
   }));
 });
 
-// Service worker root par hona chahiye (poori site par chale). no-cache: update foran mile.
-const SW = `
-self.addEventListener('install', function () { self.skipWaiting(); });
-self.addEventListener('activate', function (e) { e.waitUntil(self.clients.claim()); });
-self.addEventListener('fetch', function () {});
-
-self.addEventListener('push', function (event) {
-  var data = {};
-  try { data = event.data ? event.data.json() : {}; } catch (e) {}
-  var title = data.title || 'New post';
-  var opts = {
-    body: data.body || '',
-    data: { url: data.url || '/' },
-    tag: data.tag || undefined
-  };
-  if (data.icon) { opts.icon = data.icon; opts.badge = data.icon; }
-  event.waitUntil(self.registration.showNotification(title, opts));
-});
-
-self.addEventListener('notificationclick', function (event) {
-  event.notification.close();
-  var target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
-      for (var i = 0; i < list.length; i++) {
-        if (list[i].url === target && 'focus' in list[i]) return list[i].focus();
-      }
-      return self.clients.openWindow(target);
-    })
-  );
-});
-`;
-router.get('/sw.js', (req, res) => {
+// Internet na ho to ye page dikhta hai (service worker isay install par save kar leta hai)
+router.get('/offline', (req, res) => {
   res.set('Cache-Control', 'no-cache');
+  res.render('offline', { title: 'Offline' });
+});
+
+// Service worker root par hona chahiye (poori site par chale). no-cache: update foran mile.
+// Code pwa/sw.js mein hai.
+const SW = fs.readFileSync(path.join(__dirname, '..', 'pwa', 'sw.js'), 'utf8');
+router.get('/sw.js', (req, res) => {
+  res.set({ 'Cache-Control': 'no-cache', 'Service-Worker-Allowed': '/' });
   res.type('application/javascript').send(SW);
 });
 

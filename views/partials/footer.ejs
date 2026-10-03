@@ -39,6 +39,43 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <%- include('theme-toggle') %>
 
+<div id="netBanner" class="position-fixed bottom-0 start-50 translate-middle-x mb-3 px-3 py-2 rounded-pill shadow small fw-semibold text-bg-dark d-none" style="z-index:3000;" role="status">📡 You're offline. Some things may not work.</div>
+
+<script>
+  // App ki tarah install (Android/Chrome: asli prompt, iPhone: Add to Home Screen ki hidayat) + offline ka chhota message
+  (function () {
+    var btn = document.getElementById('installBtn');
+    var banner = document.getElementById('netBanner');
+    var standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+    if (btn && !standalone) {
+      var ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+      function show() { btn.classList.remove('d-none'); }
+      if (window.__installEvt) show();
+      document.addEventListener('install-ready', show);
+      if (ios) show(); // iOS mein prompt nahi hota, sirf hidayat dikha sakte hain
+
+      btn.addEventListener('click', function () {
+        var ev = window.__installEvt;
+        if (ev) {
+          ev.prompt();
+          ev.userChoice.then(function () { window.__installEvt = null; btn.classList.add('d-none'); });
+        } else if (ios) {
+          alert('To install: tap the Share button in Safari, then choose "Add to Home Screen".');
+        }
+      });
+      window.addEventListener('appinstalled', function () { btn.classList.add('d-none'); });
+    }
+
+    if (banner) {
+      function net() { banner.classList.toggle('d-none', navigator.onLine); }
+      window.addEventListener('online', net);
+      window.addEventListener('offline', net);
+      net();
+    }
+  })();
+</script>
+
 <script>
   // Service worker (push + install) aur "Notify me" button
   (function () {

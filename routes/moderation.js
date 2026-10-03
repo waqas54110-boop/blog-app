@@ -126,12 +126,7 @@ router.post('/admin/moderation/act', requireAdmin, async (req, res, next) => {
         // Post ke saath uski photo ki row bhi hat jaye (agar owner ne hi upload ki thi)
         const d = await pool.query('DELETE FROM feed_posts WHERE id = $1 RETURNING user_id, image_id', [id]);
         if (d.rows[0] && d.rows[0].image_id) {
-          await pool.query(
-            `DELETE FROM images WHERE id = $1 AND uploaded_by = $2
-               AND NOT EXISTS (SELECT 1 FROM feed_posts WHERE image_id = $1)
-               AND NOT EXISTS (SELECT 1 FROM users WHERE avatar_image_id = $1)`,
-            [d.rows[0].image_id, d.rows[0].user_id]
-          );
+          await require('../lib/images').dropIfOrphan(d.rows[0].image_id, d.rows[0].user_id);
         }
         await M.resolve(type, id, 'resolved', 'delete', me);
         return done('Post deleted ✅');
