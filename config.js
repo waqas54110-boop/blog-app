@@ -7,6 +7,8 @@ module.exports = {
   siteUrl: (process.env.SITE_URL || '').replace(/\/$/, ''),   // e.g. https://myblog.onrender.com
   siteName: process.env.SITE_NAME || 'My Blog',
   timezone: process.env.SITE_TIMEZONE || 'Asia/Karachi',      // scheduled posts is timezone mein
+  // Google Search Console verification (HTML tag wale tareeqe ka "content" wala hissa)
+  googleVerification: (process.env.GOOGLE_SITE_VERIFICATION || '').replace(/[^A-Za-z0-9_-]/g, ''),
   defaultOgImage: process.env.DEFAULT_OG_IMAGE || '',
   // Video upload ki hadd (MB). Videos database mein save hoti hain, is liye chhoti rakhein (max 100)
   videoMaxMb: Math.min(Math.max(parseInt(process.env.VIDEO_MAX_MB, 10) || 30, 1), 100),

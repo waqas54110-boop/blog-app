@@ -167,6 +167,7 @@ app.use(async (req, res, next) => {
   res.locals.facebookUrl = config.facebookUrl;
   res.locals.whatsappChannelUrl = config.whatsappChannelUrl;
   res.locals.siteName = config.siteName;
+  res.locals.googleVerification = config.googleVerification;
   res.locals.googleEnabled = google.enabled;
   res.locals.videoMaxMb = config.videoMaxMb;
 

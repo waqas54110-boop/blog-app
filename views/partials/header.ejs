@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= locals.title || 'My Blog' %></title>
   <meta name="description" content="<%= locals.metaDescription || 'Notes and tutorials on cricket, video editing, AI, freelancing and web development.' %>">
+  <% if (locals.googleVerification) { %>
+  <meta name="google-site-verification" content="<%= googleVerification %>">
+  <% } %>
   <meta name="robots" content="<%= locals.robots || 'index,follow,max-image-preview:large,max-snippet:-1' %>">
   <link rel="canonical" href="<%= locals.ogUrl || '' %>">
   <meta property="og:site_name" content="<%= locals.siteName || 'My Blog' %>">
