@@ -128,8 +128,8 @@ router.get('/', async (req, res, next) => {
 
     res.render('feed', {
       ...common, popularGroups,
-      title: author ? `${author.username} · Feed posts` : 'Community Feed',
-      metaDescription: `Photos and posts from the ${config.siteName} community. Share your own photo, like and comment.`,
+      title: author ? `${author.username} · Feed posts` : 'Khabzo - Cricket, News aur Community',
+      metaDescription: `${config.siteName}: cricket, news and web development posts plus a community feed. Read, share, like and comment.`,
       nextBefore: hasMore && posts.length ? posts[posts.length - 1].id : null,
       latestPosts, people,
       flash: {
