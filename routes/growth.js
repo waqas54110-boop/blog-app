@@ -23,6 +23,13 @@ router.get(/^\/([A-Za-z0-9-]{8,128})\.txt$/, (req, res, next) => {
   res.type('text/plain').send(KEY);
 });
 
+// ---------- Google Search Console: HTML file verification ----------
+// Sirf wahi ek file jo Search Console ne di (dusre naam par kuch nahi dikhta, warna koi aur bhi aap ki site verify kar leta).
+const GSC_FILE = (process.env.GOOGLE_VERIFICATION_FILE || 'google8e618c09543de0d7.html').replace(/[^A-Za-z0-9_.-]/g, '');
+router.get('/' + GSC_FILE, (req, res) => {
+  res.type('text/html').send(`google-site-verification: ${GSC_FILE}`);
+});
+
 // ---------- Share cards ----------
 router.get('/og/site.png', async (req, res) => {
   if (!card.isAvailable()) return res.status(404).end();
