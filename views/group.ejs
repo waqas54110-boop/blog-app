@@ -93,6 +93,8 @@
         <% if (group.members > members.length) { %><div class="small text-body-secondary px-2 pt-1">and <%= group.members - members.length %> more</div><% } %>
       </div></div>
 
+      <%- include('partials/group-share', { group, shareBase }) %>
+
       <% if (canDeleteGroup) { %>
         <form action="/groups/<%= group.slug %>/delete" method="POST" class="mb-3" onsubmit="return confirm('Delete this group with all its posts and comments? This cannot be undone.')">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">

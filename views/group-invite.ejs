@@ -1,0 +1,29 @@
+<%- include('partials/header') %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body p-4 p-md-5">
+        <div class="display-4 mb-2"><%= group.emoji %></div>
+        <h1 class="h3 fw-bold text-break mb-1"><%= group.name %></h1>
+        <div class="text-body-secondary small mb-3"><%= group.members %> member<%= group.members === 1 ? '' : 's' %></div>
+        <% if (group.description) { %><p class="text-break"><%= group.description %></p><% } %>
+
+        <% if (user) { %>
+          <form action="/groups/join/<%= token %>" method="POST" class="mb-0">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">Join group</button>
+          </form>
+        <% } else { %>
+          <p class="text-body-secondary">Log in or create an account to join. You will come back here automatically.</p>
+          <div class="d-flex justify-content-center gap-2">
+            <a href="/login" class="btn btn-primary rounded-pill px-4 fw-bold">Log in</a>
+            <a href="/signup" class="btn btn-outline-primary rounded-pill px-4">Sign up</a>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

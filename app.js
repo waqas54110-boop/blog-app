@@ -100,6 +100,7 @@ app.get('/stories/:id/viewers', limiter(5, 60, 'Too many requests. Please try ag
 app.post('/groups', limiter(60, 5, 'You are creating groups too fast. Please try again later.'));
 app.post(['/groups/:slug/join', '/groups/:slug/leave'], limiter(10, 40, 'Too many requests. Please wait a few minutes.'));
 app.post('/groups/:slug/delete', limiter(10, 10, 'Too many requests. Please wait a few minutes.'));
+app.post(['/groups/join/:token', '/groups/:slug/invite/reset'], limiter(10, 20, 'Too many requests. Please wait a few minutes.'));
 app.get('/r/:code', limiter(10, 30, 'Too many requests. Please try again in a few minutes.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).

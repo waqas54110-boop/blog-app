@@ -30,7 +30,7 @@ function startSession(req, res, user) {
   req.session.user = { id: user.id, username: user.username, role: user.role };
   const back = req.session.returnTo;
   delete req.session.returnTo;
-  res.redirect(/^\/(votes\/\d{1,9}|posts\/[a-z0-9-]{1,120})$/.test(back || '') ? back : '/');
+  res.redirect(/^\/(votes\/\d{1,9}|posts\/[a-z0-9-]{1,120}|groups\/join\/[a-f0-9]{32})$/.test(back || '') ? back : '/');
 }
 
 // Verification email (purane links saaf, naya 24 ghante ka). SMTP na ho to link console mein.

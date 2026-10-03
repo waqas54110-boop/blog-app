@@ -1,6 +1,7 @@
 // Groups: cricket group, freelancing group... har group ki apni feed. Koi bhi login user join kar ke post kar sakta hai.
 // Group ki post wahi feed_posts hai (like / comment / report / views sab pehle jaisa), bas us par group_id laga hota hai.
 const express = require('express');
+const crypto = require('crypto');
 const pool = require('../db');
 const config = require('../config');
 const spam = require('../lib/spam');
@@ -77,6 +78,53 @@ router.post('/groups', requireLogin, async (req, res) => {
     console.error('[group create] (migration_v20.sql chali?):', err.message);
     again('Could not create the group. Please try again.');
   }
+});
+
+// ---------- INVITE LINK (WhatsApp / Facebook par share hota hai) ----------
+const TOKEN_RE = /^[a-f0-9]{32}$/;
+
+// Invite page: link kholne par group ka naam dikhta hai (share preview ke liye OG tags bhi). Join POST se hota hai.
+router.get('/groups/join/:token', async (req, res, next) => {
+  try {
+    if (!TOKEN_RE.test(req.params.token)) return next();
+    const group = await Groups.byToken(req.params.token);
+    if (!group) return res.status(404).render('404', { title: 'Invite link not found' });
+    const me = req.session.user ? req.session.user.id : null;
+    if (me && (await Groups.roleOf(group.id, me))) return res.redirect(`/groups/${group.slug}`);
+    if (!me) req.session.returnTo = `/groups/join/${req.params.token}`; // login ke baad wapas yahin
+    res.render('group-invite', {
+      group, token: req.params.token,
+      title: `Join ${group.name}`,
+      metaDescription: group.description || `Join the ${group.name} group on ${config.siteName}.`,
+      ogType: 'website',
+    });
+  } catch (err) { next(err); }
+});
+
+router.post('/groups/join/:token', requireLogin, async (req, res, next) => {
+  try {
+    if (!TOKEN_RE.test(req.params.token)) return next();
+    const group = await Groups.byToken(req.params.token);
+    if (!group) return next();
+    await pool.query(
+      "INSERT INTO group_members (group_id, user_id, role) VALUES ($1, $2, 'member') ON CONFLICT DO NOTHING",
+      [group.id, req.session.user.id]
+    );
+    res.redirect(`/groups/${group.slug}`);
+  } catch (err) { next(err); }
+});
+
+// Owner (ya site admin) link reset kare: purana link band, naya ban jata hai
+router.post('/groups/:slug/invite/reset', requireLogin, async (req, res, next) => {
+  try {
+    const group = await Groups.bySlug(req.params.slug);
+    if (!group) return next();
+    if (!res.locals.isAdmin && group.owner_id !== req.session.user.id) {
+      return res.redirect(`/groups/${group.slug}?err=` + encodeURIComponent('Only the group owner can reset the invite link.'));
+    }
+    await pool.query('UPDATE groups SET invite_token = $1 WHERE id = $2', [crypto.randomBytes(16).toString('hex'), group.id]);
+    res.redirect(`/groups/${group.slug}?notice=` + encodeURIComponent('Invite link reset. The old link no longer works.'));
+  } catch (err) { next(err); }
 });
 
 // ---------- GROUP PAGE (uski apni feed) ----------
