@@ -271,7 +271,7 @@ router.get('/blog', async (req, res) => {
     const liveContest = !q && !category && !tag && page === 1 ? await sponsorLib.homeContest(req, res, baseUrlOf(req)) : null;
 
     res.render('index', {
-      title: 'My Blog',
+      title: 'Khabzo - Cricket, News aur Community',
       liveContest,
       posts,
       categories: catResult.rows,
@@ -337,7 +337,7 @@ router.get('/rss.xml', async (req, res) => {
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
 <channel>
-  <title>My Blog</title>
+  <title>Khabzo</title>
   <link>${baseUrl}</link>
   <description>Notes and tutorials on cricket, video editing, AI, freelancing and web development.</description>
   ${items}

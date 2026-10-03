@@ -3,15 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><%= locals.title || 'My Blog' %></title>
+  <title><%= locals.title || 'Khabzo' %></title>
   <meta name="description" content="<%= locals.metaDescription || 'Notes and tutorials on cricket, video editing, AI, freelancing and web development.' %>">
   <% if (locals.googleVerification) { %>
   <meta name="google-site-verification" content="<%= googleVerification %>">
   <% } %>
   <meta name="robots" content="<%= locals.robots || 'index,follow,max-image-preview:large,max-snippet:-1' %>">
   <link rel="canonical" href="<%= locals.ogUrl || '' %>">
-  <meta property="og:site_name" content="<%= locals.siteName || 'My Blog' %>">
-  <meta property="og:title" content="<%= locals.title || 'My Blog' %>">
+  <meta property="og:site_name" content="<%= locals.siteName || 'Khabzo' %>">
+  <meta property="og:title" content="<%= locals.title || 'Khabzo' %>">
   <meta property="og:description" content="<%= locals.metaDescription || 'Notes and tutorials on cricket, video editing, AI, freelancing and web development.' %>">
   <meta property="og:type" content="<%= locals.ogType || 'website' %>">
   <meta property="og:url" content="<%= locals.ogUrl || '' %>">
@@ -28,7 +28,7 @@
   <% } %>
   <% } %>
   <meta name="twitter:card" content="<%= locals.ogImage ? 'summary_large_image' : 'summary' %>">
-  <meta name="twitter:title" content="<%= locals.title || 'My Blog' %>">
+  <meta name="twitter:title" content="<%= locals.title || 'Khabzo' %>">
   <meta name="twitter:description" content="<%= locals.metaDescription || '' %>">
   <% if (locals.ogImage && locals.ogImageCard) { %>
   <meta property="og:image:width" content="1200">
@@ -39,7 +39,7 @@
   <link rel="apple-touch-icon" href="/icons/180.png">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-title" content="<%= locals.siteName || 'My Blog' %>">
+  <meta name="apple-mobile-web-app-title" content="<%= locals.siteName || 'Khabzo' %>">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <script>
     // "Install app" ka event page load ke baad kabhi bhi aa sakta hai: pehle hi pakad kar rakh lo
@@ -49,7 +49,7 @@
       document.dispatchEvent(new Event('install-ready'));
     });
   </script>
-  <link rel="alternate" type="application/rss+xml" title="My Blog RSS Feed" href="/rss.xml">
+  <link rel="alternate" type="application/rss+xml" title="Khabzo RSS Feed" href="/rss.xml">
   <% (locals.jsonLd || []).forEach(function (block) { %>
   <script type="application/ld+json"><%- safeJson(block) %></script>
   <% }) %>
@@ -105,7 +105,7 @@
 
 <nav class="navbar navbar-expand-xl bg-body shadow-sm sticky-top">
   <div class="container">
-    <a class="navbar-brand fw-bold text-primary" href="/">My Blog</a>
+    <a class="navbar-brand fw-bold text-primary" href="/">Khabzo</a>
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
             aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
