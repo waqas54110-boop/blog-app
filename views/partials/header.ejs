@@ -63,6 +63,15 @@
     }
     .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
     .navbar-nav .nav-link { white-space: nowrap; }
+
+    /* Navbar fixes */
+    .navbar .nav-search input { width: 180px; }
+    .navbar .btn { white-space: nowrap; flex-shrink: 0; }
+    @media (max-width: 1199.98px) {
+      .navbar .nav-search { width: 100%; }
+      .navbar .nav-search input { width: 100%; }
+    }
+
     .post-body { line-height: 1.85; font-size: 1.08rem; }
     .post-body img { max-width: 100%; height: auto; border-radius: .5rem; }
     .post-body video.post-video { display: block; width: 100%; max-height: 80vh; background: #000; border-radius: .5rem; margin: 1rem 0; }
@@ -82,7 +91,7 @@
 </head>
 <body>
 
-<nav class="navbar navbar-expand-lg bg-body shadow-sm sticky-top">
+<nav class="navbar navbar-expand-xl bg-body shadow-sm sticky-top">
   <div class="container">
     <a class="navbar-brand fw-bold text-primary" href="/">My Blog</a>
 
@@ -92,7 +101,7 @@
     </button>
 
     <div class="collapse navbar-collapse" id="mainNav">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+      <ul class="navbar-nav me-auto mb-2 mb-xl-0">
         <li class="nav-item"><a class="nav-link" href="/">🏠 Home</a></li>
         <li class="nav-item"><a class="nav-link" href="/blog">📝 Blog</a></li>
 
@@ -110,30 +119,39 @@
           </ul>
         </li>
 
-        <li class="nav-item"><a class="nav-link" href="/about">About</a></li>
-        <li class="nav-item"><a class="nav-link" href="/groups">🫂 Groups</a></li>
         <li class="nav-item"><a class="nav-link" href="/community">👥 Community</a></li>
-        <li class="nav-item"><a class="nav-link" href="/leaderboard">🏆 Leaderboard</a></li>
-        <li class="nav-item"><a class="nav-link" href="/votes">🗳️ Vote</a></li>
-        <li class="nav-item"><a class="nav-link" href="/hire">💼 Hire Me</a></li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            More
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="/groups">🫂 Groups</a></li>
+            <li><a class="dropdown-item" href="/leaderboard">🏆 Leaderboard</a></li>
+            <li><a class="dropdown-item" href="/votes">🗳️ Vote</a></li>
+            <li><a class="dropdown-item" href="/hire">💼 Hire Me</a></li>
+            <li><hr class="dropdown-divider"></li>
+            <li><a class="dropdown-item" href="/about">About</a></li>
+          </ul>
+        </li>
       </ul>
 
-      <form class="d-flex me-lg-3 mb-2 mb-lg-0" action="/blog" method="GET" role="search">
+      <form class="nav-search d-flex flex-nowrap me-xl-3 mb-2 mb-xl-0" action="/blog" method="GET" role="search">
         <input class="form-control form-control-sm me-2" type="search" name="q" placeholder="Search posts..." aria-label="Search">
         <button class="btn btn-sm btn-outline-primary" type="submit">Search</button>
       </form>
 
-      <button id="themeToggle" class="btn btn-sm btn-outline-secondary me-lg-2 mb-2 mb-lg-0" type="button">🌙 Dark</button>
-      <button id="installBtn" class="btn btn-sm btn-primary me-lg-2 mb-2 mb-lg-0 d-none" type="button">📲 Install app</button>
+      <button id="themeToggle" class="btn btn-sm btn-outline-secondary text-nowrap me-xl-2 mb-2 mb-xl-0" type="button">🌙 Dark</button>
+      <button id="installBtn" class="btn btn-sm btn-primary text-nowrap me-xl-2 mb-2 mb-xl-0 d-none" type="button">📲 Install</button>
 
       <% if (user) { %>
-        <a href="/notifications" class="btn btn-sm btn-outline-secondary position-relative me-lg-2 mb-2 mb-lg-0" title="Notifications">
+        <a href="/notifications" class="btn btn-sm btn-outline-secondary position-relative me-xl-2 mb-2 mb-xl-0" title="Notifications">
           🔔
           <% if (locals.unreadCount > 0) { %>
             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"><%= unreadCount > 9 ? '9+' : unreadCount %></span>
           <% } %>
         </a>
-        <a href="/messages" class="btn btn-sm btn-outline-secondary position-relative me-lg-2 mb-2 mb-lg-0" title="Messages">
+        <a href="/messages" class="btn btn-sm btn-outline-secondary position-relative me-xl-2 mb-2 mb-xl-0" title="Messages">
           💬
           <% if (locals.unreadMessages > 0) { %>
             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"><%= unreadMessages > 9 ? '9+' : unreadMessages %></span>
@@ -179,7 +197,7 @@
             <li><hr class="dropdown-divider"></li>
             <li>
               <form action="/logout" method="POST" class="mb-0">
-<input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                 <button type="submit" class="dropdown-item text-danger">Logout</button>
               </form>
             </li>
