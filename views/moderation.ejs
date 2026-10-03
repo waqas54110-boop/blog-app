@@ -43,7 +43,13 @@
           Message from <a href="/u/<%= encodeURIComponent(t.username) %>"><%= t.username %></a> · <%= fmt(t.created_at) %>
           <span class="badge text-bg-light border">only this message is shown</span>
         </div>
-        <div class="border-start border-3 ps-3 py-1 comment-body"><%= t.body %></div>
+        <% if (t.media_kind === 'image') { %>
+          <a href="/messages/media/<%= t.media_id %>" target="_blank" rel="noopener"><img src="/messages/media/<%= t.media_id %>" alt="Reported photo" style="max-width:260px;max-height:320px;border-radius:.5rem;"></a>
+        <% } else if (t.media_kind === 'voice') { %>
+          <audio controls preload="none" src="/messages/media/<%= t.media_id %>" style="max-width:100%;"></audio>
+        <% } else { %>
+          <div class="border-start border-3 ps-3 py-1 comment-body"><%= t.body %></div>
+        <% } %>
       <% } else { %>
         <div class="small text-body-secondary mb-1">
           by <a href="/u/<%= encodeURIComponent(t.username) %>"><%= t.username %></a> on

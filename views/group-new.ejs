@@ -22,8 +22,15 @@
               <label class="form-label fw-semibold" for="gDesc">What is this group about?</label>
               <textarea id="gDesc" name="description" class="form-control" rows="3" maxlength="<%= DESC_MAX %>" placeholder="A short description (optional)"><%= form.description %></textarea>
             </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold" for="gPrivacy">Who can join?</label>
+              <select id="gPrivacy" name="privacy" class="form-select">
+                <option value="public" <%= form.privacy === 'private' ? '' : 'selected' %>>Public: anyone with an account can join and see the posts</option>
+                <option value="private" <%= form.privacy === 'private' ? 'selected' : '' %>>Private: people send a join request, only members see posts and chat</option>
+              </select>
+            </div>
           </div>
-          <p class="small text-body-secondary mt-3 mb-3">Anyone with an account can join and see this group's posts. You will be the group admin and can delete posts and comments in it.</p>
+          <p class="small text-body-secondary mt-3 mb-3">You will be the group admin. You can delete posts and comments, approve join requests, and add your friends.</p>
           <button class="btn btn-primary btn-post">Create group</button>
         </form>
       </div>

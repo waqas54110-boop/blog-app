@@ -1,0 +1,96 @@
+<%- include('partials/header') %>
+
+<% const ago = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <a href="/groups/<%= group.slug %>" class="btn btn-sm btn-outline-secondary rounded-pill mb-3">← <%= group.name %></a>
+
+    <% if (flash.notice) { %><div class="alert alert-success"><%= flash.notice %></div><% } %>
+    <% if (flash.error) { %><div class="alert alert-danger"><%= flash.error %></div><% } %>
+
+    <h1 class="h3 fw-bold mb-3"><%= group.emoji %> Manage <%= group.name %> <% if (group.is_private) { %><span class="badge text-bg-secondary fs-6 align-middle">🔒 Private</span><% } %></h1>
+
+    <% if (group.is_private) { %>
+      <div class="card border-0 shadow-sm mb-3"><div class="card-body">
+        <div class="fw-bold mb-2">📨 Join requests <% if (requests.length) { %><span class="badge text-bg-danger rounded-pill"><%= requests.length %></span><% } %></div>
+        <% if (requests.length === 0) { %>
+          <div class="small text-body-secondary">No pending requests.</div>
+        <% } else { %>
+          <div class="list-group list-group-flush">
+            <% requests.forEach(function (r) { %>
+              <div class="list-group-item px-0 d-flex align-items-center gap-2 flex-wrap">
+                <span class="avatar avatar-sm"><%= r.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(r.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
+                <a class="fw-semibold text-reset text-decoration-none flex-grow-1" href="/u/<%= encodeURIComponent(r.username) %>"><%= r.username %></a>
+                <span class="small text-body-secondary"><%= ago(r.created_at) %></span>
+                <form action="/groups/<%= group.slug %>/requests/<%= r.id %>/approve" method="POST" class="mb-0">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="btn btn-sm btn-success rounded-pill px-3">Approve</button>
+                </form>
+                <form action="/groups/<%= group.slug %>/requests/<%= r.id %>/decline" method="POST" class="mb-0">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button class="btn btn-sm btn-outline-secondary rounded-pill px-3">Decline</button>
+                </form>
+              </div>
+            <% }) %>
+          </div>
+        <% } %>
+      </div></div>
+    <% } %>
+
+    <div class="card border-0 shadow-sm mb-3"><div class="card-body">
+      <div class="fw-bold mb-2">➕ Add a friend</div>
+      <% if (friends.length === 0) { %>
+        <div class="small text-body-secondary">All your friends are already in this group (or you have no friends yet). Others can send a join request or use the invite link.</div>
+      <% } else { %>
+        <form action="/groups/<%= group.slug %>/members/add" method="POST" class="d-flex gap-2 mb-0">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <select name="user_id" class="form-select" required>
+            <option value="" selected disabled>Choose a friend...</option>
+            <% friends.forEach(function (f) { %><option value="<%= f.id %>"><%= f.username %></option><% }) %>
+          </select>
+          <button class="btn btn-primary px-4">Add</button>
+        </form>
+        <div class="small text-body-secondary mt-2">They get a notification and can leave the group any time.</div>
+      <% } %>
+    </div></div>
+
+    <div class="card border-0 shadow-sm mb-3"><div class="card-body">
+      <div class="fw-bold mb-2">👥 Members (<%= members.length %>)</div>
+      <div class="list-group list-group-flush">
+        <% members.forEach(function (m) { %>
+          <div class="list-group-item px-0 d-flex align-items-center gap-2">
+            <span class="avatar avatar-sm"><%= m.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(m.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
+            <a class="text-reset text-decoration-none flex-grow-1 text-truncate" href="/u/<%= encodeURIComponent(m.username) %>"><%= m.username %></a>
+            <% if (m.id === group.owner_id) { %><span class="badge text-bg-warning">👑 Owner</span>
+            <% } else if (m.role === 'admin') { %><span class="badge text-bg-primary">Admin</span><% } %>
+            <% if (m.id !== group.owner_id && (m.role !== 'admin' || isOwner)) { %>
+              <form action="/groups/<%= group.slug %>/members/<%= m.id %>/remove" method="POST" class="mb-0"
+                    onsubmit="return confirm('Remove <%= m.username.replace(/'/g, '') %> from this group?')">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="btn btn-sm btn-outline-danger rounded-pill">Remove</button>
+              </form>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    </div></div>
+
+    <% if (isOwner) { %>
+      <div class="card border-0 shadow-sm mb-3"><div class="card-body">
+        <div class="fw-bold mb-2">🔒 Privacy</div>
+        <form action="/groups/<%= group.slug %>/privacy" method="POST" class="d-flex gap-2 flex-wrap mb-0">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <select name="privacy" class="form-select" style="max-width: 360px;">
+            <option value="public" <%= group.is_private ? '' : 'selected' %>>Public: anyone can see and join</option>
+            <option value="private" <%= group.is_private ? 'selected' : '' %>>Private: people send a join request</option>
+          </select>
+          <button class="btn btn-outline-primary px-4">Save</button>
+        </form>
+        <div class="small text-body-secondary mt-2">Anyone who has the invite link can still join directly. Reset the link on the group page if it was shared too widely.</div>
+      </div></div>
+    <% } %>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

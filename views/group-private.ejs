@@ -1,0 +1,50 @@
+<%- include('partials/header') %>
+<%- include('partials/feed-assets') %>
+
+<div class="feed-hero p-4 p-md-5 mb-4 shadow-sm">
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <span class="group-hero-emoji"><%= group.emoji %></span>
+    <div class="flex-grow-1" style="min-width: 200px;">
+      <h1 class="fw-bold mb-1 fs-2 text-break"><%= group.name %> <span class="badge text-bg-light align-middle fs-6">🔒 Private</span></h1>
+      <div class="opacity-75 small"><%= group.members %> member<%= group.members === 1 ? '' : 's' %> · created by <%= group.owner_name %></div>
+    </div>
+  </div>
+</div>
+
+<% if (flash.notice) { %><div class="alert alert-warning"><%= flash.notice %></div><% } %>
+<% if (flash.error) { %><div class="alert alert-danger"><%= flash.error %></div><% } %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-md-8 col-lg-6">
+    <a href="/groups" class="btn btn-sm btn-outline-secondary rounded-pill mb-3">← All groups</a>
+    <div class="card border-0 shadow-sm text-center" style="border-radius:1rem;">
+      <div class="card-body p-4 p-md-5">
+        <div class="display-4 mb-2">🔒</div>
+        <h2 class="h4 fw-bold mb-2">This group is private</h2>
+        <% if (group.description) { %><p class="text-break mb-3"><%= group.description %></p><% } %>
+        <p class="text-body-secondary small mb-4">Posts, chat and members are only visible to people in the group. Send a request and an admin will review it.</p>
+
+        <% if (!user) { %>
+          <a href="/login" class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">Log in to request</a>
+        <% } else if (requested) { %>
+          <div class="mb-3"><span class="badge text-bg-warning rounded-pill px-3 py-2">⏳ Request pending</span></div>
+          <form action="/groups/<%= group.slug %>/request/cancel" method="POST" class="mb-0">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="btn btn-outline-secondary rounded-pill px-4">Cancel request</button>
+          </form>
+        <% } else { %>
+          <form action="/groups/<%= group.slug %>/request" method="POST" class="mb-0">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="btn btn-primary btn-lg rounded-pill px-5 fw-bold">Request to join</button>
+          </form>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .group-hero-emoji { width: 72px; height: 72px; border-radius: 1.25rem; background: rgba(255,255,255,.2); display: inline-flex; align-items: center; justify-content: center; font-size: 2.4rem; flex-shrink: 0; }
+</style>
+
+<%- include('partials/footer') %>

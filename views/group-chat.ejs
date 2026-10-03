@@ -1,0 +1,158 @@
+<%- include('partials/header') %>
+
+<% const timeFmt = (d) => new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); %>
+
+<style>
+  .chat-box { height: 58vh; min-height: 300px; overflow-y: auto; background: var(--bs-tertiary-bg); border-radius: .5rem; padding: 1rem; }
+  .bubble { max-width: 80%; padding: .5rem .75rem; border-radius: 1rem; white-space: pre-wrap; word-break: break-word; }
+  .bubble.mine { background: #4f46e5; color: #fff; margin-left: auto; border-bottom-right-radius: .25rem; }
+  .bubble.theirs { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-bottom-left-radius: .25rem; }
+  .bubble-meta { font-size: .72rem; opacity: .7; }
+  .sender-name { font-size: .78rem; font-weight: 600; margin-bottom: .1rem; }
+  .m-row { display: flex; flex-direction: column; margin-bottom: .6rem; }
+  .m-row.mine { align-items: flex-end; }
+  .m-row:target .bubble { outline: 2px solid #f59e0b; }
+  .typing-note { min-height: 1.4rem; font-size: .8rem; }
+  .del-btn { cursor: pointer; text-decoration: underline; }
+</style>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-3 p-md-4">
+
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <a href="/groups/<%= group.slug %>" class="btn btn-sm btn-outline-secondary">←</a>
+          <span class="fs-3"><%= group.emoji %></span>
+          <div class="flex-grow-1" style="min-width:0;">
+            <a href="/groups/<%= group.slug %>" class="fw-semibold fs-5 text-reset text-decoration-none text-truncate d-block"><%= group.name %></a>
+            <div class="small text-body-secondary"><%= group.is_private ? '🔒 Private group' : 'Group' %> chat · <%= group.members %> member<%= group.members === 1 ? '' : 's' %></div>
+          </div>
+        </div>
+
+        <div class="chat-box" id="chatBox" data-me="<%= user.username %>">
+          <% if (messages.length === 0) { %><div class="text-center text-body-secondary small" id="emptyNote">No messages yet. Say hello to the group 👋</div><% } %>
+          <% messages.forEach(m => { const mine = m.sender_id === user.id; %>
+            <div class="m-row <%= mine ? 'mine' : '' %>" id="m<%= m.id %>">
+              <% if (!mine) { %><a class="sender-name text-reset text-decoration-none" href="/u/<%= encodeURIComponent(m.username) %>"><%= m.username %></a><% } %>
+              <div class="bubble <%= mine ? 'mine' : 'theirs' %>"><%= m.body %></div>
+              <div class="bubble-meta"><%= timeFmt(m.created_at) %><% if (mine || canModerate) { %> · <span class="del-btn" data-id="<%= m.id %>">Delete</span><% } %></div>
+            </div>
+          <% }) %>
+        </div>
+        <div class="typing-note text-body-secondary mt-1" id="typingNote" aria-live="polite"></div>
+
+        <% if (err) { %><div class="alert alert-warning py-2 mt-2 mb-0"><%= err %></div><% } %>
+        <div class="alert alert-warning py-2 mt-2 mb-0 d-none" id="chatErr"></div>
+
+        <form action="/groups/<%= group.slug %>/chat" method="POST" class="mt-2 mb-0" id="sendForm">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="input-group">
+            <textarea class="form-control" name="body" id="msgBody" rows="2" maxlength="<%= maxLen %>" placeholder="Message the group... (Enter to send, Shift+Enter for new line)" required></textarea>
+            <button class="btn btn-primary" type="submit" id="sendBtn">Send</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var box = document.getElementById('chatBox');
+  var ta = document.getElementById('msgBody');
+  var form = document.getElementById('sendForm');
+  var sendBtn = document.getElementById('sendBtn');
+  var typingNote = document.getElementById('typingNote');
+  var errBox = document.getElementById('chatErr');
+  var csrf = <%- JSON.stringify(csrfToken) %>;
+  var base = '/groups/<%= group.slug %>/chat';
+  var canModerate = <%= canModerate ? 'true' : 'false' %>;
+  var lastId = <%= lastId %>;
+  var lastTypedAt = 0;
+  var sending = false;
+  box.scrollTop = box.scrollHeight;
+
+  function showErr(t) { errBox.textContent = t; errBox.classList.toggle('d-none', !t); }
+  function fmt(d) { return new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+
+  function add(m) {
+    if (document.getElementById('m' + m.id)) return;
+    var empty = document.getElementById('emptyNote'); if (empty) empty.remove();
+    var row = document.createElement('div'); row.className = 'm-row' + (m.mine ? ' mine' : ''); row.id = 'm' + m.id;
+    if (!m.mine) {
+      var n = document.createElement('a'); n.className = 'sender-name text-reset text-decoration-none';
+      n.href = '/u/' + encodeURIComponent(m.username); n.textContent = m.username; row.appendChild(n);
+    }
+    var b = document.createElement('div'); b.className = 'bubble ' + (m.mine ? 'mine' : 'theirs'); b.textContent = m.body;
+    var meta = document.createElement('div'); meta.className = 'bubble-meta'; meta.textContent = fmt(m.at);
+    if (m.mine || canModerate) {
+      meta.appendChild(document.createTextNode(' · '));
+      var d = document.createElement('span'); d.className = 'del-btn'; d.setAttribute('data-id', m.id); d.textContent = 'Delete';
+      meta.appendChild(d);
+    }
+    row.appendChild(b); row.appendChild(meta); box.appendChild(row);
+    if (m.id > lastId) lastId = m.id;
+  }
+
+  // ---------- bhejna ----------
+  function send() {
+    var text = ta.value.trim();
+    if (!text || sending) return;
+    sending = true; sendBtn.disabled = true; showErr('');
+    fetch(base, {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-requested-with': 'fetch' },
+      body: '_csrf=' + encodeURIComponent(csrf) + '&body=' + encodeURIComponent(text)
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok || !x.j || !x.j.message) { showErr((x.j && x.j.error) || 'Could not send. Please try again.'); return; }
+        ta.value = ''; lastTypedAt = 0;
+        add(x.j.message); box.scrollTop = box.scrollHeight;
+      })
+      .catch(function () { showErr('Could not send. Please check your internet and try again.'); })
+      .then(function () { sending = false; sendBtn.disabled = false; ta.focus(); });
+  }
+  form.addEventListener('submit', function (e) { e.preventDefault(); send(); });
+  ta.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+  });
+  ta.addEventListener('input', function () { lastTypedAt = Date.now(); });
+
+  // ---------- delete ----------
+  box.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t.classList || !t.classList.contains('del-btn')) return;
+    if (!confirm('Delete this message?')) return;
+    var id = t.getAttribute('data-id');
+    fetch(base + '/' + id + '/delete', { method: 'POST', credentials: 'same-origin', headers: { 'x-csrf-token': csrf, 'x-requested-with': 'fetch' } })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (j && j.ok) { var row = document.getElementById('m' + id); if (row) row.remove(); } else showErr('Could not delete this message.'); })
+      .catch(function () { showErr('Could not delete this message.'); });
+  });
+
+  // ---------- poll: naye messages + typing ----------
+  function typingText(names) {
+    if (!names || !names.length) return '';
+    if (names.length === 1) return names[0] + ' is typing…';
+    if (names.length === 2) return names[0] + ' and ' + names[1] + ' are typing…';
+    return 'Several people are typing…';
+  }
+  function poll() {
+    if (document.hidden) return;
+    var typing = Date.now() - lastTypedAt < 4000 && ta.value.length > 0 ? '&typing=1' : '';
+    fetch(base + '/poll?after=' + lastId + typing, { credentials: 'same-origin' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j) return;
+        var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+        (j.messages || []).forEach(add);
+        typingNote.textContent = typingText(j.typing);
+        if (atBottom) box.scrollTop = box.scrollHeight;
+      }).catch(function () {});
+  }
+  setInterval(poll, 3000);
+})();
+</script>
+
+<%- include('partials/footer') %>

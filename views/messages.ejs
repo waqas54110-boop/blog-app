@@ -20,7 +20,7 @@
                 <div class="flex-grow-1 overflow-hidden">
                   <div class="fw-semibold"><%= c.username %></div>
                   <div class="small text-body-secondary text-truncate <%= c.unread > 0 ? 'fw-semibold text-body' : '' %>">
-                    <% if (c.body) { %><%= c.last_sender === user.id ? 'You: ' : '' %><%= c.body %><% } else { %>Say hello 👋<% } %>
+                    <% if (c.media_kind) { %><%= c.last_sender === user.id ? 'You: ' : '' %><%= c.media_kind === 'voice' ? '🎤 Voice message' : '📷 Photo' %><% } else if (c.body) { %><%= c.last_sender === user.id ? 'You: ' : '' %><%= c.body %><% } else { %>Say hello 👋<% } %>
                   </div>
                 </div>
                 <div class="text-end small text-body-secondary">

@@ -59,7 +59,7 @@ const limiter = (windowMinutes, limit, message, opts = {}) =>
 // ek page par kai images hoti hain aur video har seek par chhoti requests bhejti hai
 app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try again.', {
   // /votes/:id/state.json (live counting) ka apna alag limit neeche hai
-  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path)
+  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/messages\/media\/\d+$/.test(req.path) || /^\/groups\/[^/]+\/chat\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path)
     || req.path.startsWith('/stories/') || req.path.startsWith('/icons/') || req.path === '/sw.js' || req.path === '/manifest.webmanifest' || req.path === '/offline',
 }));
 app.post(['/login', '/signup'], limiter(15, 15, 'Too many login/signup attempts. Please try again in 15 minutes.'));
@@ -84,7 +84,13 @@ app.post('/report', limiter(10, 10, 'You are reporting too fast. Please wait a f
 app.post(['/u/:username/follow', '/u/:username/unfollow', '/u/:username/follow-email'], limiter(10, 30, 'Too many requests. Please wait a few minutes.'));
 app.post('/friends/:action/:username', limiter(10, 40, 'Too many requests. Please wait a few minutes.'));
 app.post('/messages/:username', limiter(1, 12, 'You are sending messages too fast. Please wait a minute.'));
-app.get('/messages/:username/poll', limiter(1, 30, 'Too many requests.'));
+app.get('/messages/:username/poll', limiter(1, 60, 'Too many requests.'));
+app.post('/messages/:username/media', limiter(1, 10, 'You are sending photos / voice messages too fast. Please wait a minute.'));
+app.get('/groups/:slug/chat/poll', limiter(1, 60, 'Too many requests.'));
+app.post('/groups/:slug/chat', limiter(1, 20, 'You are sending messages too fast. Please wait a minute.'));
+app.post('/groups/:slug/chat/:id/delete', limiter(5, 40, 'Too many requests. Please wait a few minutes.'));
+app.post(['/groups/:slug/request', '/groups/:slug/request/cancel'], limiter(10, 20, 'Too many requests. Please wait a few minutes.'));
+app.post(['/groups/:slug/requests/:userId/:action', '/groups/:slug/members/add', '/groups/:slug/members/:userId/remove', '/groups/:slug/privacy'], limiter(10, 60, 'Too many requests. Please wait a few minutes.'));
 app.post('/upload-avatar', limiter(10, 10, 'Too many photo uploads. Please wait a few minutes.'));
 app.post('/avatar/remove', limiter(10, 10, 'Too many requests. Please wait a few minutes.'));
 app.post('/upload-feed-image', limiter(30, 20, 'Too many photo uploads. Please wait a while.'));
@@ -121,6 +127,12 @@ app.post('/upload-avatar', express.raw({ type: ['image/jpeg'], limit: '1mb' }));
 
 // Feed photo: browser 1600px JPEG bana kar seedha bytes bhejta hai (CSRF token header mein). Ye bhi csrf se pehle.
 app.post('/upload-feed-image', express.raw({ type: ['image/jpeg'], limit: '2mb' }));
+
+// Private message photo / voice: browser seedhi file bytes bhejta hai (CSRF token header x-csrf-token mein). Ye bhi csrf se pehle.
+app.post(
+  '/messages/:username/media',
+  express.raw({ type: ['image/jpeg', 'audio/webm', 'audio/ogg', 'audio/mp4'], limit: '3mb' })
+);
 
 // Push subscribe/unsubscribe JSON bhejte hain (CSRF token header x-csrf-token mein)
 app.use('/push', express.json({ limit: '8kb' }));

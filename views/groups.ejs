@@ -40,7 +40,7 @@
             <div class="d-flex align-items-center gap-3 mb-2">
               <span class="group-emoji"><%= g.emoji %></span>
               <div style="min-width:0;">
-                <a href="/groups/<%= g.slug %>" class="fw-bold text-reset text-decoration-none stretched-link text-break"><%= g.name %></a>
+                <a href="/groups/<%= g.slug %>" class="fw-bold text-reset text-decoration-none stretched-link text-break"><%= g.name %></a><% if (g.is_private) { %> <span title="Private group">🔒</span><% } %>
                 <div class="small text-body-secondary"><%= g.members %> member<%= g.members === 1 ? '' : 's' %> · <%= g.posts %> post<%= g.posts === 1 ? '' : 's' %></div>
               </div>
             </div>
@@ -48,6 +48,13 @@
             <div class="mt-auto position-relative" style="z-index:2;">
               <% if (user && g.joined) { %>
                 <span class="badge text-bg-success rounded-pill px-3 py-2">✓ Joined</span>
+              <% } else if (user && g.is_private && g.requested) { %>
+                <span class="badge text-bg-warning rounded-pill px-3 py-2">⏳ Request pending</span>
+              <% } else if (user && g.is_private) { %>
+                <form action="/groups/<%= g.slug %>/request" method="POST" class="mb-0">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="list">
+                  <button class="btn btn-sm btn-outline-primary rounded-pill px-3">🔒 Request to join</button>
+                </form>
               <% } else if (user) { %>
                 <form action="/groups/<%= g.slug %>/join" method="POST" class="mb-0">
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="list">

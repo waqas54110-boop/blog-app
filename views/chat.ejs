@@ -2,16 +2,25 @@
 
 <% const link = '/u/' + encodeURIComponent(other.username); %>
 <% const timeFmt = (d) => new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); %>
+<% const secsFmt = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); %>
 
 <style>
   .chat-box { height: 55vh; min-height: 300px; overflow-y: auto; background: var(--bs-tertiary-bg); border-radius: .5rem; padding: 1rem; }
   .bubble { max-width: 80%; padding: .5rem .75rem; border-radius: 1rem; white-space: pre-wrap; word-break: break-word; }
   .bubble.mine { background: #4f46e5; color: #fff; margin-left: auto; border-bottom-right-radius: .25rem; }
   .bubble.theirs { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-bottom-left-radius: .25rem; }
+  .bubble.media { padding: .35rem; }
+  .bubble img.chat-photo { display: block; max-width: min(260px, 100%); max-height: 320px; border-radius: .75rem; }
+  .bubble audio { display: block; width: 240px; max-width: 100%; height: 38px; }
   .bubble-meta { font-size: .72rem; opacity: .7; }
   .m-row { display: flex; flex-direction: column; margin-bottom: .6rem; }
   .m-row.mine { align-items: flex-end; }
   .m-row:target .bubble { outline: 2px solid #f59e0b; }
+  .tick { letter-spacing: -2px; margin-left: .25rem; }
+  .tick.seen { color: #0d6efd; font-weight: 700; opacity: 1; }
+  .typing-note { min-height: 1.4rem; font-size: .8rem; }
+  .rec-dot { width: .7rem; height: .7rem; border-radius: 50%; background: #dc3545; display: inline-block; animation: recBlink 1s infinite; }
+  @keyframes recBlink { 50% { opacity: .2; } }
 </style>
 
 <div class="row justify-content-center">
@@ -47,26 +56,44 @@
         <% if (blocked) { %>
           <div class="alert alert-secondary mb-0">You can't message this user.</div>
         <% } else { %>
-          <div class="chat-box" id="chatBox">
+          <div class="chat-box" id="chatBox" data-other="<%= other.username %>">
             <% if (messages.length === 0) { %><div class="text-center text-body-secondary small" id="emptyNote">No messages yet. Say hello 👋</div><% } %>
             <% messages.forEach(m => { const mine = m.sender_id === user.id; %>
               <div class="m-row <%= mine ? 'mine' : '' %>" id="m<%= m.id %>">
-                <div class="bubble <%= mine ? 'mine' : 'theirs' %>"><%= m.body %></div>
-                <div class="bubble-meta"><%= timeFmt(m.created_at) %>
+                <% if (m.media_kind === 'image') { %>
+                  <div class="bubble media <%= mine ? 'mine' : 'theirs' %>"><a href="/messages/media/<%= m.media_id %>" target="_blank" rel="noopener"><img class="chat-photo" src="/messages/media/<%= m.media_id %>" alt="Photo" loading="lazy"></a></div>
+                <% } else if (m.media_kind === 'voice') { %>
+                  <div class="bubble media <%= mine ? 'mine' : 'theirs' %>"><audio controls preload="none" src="/messages/media/<%= m.media_id %>"></audio></div>
+                <% } else { %>
+                  <div class="bubble <%= mine ? 'mine' : 'theirs' %>"><%= m.body %></div>
+                <% } %>
+                <div class="bubble-meta"><%= timeFmt(m.created_at) %><% if (m.media_kind === 'voice' && m.media_secs) { %> · 🎤 <%= secsFmt(m.media_secs) %><% } %>
+                  <% if (mine) { %><span class="tick <%= m.id <= seenUpTo ? 'seen' : '' %>" data-id="<%= m.id %>" title="<%= m.id <= seenUpTo ? 'Seen' : 'Sent' %>"><%= m.id <= seenUpTo ? '✓✓' : '✓' %></span><% } %>
                   <% if (!mine) { %> · <a href="#" class="text-reset" data-bs-toggle="modal" data-bs-target="#reportModal" data-report-type="message" data-report-id="<%= m.id %>">Report</a><% } %>
                 </div>
               </div>
             <% }) %>
           </div>
+          <div class="typing-note text-body-secondary mt-1" id="typingNote" aria-live="polite"></div>
 
-          <% if (err) { %><div class="alert alert-warning py-2 mt-3 mb-0"><%= err %></div><% } %>
+          <% if (err) { %><div class="alert alert-warning py-2 mt-2 mb-0"><%= err %></div><% } %>
+          <div class="alert alert-warning py-2 mt-2 mb-0 d-none" id="chatErr"></div>
 
-          <form action="/messages/<%= encodeURIComponent(other.username) %>" method="POST" class="mt-3 mb-0" id="sendForm">
+          <form action="/messages/<%= encodeURIComponent(other.username) %>" method="POST" class="mt-2 mb-0" id="sendForm">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <div class="input-group">
+            <div class="input-group" id="textBar">
+              <button class="btn btn-outline-secondary" type="button" id="photoBtn" title="Send a photo" aria-label="Send a photo">📷</button>
               <textarea class="form-control" name="body" id="msgBody" rows="2" maxlength="<%= maxLen %>" placeholder="Type a message... (Enter to send, Shift+Enter for new line)" required></textarea>
+              <button class="btn btn-outline-secondary d-none" type="button" id="micBtn" title="Record a voice message" aria-label="Record a voice message">🎤</button>
               <button class="btn btn-primary" type="submit">Send</button>
             </div>
+            <div class="input-group d-none" id="recBar">
+              <span class="input-group-text bg-body"><span class="rec-dot me-2"></span><span id="recTime">0:00</span></span>
+              <span class="form-control text-body-secondary">Recording... (max <%= Math.floor(maxVoiceSecs / 60) %> min)</span>
+              <button class="btn btn-outline-danger" type="button" id="recCancel">✕ Cancel</button>
+              <button class="btn btn-primary" type="button" id="recSend">Send 🎤</button>
+            </div>
+            <input type="file" id="photoInput" accept="image/*" class="d-none">
           </form>
         <% } %>
       </div>
@@ -81,41 +108,200 @@
 (function () {
   var box = document.getElementById('chatBox');
   var ta = document.getElementById('msgBody');
+  var typingNote = document.getElementById('typingNote');
+  var errBox = document.getElementById('chatErr');
+  var csrf = <%- JSON.stringify(csrfToken) %>;
+  var otherName = box.getAttribute('data-other');
+  var base = '/messages/<%= encodeURIComponent(other.username) %>';
+  var MAX_SECS = <%= maxVoiceSecs %>;
   var lastId = <%= lastId %>;
-  var url = '/messages/<%= encodeURIComponent(other.username) %>/poll';
+  var lastTypedAt = 0;
   box.scrollTop = box.scrollHeight;
+
+  function showErr(t) { errBox.textContent = t; errBox.classList.toggle('d-none', !t); }
 
   ta.addEventListener('keydown', function (e) {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (ta.value.trim()) document.getElementById('sendForm').submit(); }
   });
+  ta.addEventListener('input', function () { lastTypedAt = Date.now(); });
 
+  // ---------- naye message dikhana ----------
   function fmt(d) { return new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }); }
+  function secsFmt(s) { return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
   function add(m) {
+    if (document.getElementById('m' + m.id)) return;
     var empty = document.getElementById('emptyNote'); if (empty) empty.remove();
     var row = document.createElement('div'); row.className = 'm-row' + (m.mine ? ' mine' : ''); row.id = 'm' + m.id;
-    var b = document.createElement('div'); b.className = 'bubble ' + (m.mine ? 'mine' : 'theirs'); b.textContent = m.body;
+    var b = document.createElement('div'); b.className = 'bubble ' + (m.mine ? 'mine' : 'theirs');
+    if (m.kind === 'image') {
+      b.className += ' media';
+      var a = document.createElement('a'); a.href = '/messages/media/' + m.media; a.target = '_blank'; a.rel = 'noopener';
+      var im = document.createElement('img'); im.className = 'chat-photo'; im.src = '/messages/media/' + m.media; im.alt = 'Photo'; im.loading = 'lazy';
+      a.appendChild(im); b.appendChild(a);
+    } else if (m.kind === 'voice') {
+      b.className += ' media';
+      var au = document.createElement('audio'); au.controls = true; au.preload = 'none'; au.src = '/messages/media/' + m.media;
+      b.appendChild(au);
+    } else {
+      b.textContent = m.body;
+    }
     var meta = document.createElement('div'); meta.className = 'bubble-meta'; meta.textContent = fmt(m.at);
-    if (!m.mine) {
+    if (m.kind === 'voice' && m.secs) meta.appendChild(document.createTextNode(' · 🎤 ' + secsFmt(m.secs)));
+    if (m.mine) {
+      var t = document.createElement('span'); t.className = 'tick'; t.setAttribute('data-id', m.id); t.title = 'Sent'; t.textContent = '✓';
+      meta.appendChild(t);
+    } else {
       meta.appendChild(document.createTextNode(' · '));
-      var a = document.createElement('a'); a.href = '#'; a.className = 'text-reset'; a.textContent = 'Report';
-      a.setAttribute('data-bs-toggle', 'modal'); a.setAttribute('data-bs-target', '#reportModal');
-      a.setAttribute('data-report-type', 'message'); a.setAttribute('data-report-id', m.id);
-      meta.appendChild(a);
+      var r = document.createElement('a'); r.href = '#'; r.className = 'text-reset'; r.textContent = 'Report';
+      r.setAttribute('data-bs-toggle', 'modal'); r.setAttribute('data-bs-target', '#reportModal');
+      r.setAttribute('data-report-type', 'message'); r.setAttribute('data-report-id', m.id);
+      meta.appendChild(r);
     }
     row.appendChild(b); row.appendChild(meta); box.appendChild(row);
+    if (m.id > lastId) lastId = m.id;
   }
+  function updateTicks(seen) {
+    if (!seen) return;
+    var ticks = box.querySelectorAll('.tick:not(.seen)');
+    for (var i = 0; i < ticks.length; i++) {
+      if (parseInt(ticks[i].getAttribute('data-id'), 10) <= seen) { ticks[i].classList.add('seen'); ticks[i].textContent = '✓✓'; ticks[i].title = 'Seen'; }
+    }
+  }
+
+  // ---------- poll: naye messages + seen + typing ----------
   function poll() {
     if (document.hidden) return;
-    fetch(url + '?after=' + lastId, { credentials: 'same-origin' })
+    var typing = Date.now() - lastTypedAt < 4000 && ta.value.length > 0 ? '&typing=1' : '';
+    fetch(base + '/poll?after=' + lastId + typing, { credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (j) {
-        if (!j || !j.messages || !j.messages.length) return;
+        if (!j) return;
         var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
-        j.messages.forEach(function (m) { if (m.id > lastId) { add(m); lastId = m.id; } });
-        if (atBottom) box.scrollTop = box.scrollHeight;
+        var gotTheirs = false;
+        (j.messages || []).forEach(function (m) { if (!m.mine) gotTheirs = true; add(m); });
+        updateTicks(j.seen);
+        typingNote.textContent = j.typing && !gotTheirs ? otherName + ' is typing…' : '';
+        if (atBottom || (j.messages && j.messages.length)) { if (atBottom) box.scrollTop = box.scrollHeight; }
       }).catch(function () {});
   }
-  setInterval(poll, 6000);
+  setInterval(poll, 3000);
+
+  // ---------- upload (photo / voice) ----------
+  var busy = false;
+  function setBusy(v) {
+    busy = v;
+    ['photoBtn', 'micBtn', 'recSend'].forEach(function (id) { var el = document.getElementById(id); if (el) el.disabled = v; });
+  }
+  function upload(blob, contentType, extra) {
+    if (busy) return Promise.resolve();
+    setBusy(true); showErr('');
+    var headers = { 'Content-Type': contentType, 'x-csrf-token': csrf };
+    if (extra) for (var k in extra) headers[k] = extra[k];
+    return fetch(base + '/media', { method: 'POST', headers: headers, body: blob, credentials: 'same-origin' })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (!x.ok || !x.j || !x.j.message) { showErr((x.j && x.j.error) || 'Could not send. Please try again.'); return; }
+        add(x.j.message);
+        box.scrollTop = box.scrollHeight;
+      })
+      .catch(function () { showErr('Could not send. Please check your internet and try again.'); })
+      .then(function () { setBusy(false); });
+  }
+
+  // ---------- photo: browser mein 1280px JPEG ----------
+  var photoInput = document.getElementById('photoInput');
+  document.getElementById('photoBtn').addEventListener('click', function () { photoInput.click(); });
+  photoInput.addEventListener('change', function () {
+    var file = photoInput.files && photoInput.files[0];
+    photoInput.value = '';
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { showErr('Please choose a photo.'); return; }
+    var url = URL.createObjectURL(file);
+    var im = new Image();
+    im.onload = function () {
+      URL.revokeObjectURL(url);
+      var s = Math.min(1, 1280 / Math.max(im.width, im.height));
+      var c = document.createElement('canvas'); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s);
+      c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+      var qs = [0.8, 0.65, 0.5];
+      (function attempt(i) {
+        c.toBlob(function (blob) {
+          if (!blob) { showErr('Could not read this photo. Please try a JPG or PNG.'); return; }
+          if (blob.size > <%= 2 * 1024 * 1024 - 1024 %> && i < qs.length - 1) return attempt(i + 1);
+          if (blob.size > <%= 2 * 1024 * 1024 - 1024 %>) { showErr('Photo is too large. Please choose a smaller one.'); return; }
+          upload(blob, 'image/jpeg');
+        }, 'image/jpeg', qs[i]);
+      })(0);
+    };
+    im.onerror = function () { URL.revokeObjectURL(url); showErr('Could not read this photo. Please try a JPG or PNG.'); };
+    im.src = url;
+  });
+
+  // ---------- voice message ----------
+  var micBtn = document.getElementById('micBtn');
+  var textBar = document.getElementById('textBar');
+  var recBar = document.getElementById('recBar');
+  var recTime = document.getElementById('recTime');
+  var canRecord = !!(window.MediaRecorder && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  if (canRecord) micBtn.classList.remove('d-none');
+
+  var recorder = null, stream = null, chunks = [], startedAt = 0, ticker = null, cancelled = false;
+
+  function pickMime() {
+    var list = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/mp4'];
+    for (var i = 0; i < list.length; i++) { if (MediaRecorder.isTypeSupported(list[i])) return list[i]; }
+    return '';
+  }
+  function baseType(t) {
+    t = String(t || '').toLowerCase();
+    if (t.indexOf('webm') !== -1) return 'audio/webm';
+    if (t.indexOf('ogg') !== -1) return 'audio/ogg';
+    if (t.indexOf('mp4') !== -1 || t.indexOf('aac') !== -1) return 'audio/mp4';
+    return 'audio/webm';
+  }
+  function recUi(on) { textBar.classList.toggle('d-none', on); recBar.classList.toggle('d-none', !on); }
+  function cleanup() {
+    clearInterval(ticker); ticker = null;
+    if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+    recorder = null; recUi(false);
+  }
+  function stopRec(send) {
+    if (!recorder) return;
+    cancelled = !send;
+    if (recorder.state !== 'inactive') recorder.stop(); else cleanup();
+  }
+
+  micBtn.addEventListener('click', function () {
+    if (busy || recorder) return;
+    showErr('');
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (s) {
+      stream = s; chunks = []; cancelled = false;
+      var mime = pickMime();
+      try { recorder = mime ? new MediaRecorder(s, { mimeType: mime }) : new MediaRecorder(s); }
+      catch (e) { cleanup(); showErr('Voice recording is not supported on this browser.'); return; }
+      var type = recorder.mimeType || mime;
+      recorder.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+      recorder.onstop = function () {
+        var secs = Math.round((Date.now() - startedAt) / 1000);
+        var blob = new Blob(chunks, { type: type });
+        var wasCancelled = cancelled;
+        cleanup();
+        if (wasCancelled) return;
+        if (secs < 1 || blob.size < 500) { showErr('Voice message was too short.'); return; }
+        upload(blob, baseType(type), { 'x-duration': String(Math.min(secs, MAX_SECS)) });
+      };
+      startedAt = Date.now(); recTime.textContent = '0:00'; recUi(true);
+      recorder.start();
+      ticker = setInterval(function () {
+        var s2 = Math.floor((Date.now() - startedAt) / 1000);
+        recTime.textContent = secsFmt(s2);
+        if (s2 >= MAX_SECS) stopRec(true);
+      }, 250);
+    }).catch(function () { showErr('Microphone is blocked. Please allow microphone access in your browser to send voice messages.'); });
+  });
+  document.getElementById('recCancel').addEventListener('click', function () { stopRec(false); });
+  document.getElementById('recSend').addEventListener('click', function () { stopRec(true); });
+  window.addEventListener('pagehide', function () { if (recorder) stopRec(false); });
 })();
 </script>
 <% } %>

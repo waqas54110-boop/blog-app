@@ -5,17 +5,22 @@
   <div class="d-flex align-items-center gap-3 flex-wrap">
     <span class="group-hero-emoji"><%= group.emoji %></span>
     <div class="flex-grow-1" style="min-width: 200px;">
-      <h1 class="fw-bold mb-1 fs-2 text-break"><%= group.name %></h1>
+      <h1 class="fw-bold mb-1 fs-2 text-break"><%= group.name %><% if (group.is_private) { %> <span class="badge text-bg-light align-middle fs-6">🔒 Private</span><% } %></h1>
       <div class="opacity-75 small"><%= group.members %> member<%= group.members === 1 ? '' : 's' %> · <%= group.posts %> post<%= group.posts === 1 ? '' : 's' %> · created by <%= group.owner_name %></div>
     </div>
     <% if (user) { %>
       <% if (role) { %>
+        <a href="/groups/<%= group.slug %>/chat" class="btn btn-light rounded-pill fw-semibold px-3">💬 Chat</a>
+        <% if (canManage) { %><a href="/groups/<%= group.slug %>/manage" class="btn btn-outline-light rounded-pill fw-semibold px-3 position-relative">⚙️ Manage<% if (pending) { %> <span class="badge rounded-pill text-bg-danger"><%= pending %></span><% } %></a><% } %>
         <% if (group.owner_id !== user.id) { %>
           <form action="/groups/<%= group.slug %>/leave" method="POST" class="mb-0" onsubmit="return confirm('Leave this group?')">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <button class="btn btn-light rounded-pill fw-semibold px-4">✓ Joined</button>
           </form>
         <% } else { %><span class="badge text-bg-light rounded-pill px-3 py-2">👑 You own this group</span><% } %>
+      <% } else if (group.is_private) { %>
+        <% if (canManage) { %><a href="/groups/<%= group.slug %>/manage" class="btn btn-outline-light rounded-pill fw-semibold px-3">⚙️ Manage<% if (pending) { %> <span class="badge rounded-pill text-bg-danger"><%= pending %></span><% } %></a><% } %>
+        <span class="badge text-bg-light rounded-pill px-3 py-2">🔒 Viewing as site admin</span>
       <% } else { %>
         <form action="/groups/<%= group.slug %>/join" method="POST" class="mb-0">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -93,7 +98,8 @@
         <% if (group.members > members.length) { %><div class="small text-body-secondary px-2 pt-1">and <%= group.members - members.length %> more</div><% } %>
       </div></div>
 
-      <%- include('partials/group-share', { group, shareBase }) %>
+      <%# Private group mein invite link sirf admins ko (warna har member link baant kar join request ka qaida tor dega) %>
+      <% if (!group.is_private || canManage) { %><%- include('partials/group-share', { group, shareBase }) %><% } %>
 
       <% if (canDeleteGroup) { %>
         <form action="/groups/<%= group.slug %>/delete" method="POST" class="mb-3" onsubmit="return confirm('Delete this group with all its posts and comments? This cannot be undone.')">

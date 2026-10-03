@@ -262,7 +262,8 @@ router.post('/feed/:id/like', requireLogin, async (req, res) => {
   const me = req.session.user;
   try {
     const pr = await pool.query(
-      'SELECT user_id, body FROM feed_posts WHERE id = $1 AND (NOT is_hidden OR user_id = $2 OR $3::boolean)',
+      `SELECT f.user_id, f.body FROM feed_posts f WHERE f.id = $1 AND (NOT f.is_hidden OR f.user_id = $2 OR $3::boolean)
+         AND ${Groups.visiblePostSql('f', '$2', '$3')}`,
       [id, me.id, res.locals.isAdmin]
     );
     const post = pr.rows[0];
@@ -304,7 +305,8 @@ router.post('/feed/:id/comments', requireLogin, async (req, res) => {
     if (!body || body.length > COMMENT_MAX) return fail(`Comment must be between 1 and ${COMMENT_MAX} characters.`);
 
     const pr = await pool.query(
-      'SELECT user_id, body FROM feed_posts WHERE id = $1 AND (NOT is_hidden OR user_id = $2 OR $3::boolean)',
+      `SELECT f.user_id, f.body FROM feed_posts f WHERE f.id = $1 AND (NOT f.is_hidden OR f.user_id = $2 OR $3::boolean)
+         AND ${Groups.visiblePostSql('f', '$2', '$3')}`,
       [id, me.id, res.locals.isAdmin]
     );
     const post = pr.rows[0];
