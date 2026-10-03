@@ -13,6 +13,7 @@
     <% if (flash.notice) { %><div class="alert alert-warning"><%= flash.notice %></div><% } %>
     <% if (flash.error) { %><div class="alert alert-danger"><%= flash.error %></div><% } %>
 
+    <h1 class="visually-hidden"><%= locals.headline || ('Post by ' + f.username) %></h1>
     <%- include('partials/feed-card', { f: f }) %>
   </div>
 </div>

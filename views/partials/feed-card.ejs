@@ -13,7 +13,7 @@
       <a class="fw-semibold text-reset text-decoration-none" href="/u/<%= uname %>"><%= f.username %></a>
       <% if (f.role === 'admin') { %><span class="badge text-bg-primary">Owner</span><% } %>
       <div class="small text-body-secondary">
-        <a class="text-reset text-decoration-none" href="/feed/<%= f.id %>" title="<%= new Date(f.created_at).toLocaleString('en-GB') %>"><%= ago(f.created_at) %></a> ·
+        <a class="text-reset text-decoration-none" href="/feed/<%= f.id %>" title="<%= new Date(f.created_at).toLocaleString('en-GB') %>"><time datetime="<%= new Date(f.created_at).toISOString() %>"><%= ago(f.created_at) %></time></a> ·
         <% if (f.group_slug && !locals.inGroup) { %><a class="text-reset text-decoration-none fw-semibold" href="/groups/<%= f.group_slug %>"><%= f.group_emoji %> <%= f.group_name %></a><% } else { %>🌍<% } %>
         <% if (f.is_hidden) { %><span class="badge text-bg-warning ms-1">Pending review</span><% } %>
       </div>
@@ -44,7 +44,8 @@
 
   <% if (f.image_id) { %>
     <a href="/img/<%= f.image_id %>" class="feed-photo js-photo d-block <%= full ? 'feed-photo-full' : '' %>">
-      <img src="/img/<%= f.image_id %>" alt="Photo posted by <%= f.username %>" loading="lazy">
+      <% const altTxt = (f.body || '').replace(/\s+/g, ' ').trim().slice(0, 110); %>
+      <img src="/img/<%= f.image_id %>" alt="<%= altTxt || ('Photo posted by ' + f.username) %>" loading="<%= full ? 'eager' : 'lazy' %>" decoding="async">
     </a>
   <% } %>
 

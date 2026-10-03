@@ -11,6 +11,8 @@ const Friends = require('../lib/friends');
 const Blocks = require('../lib/blocks');
 const Images = require('../lib/images');
 const Groups = require('../lib/groups');
+const FeedSeo = require('../lib/feedseo');
+const indexnow = require('../lib/indexnow');
 const { notifyUser } = require('../lib/notify');
 const { detectImage } = require('./uploads');
 const { isBot } = require('../lib/analytics');
@@ -157,13 +159,24 @@ router.get('/feed/:id', async (req, res, next) => {
 
     const base = baseUrl(req);
     const text = f.body ? snippet(f.body.replace(/\s+/g, ' '), 140) : 'Shared a photo';
+    // SEO: username wala kata hua title nahi, post ka asli headline
+    const head = FeedSeo.headline(f.body) || `Photo by ${f.username}`;
+    const desc = FeedSeo.description(f.body) || text;
+    const image = f.image_id ? `${base}/img/${f.image_id}` : null;
+    // Hidden (review mein) ya group ki post Google ko index nahi karni
+    const noindex = !!(f.is_hidden || f.group_id);
     res.render('feed-post', {
       f, posts, ago: Feed.timeAgo, shareBase: base, full: true, groupAdmin,
-      title: `${f.username}: ${snippet(text, 60)}`,
-      metaDescription: text,
+      headline: head,
+      title: head.length <= 48 ? `${head} | ${res.locals.siteName}` : head, // Google ~60 chars dikhata hai
+      metaDescription: desc,
       ogType: 'article',
-      ogImage: f.image_id ? `${base}/img/${f.image_id}` : res.locals.ogImage,
-      ogImageCard: f.image_id ? false : res.locals.ogImageCard,
+      publishedTime: new Date(f.created_at).toISOString(),
+      robots: noindex ? 'noindex,nofollow' : null,
+      ogImage: image || res.locals.ogImage,
+      ogImageAlt: image ? FeedSeo.imageAlt(f.body, f.username) : null,
+      ogImageCard: image ? false : res.locals.ogImageCard,
+      jsonLd: noindex ? [] : FeedSeo.feedLd({ base, siteName: res.locals.siteName, f, head, desc, image, comments: f.recent }),
       flash: {
         notice: req.query.notice ? String(req.query.notice).slice(0, 200) : null,
         error: req.query.err ? String(req.query.err).slice(0, 200) : null,
@@ -248,6 +261,8 @@ router.post('/feed', requireLogin, async (req, res) => {
       await moderation.holdForReview('feed_post', ins.rows[0].id, heldReason);
       return res.redirect(home + '?notice=' + encodeURIComponent('Your post is waiting for review by the site owner. Only you can see it until then.'));
     }
+    // Public post ho to Bing/Yandex ko foran batao (Google ke liye sitemap kaafi hai)
+    if (!groupId) indexnow.ping([`${baseUrl(req)}/feed/${ins.rows[0].id}`], { throttle: true }).catch(() => {});
     res.redirect(home + '?posted=1');
   } catch (err) {
     console.error('[feed create] (migration_v18.sql chali?)', err.message);

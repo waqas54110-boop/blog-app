@@ -352,11 +352,25 @@ router.get('/rss.xml', async (req, res) => {
 });
 
 // ---------- SITEMAP ----------
+const xmlEsc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 router.get('/sitemap.xml', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT p.id, p.slug, p.publish_at AS created_at FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC`
+      `SELECT p.id, p.slug, COALESCE(p.updated_at, p.publish_at) AS lastmod FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC LIMIT 5000`
     );
+    // Community feed ki public posts (hidden aur group ki posts nahi), taake Google /feed/ID pages dhoond sake
+    let feedRows = [];
+    try {
+      const fr = await pool.query(
+        `SELECT f.id, f.image_id, f.created_at,
+                GREATEST(f.created_at, COALESCE((SELECT MAX(c.created_at) FROM feed_comments c WHERE c.post_id = f.id AND NOT c.is_hidden), f.created_at)) AS lastmod
+         FROM feed_posts f
+         WHERE NOT f.is_hidden AND f.group_id IS NULL
+         ORDER BY f.id DESC LIMIT 5000`
+      );
+      feedRows = fr.rows;
+    } catch (e) { console.error('[sitemap feed]', e.message); }
+
     const baseUrl = baseUrlOf(req);
     const staticUrls = ['', '/blog', '/about', '/leaderboard', '/community', '/hire'];
 
@@ -365,14 +379,22 @@ router.get('/sitemap.xml', async (req, res) => {
 
     const postsXml = result.rows.map((p) => `
   <url>
-    <loc>${baseUrl}/posts/${p.slug}</loc>
-    <lastmod>${new Date(p.created_at).toISOString()}</lastmod>
+    <loc>${baseUrl}/posts/${xmlEsc(p.slug)}</loc>
+    <lastmod>${new Date(p.lastmod).toISOString()}</lastmod>
+  </url>`).join('');
+
+    const feedXml = feedRows.map((f) => `
+  <url>
+    <loc>${baseUrl}/feed/${f.id}</loc>
+    <lastmod>${new Date(f.lastmod).toISOString()}</lastmod>${f.image_id ? `
+    <image:image><image:loc>${baseUrl}/img/${f.image_id}</image:loc></image:image>` : ''}
   </url>`).join('');
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${staticXml}${postsXml}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${staticXml}${postsXml}${feedXml}
 </urlset>`;
 
+    res.set('Cache-Control', 'public, max-age=300');
     res.type('application/xml').send(xml);
   } catch (err) {
     console.error(err);
@@ -381,9 +403,17 @@ router.get('/sitemap.xml', async (req, res) => {
 });
 
 // ---------- ROBOTS.TXT ----------
+// Private / kaam ke pages crawl se bahar; /img aur /feed/ID khule (Google Images + posts ke liye)
 router.get('/robots.txt', (req, res) => {
   const baseUrl = baseUrlOf(req);
-  res.type('text/plain').send(`User-agent: *\nAllow: /\n\nSitemap: ${baseUrl}/sitemap.xml`);
+  const blocked = [
+    '/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/resend-verification',
+    '/messages', '/inbox', '/notifications', '/settings', '/dashboard', '/bookmarks', '/analytics', '/admin',
+    '/friends', '/push', '/stories', '/upload-', '/auth', '/report', '/unsubscribe', '/r/',
+  ];
+  res.type('text/plain').send(
+    `User-agent: *\nAllow: /\n${blocked.map((p) => `Disallow: ${p}`).join('\n')}\n\nSitemap: ${baseUrl}/sitemap.xml\n`
+  );
 });
 
 // ---------- LEADERBOARD ----------
