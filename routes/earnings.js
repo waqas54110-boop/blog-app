@@ -33,10 +33,30 @@ router.get('/earnings', requireLogin, async (req, res, next) => {
       title: 'My Earnings', o, flash: takeFlash(req), rs: E.rs,
       enabled: config.earnEnabled, perHundred: config.earnPaisaPerView, // paisa/view = rupees per 100 views
       minRs: config.earnMinWithdrawRs, capRs: config.earnDailyCapRs,
+      cfg: {
+        readSec: config.earnReadSeconds, readPaisa: config.earnReadPaisa, readCapRs: config.earnReadDailyCapRs,
+        invitePaisa: config.earnInvitePaisa, inviteMax: config.earnInviteMax,
+      },
     });
   } catch (err) {
     console.error('[earnings] (migration_v29.sql chali?):', err.message);
     next(err);
+  }
+});
+
+// Post par 1 minute parhne ka inaam. Browser ki script bheje, magar asli faisla server ke waqt par hota hai.
+router.post('/earn/read', async (req, res) => {
+  try {
+    if (!req.session.user) return res.json({ ok: false, code: 'login', error: 'Log in to earn.' });
+    const postId = toId(req.body.post_id);
+    if (!postId) return res.json({ ok: false, code: 'off', error: 'Invalid post.' });
+    const started = req.session.readStart && req.session.readStart[postId];
+    const r = await E.claimRead(req.session.user.id, postId, started);
+    if (r.ok) return res.json({ ok: true, paisa: r.paisa, amount: E.rs(r.paisa) });
+    res.json({ ok: false, code: r.code, error: r.error });
+  } catch (err) {
+    console.error('[earn read] (migration_v30.sql chali?):', err.message);
+    res.json({ ok: false, code: 'error', error: 'Something went wrong.' });
   }
 });
 

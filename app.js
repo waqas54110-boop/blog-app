@@ -131,6 +131,7 @@ app.post('/forgot-password', limiter(60, 5, 'Too many reset requests. Please try
 app.post('/reset-password/:token', limiter(15, 10, 'Too many attempts. Please try again in a few minutes.'));
 app.post('/upload-image', limiter(10, 40, 'Too many uploads. Please wait a few minutes.'));
 app.post('/earnings/withdraw', limiter(60, 10, 'Too many withdrawal attempts. Please try again later.'));
+app.post('/earn/read', limiter(1, 30, 'Too many requests.'));
 app.post('/upload-video', limiter(30, 10, 'Too many video uploads. Please wait a while.'));
 // Calls: shuru karne par sakht limit; baaqi (poll / signal) ke liye kharab-khorak se bachne wala bara limit
 app.post('/calls/start', limiter(10, 20, 'You are calling too often. Please wait a few minutes.'));

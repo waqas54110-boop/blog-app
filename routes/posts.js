@@ -14,6 +14,7 @@ const sponsorLib = require('../lib/sponsor');
 const indexnow = require('../lib/indexnow');
 const spam = require('../lib/spam');
 const moderation = require('../lib/moderation');
+const earnings = require('../lib/earnings');
 
 const router = express.Router();
 const PER_PAGE = Math.min(Math.max(parseInt(process.env.POSTS_PER_PAGE, 10) || 6, 1), 30);
@@ -785,6 +786,21 @@ router.get('/posts/:ref', async (req, res) => {
       trackVisit(req, res, id); // await nahi: page slow na ho
     }
 
+    // Parhne ka inaam: login user, live post, admin nahi. Server yahan se waqt ginna shuru karta hai.
+    // state: null = widget nahi, 'earn' = timer chalega, 'done' = is post ka inaam pehle mil chuka
+    let readReward = null;
+    try {
+      if (config.earnEnabled && post.is_live && uid && !res.locals.isAdmin && !isBot(req)) {
+        if (await earnings.readState(uid, id)) readReward = { state: 'done' };
+        else {
+          earnings.startRead(req, id);
+          readReward = { state: 'earn', seconds: config.earnReadSeconds, amount: earnings.rs(config.earnReadPaisa) };
+        }
+      }
+    } catch (err) {
+      console.error('[earn read start] (migration_v30.sql chali?):', err.message);
+    }
+
     const [related, comments, tagsResult, reactionResult, myReactionResult] = await Promise.all([
       // Related: pehle wo jin ke tags match karte hain, phir same category
       pool.query(
@@ -878,6 +894,7 @@ router.get('/posts/:ref', async (req, res) => {
       ogImageAlt: post.title,
       robots: post.is_live ? null : 'noindex,nofollow',
       post,
+      readReward,
       contentHtml,
       toc,
       related: related.rows,

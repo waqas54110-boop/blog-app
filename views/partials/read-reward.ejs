@@ -1,0 +1,44 @@
+<% if (locals.readReward && readReward.state) { %>
+<div id="readReward" class="shadow" style="position:fixed;left:12px;bottom:12px;z-index:1030;max-width:calc(100vw - 24px);background:var(--bs-body-bg);color:var(--bs-body-color);border:1px solid var(--bs-border-color);border-radius:999px;padding:.4rem .9rem;font-size:.85rem;">
+  <% if (readReward.state === 'done') { %>
+    ✅ You already earned from this post
+  <% } else { %>
+    <span id="rrText">⏱ Read for <%= readReward.seconds %>s to earn Rs <%= readReward.amount %></span>
+  <% } %>
+</div>
+<% if (readReward.state === 'earn') { %>
+<script>
+  // Timer sirf tab chalta hai jab tab nazar aa raha ho aur aap scroll / touch / click kar rahe hon.
+  // Asli faisla server karta hai (usne page khulne ka waqt khud likha hai).
+  (function () {
+    var NEED = <%= readReward.seconds %>, got = 0, last = Date.now(), finished = false;
+    var box = document.getElementById('readReward'), txt = document.getElementById('rrText');
+    var postId = <%= post.id %>, csrf = <%- JSON.stringify(csrfToken) %>;
+    function touch() { last = Date.now(); }
+    ['scroll', 'touchstart', 'touchmove', 'mousemove', 'keydown', 'click'].forEach(function (e) {
+      window.addEventListener(e, touch, { passive: true });
+    });
+    function say(t) { txt.textContent = t; }
+    function claim() {
+      finished = true; say('⏳ Saving your reward…');
+      var body = new URLSearchParams({ post_id: String(postId), _csrf: csrf });
+      fetch('/earn/read', { method: 'POST', body: body, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j.ok) say('💰 +Rs ' + j.amount + ' added to your earnings');
+          else if (j.code === 'early') { finished = false; got = Math.max(got - 5, 0); }
+          else say('ℹ️ ' + (j.error || 'Could not save the reward.'));
+        })
+        .catch(function () { finished = false; got = Math.max(got - 5, 0); });
+    }
+    setInterval(function () {
+      if (finished) return;
+      var active = document.visibilityState === 'visible' && (Date.now() - last) < 15000;
+      if (active) got += 1;
+      if (got >= NEED) return claim();
+      say((active ? '⏱ Reading… ' : '⏸ Scroll to continue… ') + (NEED - got) + 's left for Rs <%= readReward.amount %>');
+    }, 1000);
+  })();
+</script>
+<% } %>
+<% } %>

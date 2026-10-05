@@ -50,4 +50,14 @@ module.exports = {
   earnMinWithdrawRs: Math.min(Math.max(parseInt(process.env.EARN_MIN_WITHDRAW_RS, 10) || 500, 1), 100000),
   // Ek user ki roz ki zyada se zyada kamayi (rupees). 0 = koi hadd nahi
   earnDailyCapRs: Math.min(Math.max(isNaN(parseInt(process.env.EARN_DAILY_CAP_RS, 10)) ? 200 : parseInt(process.env.EARN_DAILY_CAP_RS, 10), 0), 1000000),
+  // V30: Blog post parhne ka inaam. Post par itne seconds (screen par, kuch karte hue) rehna zaroori, har post sirf ek baar
+  earnReadSeconds: Math.min(Math.max(parseInt(process.env.EARN_READ_SECONDS, 10) || 60, 20), 600),
+  // Ek post parhne ke kitne paisa (5 = Rs 0.05)
+  earnReadPaisa: Math.min(Math.max(parseInt(process.env.EARN_READ_PAISA, 10) || 5, 1), 1000),
+  // Parhne se ek user roz zyada se zyada kitne rupees kama sakta hai
+  earnReadDailyCapRs: Math.min(Math.max(isNaN(parseInt(process.env.EARN_READ_DAILY_CAP_RS, 10)) ? 10 : parseInt(process.env.EARN_READ_DAILY_CAP_RS, 10), 1), 100000),
+  // Ek qualified invite (dost jo email verify kare aur vote / comment wagaira kare) ke kitne paisa (100 = Rs 1, yani 10 dost = Rs 10)
+  earnInvitePaisa: Math.min(Math.max(parseInt(process.env.EARN_INVITE_PAISA, 10) || 100, 1), 10000),
+  // Invite se ek user zyada se zyada kitne doston ka inaam le sakta hai
+  earnInviteMax: Math.min(Math.max(isNaN(parseInt(process.env.EARN_INVITE_MAX, 10)) ? 100 : parseInt(process.env.EARN_INVITE_MAX, 10), 1), 100000),
 };

@@ -7,10 +7,24 @@
 <div class="row justify-content-center">
   <div class="col-12 col-lg-8">
     <h2 class="mb-1">💰 My Earnings</h2>
-    <p class="text-body-secondary">
-      You earn <strong>Rs <%= rs(perHundred * 100) %> for every 100 views</strong> on your community posts.
-      Your own views, bots and hidden posts are not counted.
-    </p>
+    <p class="text-body-secondary mb-3">Three ways to earn. Everything goes into one balance that you can withdraw to JazzCash or Easypaisa.</p>
+
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body">
+        <div class="mb-3">
+          <strong>📸 Your posts:</strong> Rs <%= rs(perHundred * 100) %> for every 100 views on your community posts.
+          Your own views, bots and hidden posts are not counted.<% if (capRs > 0) { %> Up to Rs <%= capRs %> per day.<% } %>
+        </div>
+        <div class="mb-3">
+          <strong>📖 Reading:</strong> Rs <%= rs(cfg.readPaisa) %> for each blog post you read for <%= cfg.readSec %> seconds
+          (the tab must be open and you must scroll or tap). Each post pays only once. Up to Rs <%= cfg.readCapRs %> per day.
+        </div>
+        <div>
+          <strong>🎁 Inviting:</strong> Rs <%= rs(cfg.invitePaisa) %> for every friend who joins with your <a href="/invite">invite link</a>,
+          verifies their email and votes, predicts or comments (<%= cfg.inviteMax %> friends at most).
+        </div>
+      </div>
+    </div>
 
     <% if (flash) { %><div class="alert alert-<%= flash.type %>"><%= flash.text %></div><% } %>
 
@@ -36,6 +50,12 @@
           <div class="small text-body-secondary">Post views</div><div class="fs-4 fw-bold"><%= o.views.total.toLocaleString('en-US') %></div>
         </div></div></div>
       </div>
+
+      <p class="small text-body-secondary">
+        Reading: <%= o.ev.read_n %> post<%= o.ev.read_n === 1 ? '' : 's' %> = Rs <%= rs(o.ev.read_paisa) %>
+        (today Rs <%= rs(o.ev.read_today_paisa) %> of Rs <%= cfg.readCapRs %>) ·
+        Invites: <%= o.ev.invite_n %> friend<%= o.ev.invite_n === 1 ? '' : 's' %> = Rs <%= rs(o.ev.invite_paisa) %>
+      </p>
 
       <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
@@ -114,9 +134,8 @@
       <% } %>
 
       <p class="small text-body-secondary">
-        Earnings are for real views only. Asking people to open your posts again and again, or using fake accounts or bots,
-        will cancel your earnings and can get your account removed.
-        <% if (capRs > 0) { %>You can earn up to Rs <%= capRs %> per day.<% } %>
+        Earnings are for real activity only. Asking people to open your posts again and again, opening posts without reading,
+        or using fake accounts, bots or scripts will cancel your earnings and can get your account removed.
       </p>
     <% } %>
   </div>
