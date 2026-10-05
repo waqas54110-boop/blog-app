@@ -36,6 +36,8 @@
           <span class="avatar"><%= other.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(other.username) %>" alt="" onerror="this.remove()"></span>
           <a href="<%= link %>" class="fw-semibold fs-5 text-reset text-decoration-none flex-grow-1"><%= other.username %></a>
           <% if (!blocked) { %>
+            <button type="button" class="btn btn-sm btn-outline-success" data-call="audio" data-call-user="<%= other.username %>" title="Voice call" aria-label="Voice call">📞</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-call="video" data-call-user="<%= other.username %>" title="Video call" aria-label="Video call">🎥</button>
             <div class="dropdown">
               <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More">⋯</button>
               <ul class="dropdown-menu dropdown-menu-end">

@@ -24,6 +24,7 @@ const profileRouter = require('./routes/profile');
 const friendsRouter = require('./routes/friends');
 const friendsLib = require('./lib/friends');
 const messagesRouter = require('./routes/messages');
+const callsRouter = require('./routes/calls');
 const messagesLib = require('./lib/messages');
 const avatarRouter = require('./routes/avatar');
 const moderationRouter = require('./routes/moderation');
@@ -114,7 +115,7 @@ const limiter = (windowMinutes, limit, message, opts = {}) =>
 // ek page par kai images hoti hain aur video har seek par chhoti requests bhejti hai
 app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try again.', {
   // /votes/:id/state.json (live counting) ka apna alag limit neeche hai
-  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/messages\/media\/\d+$/.test(req.path) || /^\/groups\/[^/]+\/chat\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path)
+  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/messages\/media\/\d+$/.test(req.path) || /^\/groups\/[^/]+\/chat\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path) || req.path.startsWith('/calls/')
     || req.path.startsWith('/stories/') || req.path.startsWith('/icons/') || req.path === '/sw.js' || req.path === '/manifest.webmanifest' || req.path === '/offline',
 }));
 app.post(['/login', '/signup'], limiter(15, 15, 'Too many login/signup attempts. Please try again in 15 minutes.'));
@@ -127,6 +128,9 @@ app.post('/forgot-password', limiter(60, 5, 'Too many reset requests. Please try
 app.post('/reset-password/:token', limiter(15, 10, 'Too many attempts. Please try again in a few minutes.'));
 app.post('/upload-image', limiter(10, 40, 'Too many uploads. Please wait a few minutes.'));
 app.post('/upload-video', limiter(30, 10, 'Too many video uploads. Please wait a while.'));
+// Calls: shuru karne par sakht limit; baaqi (poll / signal) ke liye kharab-khorak se bachne wala bara limit
+app.post('/calls/start', limiter(10, 20, 'You are calling too often. Please wait a few minutes.'));
+app.use('/calls', limiter(1, 600, 'Too many call requests. Please wait a minute.'));
 // Galat form (400) count nahi hota, taake insaan ki typing ghalti par block na ho
 app.post('/hire', limiter(60, 5, 'Too many messages sent. Please try again in an hour.', { skipFailedRequests: true }));
 app.post('/votes/:id/vote', limiter(10, 60, 'Too many votes. Please wait a few minutes.'));
@@ -191,6 +195,9 @@ app.post(
 
 // Push subscribe/unsubscribe JSON bhejte hain (CSRF token header x-csrf-token mein)
 app.use('/push', express.json({ limit: '8kb' }));
+
+// Calls: signaling JSON (CSRF token header x-csrf-token ya body ke _csrf mein; sendBeacon body mein bhejta hai). Ye bhi csrf se pehle.
+app.use('/calls', express.json({ limit: '64kb' }));
 
 app.use(
   session({
@@ -320,6 +327,7 @@ app.use('/', votesRouter);
 app.use('/', profileRouter);
 app.use('/', friendsRouter);
 app.use('/', messagesRouter);
+app.use('/', callsRouter);
 app.use('/', avatarRouter);
 app.use('/', moderationRouter);
 app.use('/', feedRouter);
