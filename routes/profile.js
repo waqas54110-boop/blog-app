@@ -115,8 +115,14 @@ const nextRenameDate = (changedAt) => {
 };
 
 const loadEditRow = async (uid) => {
-  const r = await pool.query('SELECT username, bio, location, username_changed_at, birth_year, gender, country FROM users WHERE id = $1', [uid]);
-  return r.rows[0] || null;
+  try {
+    const r = await pool.query('SELECT username, bio, location, username_changed_at, birth_year, gender, country FROM users WHERE id = $1', [uid]);
+    return r.rows[0] || null;
+  } catch (err) {
+    if (err.code !== '42703') throw err; // migration_v23.sql abhi nahi chali: purane columns se kaam chalao
+    const r = await pool.query('SELECT username, bio, location, username_changed_at FROM users WHERE id = $1', [uid]);
+    return r.rows[0] || null;
+  }
 };
 
 const renderEdit = (res, row, form, error, status = 200, saved = false) =>
@@ -177,16 +183,29 @@ router.post('/settings/profile', requireLogin, async (req, res, next) => {
 
     try {
       if (renaming) {
-        await pool.query(
-          'UPDATE users SET username = $1, username_changed_at = now(), bio = $2, location = $3, birth_year = $5, gender = $6, country = $7 WHERE id = $4',
-          [form.username, form.bio || null, form.location || null, uid, form.birth_year, form.gender, form.country]
-        );
+        try {
+          await pool.query(
+            'UPDATE users SET username = $1, username_changed_at = now(), bio = $2, location = $3, birth_year = $5, gender = $6, country = $7 WHERE id = $4',
+            [form.username, form.bio || null, form.location || null, uid, form.birth_year, form.gender, form.country]
+          );
+        } catch (e) {
+          if (e.code !== '42703') throw e;
+          await pool.query(
+            'UPDATE users SET username = $1, username_changed_at = now(), bio = $2, location = $3 WHERE id = $4',
+            [form.username, form.bio || null, form.location || null, uid]
+          );
+        }
         req.session.user.username = form.username; // header / baqi pages naya naam dikhayen
       } else {
-        await pool.query(
-          'UPDATE users SET bio = $1, location = $2, birth_year = $4, gender = $5, country = $6 WHERE id = $3',
-          [form.bio || null, form.location || null, uid, form.birth_year, form.gender, form.country]
-        );
+        try {
+          await pool.query(
+            'UPDATE users SET bio = $1, location = $2, birth_year = $4, gender = $5, country = $6 WHERE id = $3',
+            [form.bio || null, form.location || null, uid, form.birth_year, form.gender, form.country]
+          );
+        } catch (e) {
+          if (e.code !== '42703') throw e;
+          await pool.query('UPDATE users SET bio = $1, location = $2 WHERE id = $3', [form.bio || null, form.location || null, uid]);
+        }
       }
     } catch (err) {
       if (err.code === '23505') return fail('That username is already taken.');
