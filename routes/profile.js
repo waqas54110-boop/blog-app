@@ -8,6 +8,7 @@ const R = require('../lib/referral');
 const { profileLink } = require('../lib/follow');
 const Friends = require('../lib/friends');
 const Blocks = require('../lib/blocks');
+const { profileLd } = require('../lib/seo');
 
 const router = express.Router();
 const isProd = process.env.NODE_ENV === 'production';
@@ -74,6 +75,13 @@ router.get('/u/:username', async (req, res, next) => {
     res.render('profile', {
       friendState, blockState, mutual, avatarVer, bio, userLocation, feedCount,
       title: `${profile.username} · Profile`,
+      // Khali profile (na bio, na feed post) patla page hai: Google index na kare
+      robots: feedCount === 0 && !bio ? 'noindex,follow' : null,
+      jsonLd: profileLd({
+        base: config.siteUrl || `${req.protocol}://${req.get('host')}`, siteName: config.siteName,
+        username: profile.username, bio,
+        image: avatarVer ? `${config.siteUrl || `${req.protocol}://${req.get('host')}`}/a/${encodeURIComponent(profile.username)}` : null,
+      }),
       metaDescription: `${profile.username} on ${config.siteName}: ${data.stats.votes} votes, ${data.stats.pts} prediction points, ${data.badges.length} badges.`,
       profile, ...data, isMe,
       selfPath: profileLink(profile.username),

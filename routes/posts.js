@@ -7,7 +7,7 @@ const { trackVisit, isBot } = require('../lib/analytics');
 const { notifyUser } = require('../lib/notify');
 const { uniqueSlug } = require('../lib/slug');
 const { addToc } = require('../lib/toc');
-const { postLd } = require('../lib/seo');
+const { postLd, listLd } = require('../lib/seo');
 const card = require('../lib/card');
 const polls = require('../lib/polls');
 const sponsorLib = require('../lib/sponsor');
@@ -270,8 +270,33 @@ router.get('/blog', async (req, res) => {
     // Sab se garam / pin kiya hua live contest (sirf asli homepage par, search/filter/page 2 par nahi)
     const liveContest = !q && !category && !tag && page === 1 ? await sponsorLib.homeContest(req, res, baseUrlOf(req)) : null;
 
+    // SEO: har filter / page ka apna title + description (warna sab pages ka title ek jaisa = duplicate)
+    const site = config.siteName;
+    const pageSfx = page > 1 ? ` - Page ${page}` : '';
+    let seoTitle = `Blog: Cricket, Video Editing, AI & Web Development | ${site}`;
+    let seoDesc = `Articles, tutorials and notes on cricket, video editing, AI, freelancing and web development from ${site}.`;
+    const crumbs = [{ name: 'Home', url: baseUrlOf(req) + '/' }, { name: 'Blog', url: baseUrlOf(req) + '/blog' }];
+    if (q) {
+      seoTitle = `Search: ${q.slice(0, 50)} | ${site}`;
+      seoDesc = `Search results for "${q.slice(0, 50)}" on ${site}.`;
+    } else if (category) {
+      seoTitle = `${category} Articles & Tutorials | ${site}`;
+      seoDesc = `Read ${totalPosts} ${category} ${totalPosts === 1 ? 'post' : 'posts'} on ${site}: guides, tutorials and the latest updates.`;
+      crumbs.push({ name: category, url: baseUrlOf(req) + homeUrl({ category }) });
+    } else if (tag) {
+      seoTitle = `#${tag} Posts | ${site}`;
+      seoDesc = `All ${site} posts tagged "${tag}": ${totalPosts} ${totalPosts === 1 ? 'article' : 'articles'}.`;
+      crumbs.push({ name: `#${tag}`, url: baseUrlOf(req) + homeUrl({ tag }) });
+    }
+    seoTitle += pageSfx;
+    const listUrl = baseUrlOf(req) + homeUrl({ category, tag }, page);
+
     res.render('index', {
-      title: 'Khabzo - Cricket, News aur Community',
+      title: seoTitle,
+      metaDescription: seoDesc,
+      // Search results patli content hoti hain: Google index na kare, par links follow kare
+      robots: q ? 'noindex,follow' : null,
+      jsonLd: q ? [] : listLd({ base: baseUrlOf(req), name: seoTitle, url: listUrl, description: seoDesc, posts, crumbs }),
       liveContest,
       posts,
       categories: catResult.rows,
@@ -319,31 +344,43 @@ router.post('/subscribe', async (req, res) => {
 router.get('/rss.xml', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT p.id, p.slug, p.title, p.excerpt, p.content, p.publish_at AS created_at
-       FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC LIMIT 20`
+      `SELECT p.id, p.slug, p.title, p.excerpt, p.content, p.category, p.cover_url, p.publish_at AS created_at,
+              COALESCE(p.updated_at, p.publish_at) AS updated_at, u.username
+       FROM posts p JOIN users u ON u.id = p.user_id
+       WHERE ${LIVE} ORDER BY p.publish_at DESC LIMIT 30`
     );
     const baseUrl = baseUrlOf(req);
-    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const lastBuild = result.rows.length ? new Date(result.rows[0].updated_at) : new Date();
 
-    const items = result.rows.map((p) => `
+    const items = result.rows.map((p) => {
+      const cover = absUrl(baseUrl, p.cover_url);
+      return `
     <item>
       <title>${esc(p.title)}</title>
-      <link>${baseUrl}/posts/${p.slug}</link>
-      <guid>${baseUrl}/posts/${p.slug}</guid>
+      <link>${baseUrl}/posts/${esc(p.slug)}</link>
+      <guid isPermaLink="true">${baseUrl}/posts/${esc(p.slug)}</guid>
       <pubDate>${new Date(p.created_at).toUTCString()}</pubDate>
-      <description>${esc(p.excerpt || stripMarkup(p.content).slice(0, 200))}</description>
-    </item>`).join('');
+      <dc:creator>${esc(p.username)}</dc:creator>
+      <category>${esc(p.category)}</category>
+      <description>${esc(p.excerpt || stripMarkup(p.content).slice(0, 200))}</description>${cover ? `
+      <media:thumbnail url="${esc(cover)}"/>` : ''}
+    </item>`;
+    }).join('');
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0">
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:media="http://search.yahoo.com/mrss/">
 <channel>
-  <title>Khabzo</title>
+  <title>${esc(config.siteName)}</title>
   <link>${baseUrl}</link>
+  <atom:link href="${baseUrl}/rss.xml" rel="self" type="application/rss+xml"/>
   <description>Notes and tutorials on cricket, video editing, AI, freelancing and web development.</description>
-  ${items}
+  <language>en</language>
+  <lastBuildDate>${lastBuild.toUTCString()}</lastBuildDate>${items}
 </channel>
 </rss>`;
 
+    res.set('Cache-Control', 'public, max-age=600');
     res.type('application/rss+xml').send(xml);
   } catch (err) {
     console.error(err);
@@ -356,8 +393,10 @@ const xmlEsc = (v) => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').rep
 router.get('/sitemap.xml', async (req, res) => {
   try {
     const result = await pool.query(
-      `SELECT p.id, p.slug, COALESCE(p.updated_at, p.publish_at) AS lastmod FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC LIMIT 5000`
+      `SELECT p.id, p.slug, p.cover_url, COALESCE(p.updated_at, p.publish_at) AS lastmod FROM posts p WHERE ${LIVE} ORDER BY p.publish_at DESC LIMIT 5000`
     );
+    const baseUrl = baseUrlOf(req);
+
     // Community feed ki public posts (hidden aur group ki posts nahi), taake Google /feed/ID pages dhoond sake
     let feedRows = [];
     try {
@@ -371,27 +410,51 @@ router.get('/sitemap.xml', async (req, res) => {
       feedRows = fr.rows;
     } catch (e) { console.error('[sitemap feed]', e.message); }
 
-    const baseUrl = baseUrlOf(req);
-    const staticUrls = ['', '/blog', '/about', '/leaderboard', '/community', '/hire'];
+    // Category aur tag pages (ab har ka apna title / description hai)
+    let catRows = [];
+    let tagRows = [];
+    try {
+      catRows = (await pool.query(
+        `SELECT p.category AS name, MAX(COALESCE(p.updated_at, p.publish_at)) AS lastmod FROM posts p WHERE ${LIVE} GROUP BY p.category`
+      )).rows;
+      tagRows = (await pool.query(
+        `SELECT t.name, MAX(COALESCE(p.updated_at, p.publish_at)) AS lastmod
+         FROM tags t JOIN post_tags pt ON pt.tag_id = t.id JOIN posts p ON p.id = pt.post_id
+         WHERE ${LIVE} GROUP BY t.name ORDER BY COUNT(*) DESC LIMIT 200`
+      )).rows;
+    } catch (e) { console.error('[sitemap cats/tags]', e.message); }
 
-    const staticXml = staticUrls.map((u) => `
-  <url><loc>${baseUrl}${u}</loc></url>`).join('');
+    // Public groups (private nahi) aur vote contests (migration_v20/v22/v9 na chali ho to skip)
+    let groupRows = [];
+    let voteRows = [];
+    try {
+      groupRows = (await pool.query(
+        `SELECT g.slug, g.created_at AS lastmod FROM groups g WHERE NOT COALESCE(g.is_private, false) ORDER BY g.created_at DESC LIMIT 1000`
+      )).rows;
+    } catch (e) { console.error('[sitemap groups]', e.message); }
+    try {
+      voteRows = (await pool.query(`SELECT p.id, p.created_at AS lastmod FROM polls p ORDER BY p.created_at DESC LIMIT 1000`)).rows;
+    } catch (e) { console.error('[sitemap votes]', e.message); }
 
-    const postsXml = result.rows.map((p) => `
-  <url>
-    <loc>${baseUrl}/posts/${xmlEsc(p.slug)}</loc>
-    <lastmod>${new Date(p.lastmod).toISOString()}</lastmod>
-  </url>`).join('');
+    const newest = result.rows.length ? new Date(result.rows[0].lastmod).toISOString() : null;
+    const lm = (d) => (d ? `\n    <lastmod>${new Date(d).toISOString()}</lastmod>` : '');
+    const url = (loc, d, extra = '') => `\n  <url>\n    <loc>${xmlEsc(baseUrl + loc)}</loc>${lm(d)}${extra}\n  </url>`;
+    const img = (u) => (u ? `\n    <image:image><image:loc>${xmlEsc(absUrl(baseUrl, u))}</image:loc></image:image>` : '');
 
-    const feedXml = feedRows.map((f) => `
-  <url>
-    <loc>${baseUrl}/feed/${f.id}</loc>
-    <lastmod>${new Date(f.lastmod).toISOString()}</lastmod>${f.image_id ? `
-    <image:image><image:loc>${baseUrl}/img/${f.image_id}</image:loc></image:image>` : ''}
-  </url>`).join('');
+    // Home / blog ki lastmod = sab se nayi post ki date (jhooti "aaj ki date" nahi: Google ka bharosa rehta hai)
+    const staticXml = [
+      url('/', newest), url('/blog', newest), url('/community', newest), url('/groups', null), url('/votes', null),
+      url('/predictions', null), url('/leaderboard', null), url('/about', null), url('/hire', null),
+    ].join('');
+    const postsXml = result.rows.map((p) => url('/posts/' + p.slug, p.lastmod, img(p.cover_url))).join('');
+    const catXml = catRows.map((c) => url(homeUrl({ category: c.name }), c.lastmod)).join('');
+    const tagXml = tagRows.map((t) => url(homeUrl({ tag: t.name }), t.lastmod)).join('');
+    const groupXml = groupRows.map((g) => url('/groups/' + g.slug, g.lastmod)).join('');
+    const voteXml = voteRows.map((v) => url('/votes/' + v.id, v.lastmod)).join('');
+    const feedXml = feedRows.map((f) => url('/feed/' + f.id, f.lastmod, f.image_id ? `\n    <image:image><image:loc>${baseUrl}/img/${f.image_id}</image:loc></image:image>` : '')).join('');
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${staticXml}${postsXml}${feedXml}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${staticXml}${postsXml}${catXml}${tagXml}${groupXml}${voteXml}${feedXml}
 </urlset>`;
 
     res.set('Cache-Control', 'public, max-age=300');
@@ -410,10 +473,27 @@ router.get('/robots.txt', (req, res) => {
     '/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/resend-verification',
     '/messages', '/inbox', '/notifications', '/settings', '/dashboard', '/bookmarks', '/analytics', '/admin',
     '/friends', '/push', '/stories', '/upload-', '/auth', '/report', '/unsubscribe', '/r/',
+    '/groups/join/', '/groups/new', '/votes/new', '/posts/new', '/invite', '/offline', '/feed/views',
+    '/posts/*/edit', '/groups/*/manage', '/groups/*/chat', '/votes/*/go', '/votes/*/state.json',
   ];
+  res.set('Cache-Control', 'public, max-age=3600');
   res.type('text/plain').send(
     `User-agent: *\nAllow: /\n${blocked.map((p) => `Disallow: ${p}`).join('\n')}\n\nSitemap: ${baseUrl}/sitemap.xml\n`
   );
+});
+
+// ---------- OPENSEARCH (browser ki address bar se seedha site search) ----------
+router.get('/opensearch.xml', (req, res) => {
+  const baseUrl = baseUrlOf(req);
+  const name = xmlEsc(config.siteName).slice(0, 16);
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.type('application/opensearchdescription+xml').send(`<?xml version="1.0" encoding="UTF-8"?>
+<OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
+  <ShortName>${name}</ShortName>
+  <Description>Search ${xmlEsc(config.siteName)}</Description>
+  <InputEncoding>UTF-8</InputEncoding>
+  <Url type="text/html" method="get" template="${baseUrl}/blog?q={searchTerms}"/>
+</OpenSearchDescription>`);
 });
 
 // ---------- LEADERBOARD ----------
@@ -786,8 +866,17 @@ router.get('/posts/:ref', async (req, res) => {
       ogUrl: shareUrl,
       ogType: 'article',
       jsonLd: post.is_live
-        ? postLd({ base, siteName: config.siteName, post, description, image: ogImage, tags: tagNames, content: post.content })
+        ? postLd({
+            base, siteName: config.siteName, post, description, image: ogImage, tags: tagNames, content: post.content,
+            logo: card.isAvailable() ? base + '/icons/512.png' : null,
+          })
         : [],
+      publishedTime: new Date(post.publish_at).toISOString(),
+      modifiedTime: new Date(post.updated_at || post.publish_at).toISOString(),
+      articleSection: post.category,
+      articleTags: tagNames,
+      ogImageAlt: post.title,
+      robots: post.is_live ? null : 'noindex,nofollow',
       post,
       contentHtml,
       toc,

@@ -42,6 +42,60 @@ const PORT = process.env.PORT || 3000;
 app.set('view engine', 'ejs');
 app.set('trust proxy', 1); // Render proxy ke peeche HTTPS cookies ke liye
 app.disable('x-powered-by');
+
+// ---------- SEO / speed (V24) ----------
+// 1) Gzip: pages chhote hote hain, load tez (Google speed ko ranking mein ginta hai). `npm install` se package aata hai;
+//    na ho to site phir bhi chalti hai.
+try {
+  const compression = require('compression');
+  app.use(compression());
+} catch (e) {
+  console.warn('[seo] compression package nahi mila: `npm install` chalayen (site bina gzip ke chal rahi hai)');
+}
+
+// 2) Asli domain: FORCE_CANONICAL_HOST=1 ho to www / railway.app / http wale visitors 301 se SITE_URL par jate hain
+//    (warna Google ek hi site ke kai URL alag alag ginta hai)
+if (config.forceCanonicalHost && config.siteUrl) {
+  let canonHost = null;
+  try { canonHost = new URL(config.siteUrl).host; } catch (e) { /* SITE_URL galat */ }
+  if (canonHost) {
+    app.use((req, res, next) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+      const wrongHost = req.get('host') !== canonHost;
+      const wrongProto = isProd && config.siteUrl.startsWith('https://') && req.protocol !== 'https';
+      if (!wrongHost && !wrongProto) return next();
+      res.redirect(301, config.siteUrl + req.originalUrl);
+    });
+  }
+}
+
+// 3) /blog/ aur /blog ek hi page hain: trailing slash hata kar 301 (duplicate URL nahi banta)
+app.use((req, res, next) => {
+  if ((req.method === 'GET' || req.method === 'HEAD') && req.path.length > 1 && req.path.endsWith('/')) {
+    const q = req.originalUrl.indexOf('?');
+    return res.redirect(301, req.path.replace(/\/+$/, '') + (q === -1 ? '' : req.originalUrl.slice(q)));
+  }
+  next();
+});
+
+// 4) Halka security + trust headers
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  if (isProd) res.set('Strict-Transport-Security', 'max-age=15552000');
+  next();
+});
+
+// 5) Koi bhi error page (404, 403, 500...) automatically noindex: Google error pages ko index nahi karta
+app.use((req, res, next) => {
+  const orig = res.status.bind(res);
+  res.status = (code) => {
+    if (code >= 400 && !res.locals.robots) res.locals.robots = 'noindex,nofollow';
+    return orig(code);
+  };
+  next();
+});
+
 app.use(express.urlencoded({ extended: true }));
 
 // ---------- Rate limiting ----------
@@ -168,19 +222,26 @@ app.use(async (req, res, next) => {
   res.locals.whatsappChannelUrl = config.whatsappChannelUrl;
   res.locals.siteName = config.siteName;
   res.locals.googleVerification = config.googleVerification;
+  res.locals.bingVerification = config.bingVerification;
+  res.locals.yandexVerification = config.yandexVerification;
+  res.locals.twitterHandle = config.twitterHandle;
   res.locals.googleEnabled = google.enabled;
   res.locals.videoMaxMb = config.videoMaxMb;
 
   // Open Graph defaults (post page inhein override karta hai)
   const base = config.siteUrl || `${req.protocol}://${req.get('host')}`;
-  res.locals.ogUrl = base + req.path;
+  res.locals.ogUrl = base + req.path.replace(/\/+$/, ''); // trailing slash ke baghair (canonical)
   // Default share image: .env ki DEFAULT_OG_IMAGE, warna khud bana hua site card
   res.locals.ogImage = config.defaultOgImage || (card.isAvailable() ? base + '/og/site.png' : null);
   res.locals.ogImageCard = !config.defaultOgImage && card.isAvailable();
   res.locals.ogType = 'website';
   res.locals.safeJson = safeJson;
   res.locals.jsonLd = req.path === '/'
-    ? siteLd({ base, siteName: config.siteName, description: res.locals.metaDescription })
+    ? siteLd({
+        base, siteName: config.siteName, description: res.locals.metaDescription,
+        logo: card.isAvailable() ? base + '/icons/512.png' : null,
+        sameAs: [config.facebookUrl, config.whatsappChannelUrl, ...config.socialLinks].filter((u) => /^https:\/\//i.test(u || '')),
+      })
     : [];
 
   res.locals.unreadCount = 0;

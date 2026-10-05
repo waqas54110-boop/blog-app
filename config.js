@@ -9,6 +9,15 @@ module.exports = {
   timezone: process.env.SITE_TIMEZONE || 'Asia/Karachi',      // scheduled posts is timezone mein
   // Google Search Console verification (HTML tag wale tareeqe ka "content" wala hissa)
   googleVerification: (process.env.GOOGLE_SITE_VERIFICATION || '').replace(/[^A-Za-z0-9_-]/g, ''),
+  // Bing Webmaster Tools / Yandex verification (meta tag ka "content" wala hissa)
+  bingVerification: (process.env.BING_SITE_VERIFICATION || '').replace(/[^A-Za-z0-9_-]/g, ''),
+  yandexVerification: (process.env.YANDEX_SITE_VERIFICATION || '').replace(/[^A-Za-z0-9_-]/g, ''),
+  // X (Twitter) handle, bina @ ke (khali = tag nahi lagta)
+  twitterHandle: (process.env.TWITTER_HANDLE || '').replace(/[^A-Za-z0-9_]/g, ''),
+  // Aap ke social profiles (comma se alag, poore https links): Google ko batata hai ke ye sab aap hi ke hain
+  socialLinks: (process.env.SOCIAL_LINKS || '').split(',').map((s) => s.trim()).filter((s) => /^https:\/\//i.test(s)).slice(0, 10),
+  // 1 likhein: SITE_URL ke ilawa kisi aur domain (www, railway.app) par aane walon ko 301 se asli domain par bhej do
+  forceCanonicalHost: process.env.FORCE_CANONICAL_HOST === '1',
   defaultOgImage: process.env.DEFAULT_OG_IMAGE || '',
   // Video upload ki hadd (MB). Videos database mein save hoti hain, is liye chhoti rakhein (max 100)
   videoMaxMb: Math.min(Math.max(parseInt(process.env.VIDEO_MAX_MB, 10) || 30, 1), 100),

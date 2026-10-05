@@ -99,6 +99,7 @@ router.get('/groups/join/:token', async (req, res, next) => {
     res.render('group-invite', {
       group, token: req.params.token,
       title: `Join ${group.name}`,
+      robots: 'noindex,nofollow', // invite link khufiya hota hai, Google mein nahi aana chahiye
       metaDescription: group.description || `Join the ${group.name} group on ${config.siteName}.`,
       ogType: 'website',
     });
@@ -148,6 +149,7 @@ router.get('/groups/:slug', async (req, res, next) => {
       return res.render('group-private', {
         group, requested: await Groups.hasRequested(group.id, me),
         title: `${group.name} · Private group`,
+        robots: 'noindex,nofollow',
         metaDescription: `${group.name} is a private group on ${config.siteName}.`,
         flash: { notice: msg(req.query.notice), error: msg(req.query.err) },
       });
