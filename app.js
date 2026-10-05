@@ -5,6 +5,7 @@ const pgSession = require('connect-pg-simple')(session);
 const rateLimit = require('express-rate-limit');
 const pool = require('./db');
 const config = require('./config');
+const { COUNTRY_LIST } = require('./lib/demographics');
 const csrf = require('./lib/csrf');
 const google = require('./lib/google');
 const { startNewsletterScheduler } = require('./lib/newsletter');
@@ -227,6 +228,7 @@ app.use(async (req, res, next) => {
   res.locals.twitterHandle = config.twitterHandle;
   res.locals.googleEnabled = google.enabled;
   res.locals.videoMaxMb = config.videoMaxMb;
+  res.locals.countries = COUNTRY_LIST; // signup / edit-profile ke country dropdown
 
   // Open Graph defaults (post page inhein override karta hai)
   const base = config.siteUrl || `${req.protocol}://${req.get('host')}`;

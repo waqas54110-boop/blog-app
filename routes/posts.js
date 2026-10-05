@@ -782,7 +782,7 @@ router.get('/posts/:ref', async (req, res) => {
     if (post.is_live && !res.locals.isAdmin && !isBot(req)) {
       await pool.query('UPDATE posts SET views = views + 1 WHERE id = $1', [id]);
       post.views += 1;
-      trackVisit(req, id); // await nahi: page slow na ho
+      trackVisit(req, res, id); // await nahi: page slow na ho
     }
 
     const [related, comments, tagsResult, reactionResult, myReactionResult] = await Promise.all([

@@ -1,6 +1,7 @@
 // Public profile (/u/username), follow / unfollow, aur referral (/invite, /r/CODE).
 const express = require('express');
 const pool = require('../db');
+const { cleanBirthYear, cleanGender, cleanCountry, MIN_AGE, MAX_AGE } = require('../lib/demographics');
 const config = require('../config');
 const { notifyUser } = require('../lib/notify');
 const Profile = require('../lib/profile');
@@ -114,7 +115,7 @@ const nextRenameDate = (changedAt) => {
 };
 
 const loadEditRow = async (uid) => {
-  const r = await pool.query('SELECT username, bio, location, username_changed_at FROM users WHERE id = $1', [uid]);
+  const r = await pool.query('SELECT username, bio, location, username_changed_at, birth_year, gender, country FROM users WHERE id = $1', [uid]);
   return r.rows[0] || null;
 };
 
@@ -131,7 +132,7 @@ router.get('/settings/profile', requireLogin, async (req, res, next) => {
   try {
     const row = await loadEditRow(req.session.user.id);
     if (!row) return res.redirect('/login');
-    renderEdit(res, row, { username: row.username, bio: row.bio || '', location: row.location || '' }, null, 200, req.query.saved === '1');
+    renderEdit(res, row, { username: row.username, bio: row.bio || '', location: row.location || '', birth_year: row.birth_year || '', gender: row.gender || '', country: row.country || '' }, null, 200, req.query.saved === '1');
   } catch (err) { next(err); }
 });
 
@@ -145,11 +146,20 @@ router.post('/settings/profile', requireLogin, async (req, res, next) => {
       username: String(req.body.username || '').trim(),
       bio: cleanText(req.body.bio, BIO_MAX),
       location: cleanText(req.body.location, LOC_MAX).replace(/\s*\n\s*/g, ' '),
+      birth_year: cleanBirthYear(req.body.birth_year),
+      gender: cleanGender(req.body.gender),
+      country: cleanCountry(req.body.country),
     };
-    const fail = (msg) => renderEdit(res, row, form, msg, 400);
+    const rawYear = String(req.body.birth_year || '').trim();
+    const formView = { ...form, birth_year: rawYear, gender: form.gender || '', country: form.country || '' };
+    const fail = (msg) => renderEdit(res, row, formView, msg, 400);
 
     if (HAS_LINK.test(form.bio) || HAS_LINK.test(form.location)) {
       return fail('Links are not allowed in your bio or location.');
+    }
+
+    if (rawYear && !form.birth_year) {
+      return fail(`Birth year must be between ${new Date().getFullYear() - MAX_AGE} and ${new Date().getFullYear() - MIN_AGE} (or leave it empty).`);
     }
 
     const renaming = form.username !== row.username;
@@ -168,12 +178,15 @@ router.post('/settings/profile', requireLogin, async (req, res, next) => {
     try {
       if (renaming) {
         await pool.query(
-          'UPDATE users SET username = $1, username_changed_at = now(), bio = $2, location = $3 WHERE id = $4',
-          [form.username, form.bio || null, form.location || null, uid]
+          'UPDATE users SET username = $1, username_changed_at = now(), bio = $2, location = $3, birth_year = $5, gender = $6, country = $7 WHERE id = $4',
+          [form.username, form.bio || null, form.location || null, uid, form.birth_year, form.gender, form.country]
         );
         req.session.user.username = form.username; // header / baqi pages naya naam dikhayen
       } else {
-        await pool.query('UPDATE users SET bio = $1, location = $2 WHERE id = $3', [form.bio || null, form.location || null, uid]);
+        await pool.query(
+          'UPDATE users SET bio = $1, location = $2, birth_year = $4, gender = $5, country = $6 WHERE id = $3',
+          [form.bio || null, form.location || null, uid, form.birth_year, form.gender, form.country]
+        );
       }
     } catch (err) {
       if (err.code === '23505') return fail('That username is already taken.');

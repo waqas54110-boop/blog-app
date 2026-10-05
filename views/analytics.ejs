@@ -122,6 +122,121 @@
   Bots aur aap (admin) ke visits count nahi hote.
 </p>
 
+<% if (locals.audience) { const au = audience, at = au.totals; %>
+<style>
+  .aud-card { border: 0; border-radius: 1rem; box-shadow: 0 2px 14px rgba(79,70,229,.08); }
+  .aud-stat { border-radius: 1rem; color: #fff; padding: 1.1rem 1.2rem; height: 100%; position: relative; overflow: hidden; }
+  .aud-stat::after { content: ''; position: absolute; right: -22px; top: -22px; width: 90px; height: 90px; border-radius: 50%; background: rgba(255,255,255,.14); }
+  .aud-stat .num { font-size: 2rem; font-weight: 800; line-height: 1.1; }
+  .aud-stat .lbl { font-size: .82rem; opacity: .9; }
+  .g1 { background: linear-gradient(135deg,#4f46e5,#7c3aed); } .g2 { background: linear-gradient(135deg,#ec4899,#f43f5e); }
+  .g3 { background: linear-gradient(135deg,#0ea5e9,#14b8a6); } .g4 { background: linear-gradient(135deg,#f59e0b,#f97316); }
+  .aud-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; }
+  .aud-sub { font-size: .8rem; color: var(--bs-secondary-color); font-weight: 400; }
+  .country-row { display: flex; align-items: center; gap: .6rem; padding: .35rem 0; }
+  .country-row .flag { font-size: 1.4rem; width: 2rem; text-align: center; }
+  .country-row .bar { flex: 1; height: 10px; border-radius: 99px; background: var(--bs-tertiary-bg); overflow: hidden; }
+  .country-row .bar > span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg,#4f46e5,#ec4899); }
+  .pill { display: inline-block; padding: .1rem .55rem; border-radius: 99px; font-size: .75rem; font-weight: 600; }
+  .pill.male { background: rgba(79,70,229,.14); color: #4f46e5; } .pill.female { background: rgba(236,72,153,.14); color: #db2777; }
+  .pill.other { background: rgba(20,184,166,.16); color: #0f766e; } .pill.unknown { background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
+  .click-badge { background: linear-gradient(135deg,#4f46e5,#ec4899); color: #fff; border-radius: 99px; padding: .15rem .7rem; font-weight: 700; }
+</style>
+
+<h4 class="mt-5 mb-3">👥 Audience <small class="text-body-secondary fs-6">(last <%= days %> days)</small></h4>
+
+<div class="row g-3 mb-3">
+  <% [
+    ['Total clicks', at.clicks, 'g1', '🖱️'],
+    ['Unique people', at.people, 'g2', '🧑'],
+    ['Avg clicks / person', at.avg, 'g3', '🔁'],
+    ['Came back (2+ clicks)', at.returning, 'g4', '⭐']
+  ].forEach(c => { %>
+    <div class="col-6 col-lg-3">
+      <div class="aud-stat <%= c[2] %>">
+        <div class="lbl"><%= c[3] %> <%= c[0] %></div>
+        <div class="num"><%= c[1] %></div>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="card aud-card h-100"><div class="card-body">
+      <div class="aud-title mb-1">🎂 Clicks by age group <span class="aud-sub">only members who added their birth year</span></div>
+      <div style="height:260px;"><canvas id="ageChart"></canvas></div>
+    </div></div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card aud-card h-100"><div class="card-body">
+      <div class="aud-title mb-1">⚧ Gender <span class="aud-sub">clicks</span></div>
+      <div style="height:260px;"><canvas id="genderChart"></canvas></div>
+    </div></div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card aud-card h-100"><div class="card-body">
+      <div class="aud-title mb-2">🌍 Clicks by country</div>
+      <% if (au.countries.length === 0) { %>
+        <p class="text-body-secondary mb-0">Abhi country ka data nahi. Members apni country profile mein daalen, ya hosting (Cloudflare etc.) se country header aaye.</p>
+      <% } else { const cmax = Math.max(...au.countries.map(c => c.clicks)); %>
+        <% au.countries.forEach(c => { %>
+          <div class="country-row">
+            <span class="flag"><%= c.flag %></span>
+            <span style="width:8.5rem" class="text-truncate"><%= c.name %></span>
+            <span class="bar"><span style="width:<%= Math.max(4, Math.round(c.clicks / cmax * 100)) %>%"></span></span>
+            <span class="fw-bold text-end" style="width:3rem"><%= c.clicks %></span>
+          </div>
+        <% }) %>
+        <div class="aud-sub mt-2">Country mili: <%= at.countryPct %>% clicks mein.</div>
+      <% } %>
+    </div></div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card aud-card h-100"><div class="card-body">
+      <div class="aud-title mb-1">🔁 Ek banda kitni bar click karta hai? <span class="aud-sub">people</span></div>
+      <div style="height:260px;"><canvas id="repeatChart"></canvas></div>
+    </div></div>
+  </div>
+</div>
+
+<div class="card aud-card mb-4"><div class="card-body">
+  <div class="aud-title mb-3">🏆 Most active visitors <span class="aud-sub">who clicked the most</span></div>
+  <% if (au.top.length === 0) { %>
+    <p class="text-body-secondary mb-0">No data yet.</p>
+  <% } else { %>
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>#</th><th>Visitor</th><th>Country</th><th>Gender</th><th>Age</th><th class="text-end">Posts</th><th class="text-end">Clicks</th><th class="text-end">Last seen</th></tr></thead>
+        <tbody>
+          <% au.top.forEach((v, i) => { %>
+            <tr>
+              <td class="text-body-secondary"><%= i + 1 %></td>
+              <td>
+                <% if (v.member) { %><a class="text-decoration-none fw-semibold" href="/u/<%= encodeURIComponent(v.who) %>"><%= v.who %></a> <span class="pill unknown">member</span>
+                <% } else { %><span class="text-body-secondary"><%= v.who %></span><% } %>
+              </td>
+              <td><%= v.flag %> <%= v.countryName %></td>
+              <td><span class="pill <%= v.gender || 'unknown' %>"><%= v.gender || 'unknown' %></span></td>
+              <td><%= v.age_group || '-' %></td>
+              <td class="text-end"><%= v.posts %></td>
+              <td class="text-end"><span class="click-badge"><%= v.clicks %></span></td>
+              <td class="text-end text-body-secondary small"><%= new Date(v.last_seen).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+  <p class="text-body-secondary small mt-3 mb-0">
+    Login wale banda ek hi count hota hai (kisi bhi device se); guest browser cookie se pehchana jata hai. Age / gender sirf un members ki dikhti hai jinhon ne profile mein bhari hai, baaqi "Unknown".
+  </p>
+</div></div>
+<% } %>
+
 <% if (locals.pollStats) { const ps = pollStats, pt = ps.totals; %>
   <h4 class="mt-5 mb-3">🗳️ Vote contests <small class="text-body-secondary fs-6">(last <%= days %> days)</small></h4>
 
@@ -242,5 +357,64 @@
   document.addEventListener('themechange', paintChart);
   paintChart();
 </script>
+
+<% if (locals.audience) { %>
+<script>
+  (function () {
+    const au = <%- JSON.stringify(audience).replace(/</g, '\\u003c') %>;
+    const dark = () => document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    const txt = () => (dark() ? '#adb5bd' : '#6c757d');
+    const grid = () => (dark() ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.06)');
+    const charts = [];
+    const axes = () => ({
+      y: { beginAtZero: true, ticks: { precision: 0, color: txt() }, grid: { color: grid() } },
+      x: { ticks: { color: txt() }, grid: { display: false } },
+    });
+
+    charts.push(new Chart(document.getElementById('ageChart'), {
+      type: 'bar',
+      data: {
+        labels: au.ages.map(a => a.label),
+        datasets: [{
+          label: 'Clicks',
+          data: au.ages.map(a => a.clicks),
+          backgroundColor: ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#14b8a6', '#0ea5e9', '#94a3b8'],
+          borderRadius: 10, maxBarThickness: 46,
+        }],
+      },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: axes() },
+    }));
+
+    const gcol = { male: '#4f46e5', female: '#ec4899', other: '#14b8a6', unknown: '#94a3b8' };
+    charts.push(new Chart(document.getElementById('genderChart'), {
+      type: 'doughnut',
+      data: {
+        labels: au.genders.map(g => g.label.charAt(0).toUpperCase() + g.label.slice(1)),
+        datasets: [{ data: au.genders.map(g => g.clicks), backgroundColor: au.genders.map(g => gcol[g.label] || '#94a3b8'), borderWidth: 0 }],
+      },
+      options: { maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { color: txt(), usePointStyle: true } } } },
+    }));
+
+    charts.push(new Chart(document.getElementById('repeatChart'), {
+      type: 'bar',
+      data: {
+        labels: au.buckets.map(b => b.label),
+        datasets: [{ label: 'People', data: au.buckets.map(b => b.people), backgroundColor: '#ec4899', borderRadius: 10, maxBarThickness: 46 }],
+      },
+      options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: axes() },
+    }));
+
+    document.addEventListener('themechange', () => {
+      charts.forEach(c => {
+        if (c.options.scales && c.options.scales.x) {
+          c.options.scales.x.ticks.color = txt(); c.options.scales.y.ticks.color = txt(); c.options.scales.y.grid.color = grid();
+        }
+        if (c.options.plugins.legend.labels) c.options.plugins.legend.labels.color = txt();
+        c.update();
+      });
+    });
+  })();
+</script>
+<% } %>
 
 <%- include('partials/footer') %>

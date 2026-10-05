@@ -1,5 +1,6 @@
 const express = require('express');
 const pool = require('../db');
+const { AGE_GROUPS, countryName, flag } = require('../lib/demographics');
 const config = require('../config');
 
 const router = express.Router();
@@ -181,6 +182,86 @@ router.get('/analytics', requireAdmin, async (req, res) => {
       console.error('[analytics] polls:', err.message);
     }
 
+    // Audience: age / gender / country / repeat clicks (alag try: migration_v23 na chali ho to baaqi analytics phir bhi chale)
+    let audience = null;
+    try {
+      const [tot, ages, genders, countries, buckets, top] = await Promise.all([
+        pool.query(
+          `SELECT COUNT(*)::int AS clicks,
+                  COUNT(DISTINCT visitor)::int AS people,
+                  COUNT(*) FILTER (WHERE user_id IS NOT NULL)::int AS member_clicks,
+                  COUNT(*) FILTER (WHERE country IS NOT NULL)::int AS with_country
+           FROM post_visits WHERE created_at > ${since} AND visitor IS NOT NULL`,
+          [days]
+        ),
+        pool.query(
+          `SELECT COALESCE(age_group, 'Unknown') AS label, COUNT(*)::int AS clicks, COUNT(DISTINCT visitor)::int AS people
+           FROM post_visits WHERE created_at > ${since} AND visitor IS NOT NULL GROUP BY 1`,
+          [days]
+        ),
+        pool.query(
+          `SELECT COALESCE(gender, 'unknown') AS label, COUNT(*)::int AS clicks, COUNT(DISTINCT visitor)::int AS people
+           FROM post_visits WHERE created_at > ${since} AND visitor IS NOT NULL GROUP BY 1 ORDER BY clicks DESC`,
+          [days]
+        ),
+        pool.query(
+          `SELECT country AS code, COUNT(*)::int AS clicks, COUNT(DISTINCT visitor)::int AS people
+           FROM post_visits WHERE created_at > ${since} AND visitor IS NOT NULL AND country IS NOT NULL
+           GROUP BY country ORDER BY clicks DESC LIMIT 12`,
+          [days]
+        ),
+        pool.query(
+          `WITH per AS (
+             SELECT visitor, COUNT(*)::int AS n FROM post_visits
+             WHERE created_at > ${since} AND visitor IS NOT NULL GROUP BY visitor
+           )
+           SELECT CASE WHEN n = 1 THEN '1 time' WHEN n = 2 THEN '2 times' WHEN n <= 5 THEN '3-5 times'
+                       WHEN n <= 10 THEN '6-10 times' ELSE '11+ times' END AS label,
+                  MIN(n)::int AS lo, COUNT(*)::int AS people
+           FROM per GROUP BY 1 ORDER BY lo`,
+          [days]
+        ),
+        pool.query(
+          `SELECT visitor, MAX(user_id) AS uid, COUNT(*)::int AS clicks, COUNT(DISTINCT post_id)::int AS posts,
+                  MAX(country) AS country, MAX(gender) AS gender, MAX(age_group) AS age_group, MAX(created_at) AS last_seen
+           FROM post_visits WHERE created_at > ${since} AND visitor IS NOT NULL
+           GROUP BY visitor ORDER BY clicks DESC, last_seen DESC LIMIT 10`,
+          [days]
+        ),
+      ]);
+
+      // Top visitors mein jo members hain unke naam
+      const uids = top.rows.map((r) => r.uid).filter(Boolean);
+      const names = {};
+      if (uids.length) {
+        (await pool.query('SELECT id, username FROM users WHERE id = ANY($1::int[])', [uids]))
+          .rows.forEach((u) => { names[u.id] = u.username; });
+      }
+      const t = tot.rows[0];
+      const ageMap = Object.fromEntries(ages.rows.map((r) => [r.label, r]));
+      audience = {
+        totals: {
+          clicks: t.clicks, people: t.people, members: t.member_clicks,
+          avg: t.people ? Math.round((t.clicks / t.people) * 10) / 10 : 0,
+          returning: buckets.rows.filter((b) => b.lo > 1).reduce((a, b) => a + b.people, 0),
+          countryPct: t.clicks ? Math.round((t.with_country * 100) / t.clicks) : 0,
+        },
+        ages: [...AGE_GROUPS, 'Unknown'].map((label) => ({ label, clicks: (ageMap[label] || {}).clicks || 0, people: (ageMap[label] || {}).people || 0 })),
+        genders: genders.rows,
+        countries: countries.rows.map((r) => ({ ...r, name: countryName(r.code), flag: flag(r.code) })),
+        buckets: buckets.rows,
+        top: top.rows.map((r) => ({
+          ...r,
+          who: r.uid && names[r.uid] ? names[r.uid] : 'Guest #' + String(r.visitor).slice(-4),
+          member: !!(r.uid && names[r.uid]),
+          countryName: r.country ? countryName(r.country) : '-',
+          flag: r.country ? flag(r.country) : '',
+        })),
+      };
+    } catch (err) {
+      console.error('[analytics] audience (migration_v23.sql chali?):', err.message);
+    }
+
     res.render('analytics', {
       title: 'Analytics',
       days,
@@ -191,6 +272,7 @@ router.get('/analytics', requireAdmin, async (req, res) => {
       referrers: referrers.rows,
       mediums: mediums.rows,
       pollStats,
+      audience,
     });
   } catch (err) {
     console.error(err);

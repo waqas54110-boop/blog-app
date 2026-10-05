@@ -2,6 +2,7 @@ const express = require('express');
 const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const pool = require('../db');
+const { cleanBirthYear, cleanGender, cleanCountry, MIN_AGE, MAX_AGE } = require('../lib/demographics');
 const config = require('../config');
 const { sendMail, mailConfigured } = require('../lib/mailer');
 const { esc } = require('../lib/notify');
@@ -74,39 +75,57 @@ async function uniqueUsername(base) {
 
 // ---------- SIGNUP ----------
 router.get('/signup', async (req, res) => {
-  res.render('signup', { error: null, invitedBy: await referral.referrerName(req) });
+  res.render('signup', { error: null, form: {}, invitedBy: await referral.referrerName(req) });
 });
 
 router.post('/signup', async (req, res) => {
   const username = String(req.body.username || '').trim();
   const email = String(req.body.email || '').trim().toLowerCase();
   const { password, confirmPassword } = req.body;
+  // Optional: age / gender / country (analytics ke liye)
+  const birthYear = cleanBirthYear(req.body.birth_year);
+  const gender = cleanGender(req.body.gender);
+  const country = cleanCountry(req.body.country);
+  const form = { birth_year: req.body.birth_year || '', gender: gender || '', country: country || '' };
 
   if (!username || !email || !password) {
-    return res.render('signup', { error: 'All fields are required.' });
+    return res.render('signup', { error: 'All fields are required.', form });
+  }
+  if (String(req.body.birth_year || '').trim() && !birthYear) {
+    return res.render('signup', { error: `Birth year ${new Date().getFullYear() - MAX_AGE} se ${new Date().getFullYear() - MIN_AGE} ke beech honi chahiye (ya khali chhor dein).`, form });
   }
   if (username.length > 50) {
-    return res.render('signup', { error: 'Username 50 characters se chhota hona chahiye.' });
+    return res.render('signup', { error: 'Username 50 characters se chhota hona chahiye.', form });
   }
   if (!EMAIL_RE.test(email) || email.length > 100) {
-    return res.render('signup', { error: 'Please enter a valid email address.' });
+    return res.render('signup', { error: 'Please enter a valid email address.', form });
   }
   if (password.length < 8) {
-    return res.render('signup', { error: 'Password must be at least 8 characters long.' });
+    return res.render('signup', { error: 'Password must be at least 8 characters long.', form });
   }
   if (password !== confirmPassword) {
-    return res.render('signup', { error: 'Passwords do not match.' });
+    return res.render('signup', { error: 'Passwords do not match.', form });
   }
 
   try {
     const passwordHash = await bcrypt.hash(password, 10);
     // SMTP set nahi to verification email ja hi nahi sakti: tab account seedha verified (warna koi login na kar sake)
     const autoVerify = !mailConfigured;
-    const r = await pool.query(
-      `INSERT INTO users (username, email, password_hash, email_verified)
-       VALUES ($1, $2, $3, $4) RETURNING id, username, email`,
-      [username, email, passwordHash, autoVerify]
-    );
+    let r;
+    try {
+      r = await pool.query(
+        `INSERT INTO users (username, email, password_hash, email_verified, birth_year, gender, country)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, username, email`,
+        [username, email, passwordHash, autoVerify, birthYear, gender, country]
+      );
+    } catch (e) {
+      if (e.code !== '42703') throw e; // migration_v23 baaqi: purane tareeqe se account banao
+      r = await pool.query(
+        `INSERT INTO users (username, email, password_hash, email_verified)
+         VALUES ($1, $2, $3, $4) RETURNING id, username, email`,
+        [username, email, passwordHash, autoVerify]
+      );
+    }
     await referral.attach(r.rows[0], req, res); // invite link se aaya ho to bulane wale se jor do
     if (!autoVerify) {
       await sendVerification(r.rows[0], req);
@@ -115,10 +134,10 @@ router.post('/signup', async (req, res) => {
     res.redirect('/login?signup=success');
   } catch (err) {
     if (err.code === '23505') {
-      return res.render('signup', { error: 'Username or email already exists.' });
+      return res.render('signup', { error: 'Username or email already exists.', form });
     }
     console.error(err);
-    res.status(500).render('signup', { error: 'Server error, please try again.' });
+    res.status(500).render('signup', { error: 'Server error, please try again.', form });
   }
 });
 

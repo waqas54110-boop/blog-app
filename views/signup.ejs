@@ -2,6 +2,7 @@
 
             <h2 class="text-center mb-4">Create Account</h2>
 
+            <% const f = locals.form || {}; %>
             <% if (locals.invitedBy) { %>
               <div class="alert alert-success py-2 text-center">🎉 <strong><%= invitedBy %></strong> invited you to join!</div>
             <% } %>
@@ -32,6 +33,31 @@
               <div class="mb-3">
                 <label for="confirmPassword" class="form-label">Confirm Password</label>
                 <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="Password dobara likhein" required>
+              </div>
+
+              <div class="row g-2 mb-3">
+                <div class="col-4">
+                  <label for="birth_year" class="form-label">Birth year <span class="text-body-secondary small">(optional)</span></label>
+                  <input type="number" class="form-control" id="birth_year" name="birth_year" placeholder="2000" min="<%= new Date().getFullYear() - 100 %>" max="<%= new Date().getFullYear() - 13 %>" value="<%= f.birth_year || '' %>">
+                </div>
+                <div class="col-4">
+                  <label for="gender" class="form-label">Gender</label>
+                  <select class="form-select" id="gender" name="gender">
+                    <option value="">-</option>
+                    <% [['male','Male'],['female','Female'],['other','Other']].forEach(g => { %>
+                      <option value="<%= g[0] %>" <%= f.gender === g[0] ? 'selected' : '' %>><%= g[1] %></option>
+                    <% }) %>
+                  </select>
+                </div>
+                <div class="col-4">
+                  <label for="country" class="form-label">Country</label>
+                  <select class="form-select" id="country" name="country">
+                    <option value="">-</option>
+                    <% (locals.countries || []).forEach(c => { %>
+                      <option value="<%= c.code %>" <%= f.country === c.code ? 'selected' : '' %>><%= c.name %></option>
+                    <% }) %>
+                  </select>
+                </div>
               </div>
 
               <button type="submit" class="btn btn-primary w-100">Sign Up</button>

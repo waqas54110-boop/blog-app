@@ -34,6 +34,33 @@
             <input type="text" class="form-control" id="location" name="location" value="<%= form.location %>" maxlength="<%= locMax %>" placeholder="e.g. Lahore, Pakistan">
           </div>
 
+          <div class="row g-3 mb-3">
+            <div class="col-12 col-sm-4">
+              <label for="birth_year" class="form-label fw-semibold">Birth year <span class="text-body-secondary fw-normal">(optional)</span></label>
+              <input type="number" class="form-control" id="birth_year" name="birth_year" value="<%= form.birth_year %>" placeholder="2000"
+                     min="<%= new Date().getFullYear() - 100 %>" max="<%= new Date().getFullYear() - 13 %>">
+            </div>
+            <div class="col-6 col-sm-4">
+              <label for="gender" class="form-label fw-semibold">Gender</label>
+              <select class="form-select" id="gender" name="gender">
+                <option value="">-</option>
+                <% [['male','Male'],['female','Female'],['other','Other']].forEach(g => { %>
+                  <option value="<%= g[0] %>" <%= form.gender === g[0] ? 'selected' : '' %>><%= g[1] %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col-6 col-sm-4">
+              <label for="country" class="form-label fw-semibold">Country</label>
+              <select class="form-select" id="country" name="country">
+                <option value="">-</option>
+                <% countries.forEach(c => { %>
+                  <option value="<%= c.code %>" <%= form.country === c.code ? 'selected' : '' %>><%= c.name %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="form-text mt-1">Used only for anonymous site statistics. Not shown on your profile.</div>
+          </div>
+
           <div class="mb-3">
             <label for="bio" class="form-label fw-semibold">Bio <span class="text-body-secondary fw-normal">(optional)</span></label>
             <textarea class="form-control" id="bio" name="bio" rows="4" maxlength="<%= bioMax %>" placeholder="Tell people a little about yourself"><%= form.bio %></textarea>
