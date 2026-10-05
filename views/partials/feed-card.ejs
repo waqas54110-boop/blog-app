@@ -42,6 +42,34 @@
     <div class="feed-text px-3 pb-2 <%= (!f.image_id && f.body.length <= 120) ? 'feed-text-lg' : '' %>"><%= longText ? f.body.slice(0, 400) + '…' : f.body %><% if (longText) { %> <a href="/feed/<%= f.id %>" class="text-decoration-none fw-semibold">See more</a><% } %></div>
   <% } %>
 
+  <% if (f.live) { %>
+    <% const lv = f.live; %>
+    <% if (lv.status === 'live') { %>
+      <div class="live-panel mx-3 mb-2" data-live-card="<%= lv.id %>">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="live-badge"><span class="live-dot"></span> LIVE</span>
+          <span class="small text-body-secondary">👁 <%= lv.viewers %> watching</span>
+          <span class="ms-auto">
+            <% if (isOwn) { %>
+              <span class="small fw-semibold text-danger">You are live</span>
+            <% } else if (locals.user) { %>
+              <button type="button" class="btn btn-danger btn-sm rounded-pill px-3 fw-semibold" data-live-watch="<%= lv.id %>" data-live-host="<%= f.username %>">▶ Watch live</button>
+            <% } else { %>
+              <a href="/login" class="btn btn-danger btn-sm rounded-pill px-3 fw-semibold">Log in to watch</a>
+            <% } %>
+          </span>
+        </div>
+      </div>
+    <% } else { %>
+      <div class="live-panel ended mx-3 mb-2 small text-body-secondary">
+        ⚫ Live ended<% if (lv.secs) { %> · <%= Math.floor(lv.secs / 60) %>:<%= String(lv.secs % 60).padStart(2, '0') %><% } %><% if (lv.peak_viewers) { %> · up to <%= lv.peak_viewers %> watching<% } %>
+      </div>
+      <% if (lv.video_id) { %>
+        <video class="live-replay d-block w-100 mb-2" controls playsinline preload="metadata" src="/video/<%= lv.video_id %>"></video>
+      <% } %>
+    <% } %>
+  <% } %>
+
   <% if (f.image_id) { %>
     <a href="/img/<%= f.image_id %>" class="feed-photo js-photo d-block <%= full ? 'feed-photo-full' : '' %>">
       <% const altTxt = (f.body || '').replace(/\s+/g, ' ').trim().slice(0, 110); %>

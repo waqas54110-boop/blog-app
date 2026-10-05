@@ -38,6 +38,15 @@
   .composer-preview.busy img { opacity: .45; }
   .btn-photo { border-radius: 2rem; font-weight: 600; background: var(--bs-tertiary-bg); border: 0; }
   .btn-photo:hover { background: var(--bs-secondary-bg); }
+
+  .live-dot { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; background: #ef4444; vertical-align: middle; animation: liveBlink 1.2s infinite; }
+  @keyframes liveBlink { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+  .btn-live { color: #dc2626; }
+  .live-badge { background: #ef4444; color: #fff; font-weight: 700; font-size: .75rem; letter-spacing: .04em; padding: .2rem .55rem; border-radius: .4rem; display: inline-flex; align-items: center; gap: .35rem; }
+  .live-badge .live-dot { background: #fff; width: .5rem; height: .5rem; }
+  .live-panel { border: 1px solid rgba(239,68,68,.45); background: rgba(239,68,68,.08); border-radius: .8rem; padding: .65rem .85rem; }
+  .live-replay { background: #000; max-height: 620px; }
+  .live-panel.ended { border-color: var(--bs-border-color); background: var(--bs-tertiary-bg); }
   .btn-post { border-radius: 2rem; font-weight: 600; padding-left: 1.6rem; padding-right: 1.6rem; background: linear-gradient(135deg, #4f46e5, #7c3aed); border: 0; }
 
   .feed-tabs .nav-link { border-radius: 2rem; font-weight: 600; color: var(--bs-secondary-color); }

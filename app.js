@@ -25,6 +25,7 @@ const friendsRouter = require('./routes/friends');
 const friendsLib = require('./lib/friends');
 const messagesRouter = require('./routes/messages');
 const callsRouter = require('./routes/calls');
+const liveRouter = require('./routes/live');
 const messagesLib = require('./lib/messages');
 const avatarRouter = require('./routes/avatar');
 const moderationRouter = require('./routes/moderation');
@@ -115,7 +116,7 @@ const limiter = (windowMinutes, limit, message, opts = {}) =>
 // ek page par kai images hoti hain aur video har seek par chhoti requests bhejti hai
 app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try again.', {
   // /votes/:id/state.json (live counting) ka apna alag limit neeche hai
-  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/messages\/media\/\d+$/.test(req.path) || /^\/groups\/[^/]+\/chat\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path) || req.path.startsWith('/calls/')
+  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/messages\/media\/\d+$/.test(req.path) || /^\/groups\/[^/]+\/chat\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path) || req.path.startsWith('/calls/') || req.path.startsWith('/live/')
     || req.path.startsWith('/stories/') || req.path.startsWith('/icons/') || req.path === '/sw.js' || req.path === '/manifest.webmanifest' || req.path === '/offline',
 }));
 app.post(['/login', '/signup'], limiter(15, 15, 'Too many login/signup attempts. Please try again in 15 minutes.'));
@@ -131,6 +132,9 @@ app.post('/upload-video', limiter(30, 10, 'Too many video uploads. Please wait a
 // Calls: shuru karne par sakht limit; baaqi (poll / signal) ke liye kharab-khorak se bachne wala bara limit
 app.post('/calls/start', limiter(10, 20, 'You are calling too often. Please wait a few minutes.'));
 app.use('/calls', limiter(1, 600, 'Too many call requests. Please wait a minute.'));
+// Live: shuru karne par sakht limit; baaqi (poll / signal) ke liye bara limit (ek host ke saath kai viewers ek hi WiFi par ho sakte hain)
+app.post('/live/start', limiter(60, 10, 'You are going live too often. Please wait a while.'));
+app.use('/live', limiter(1, 900, 'Too many live requests. Please wait a minute.'));
 // Galat form (400) count nahi hota, taake insaan ki typing ghalti par block na ho
 app.post('/hire', limiter(60, 5, 'Too many messages sent. Please try again in an hour.', { skipFailedRequests: true }));
 app.post('/votes/:id/vote', limiter(10, 60, 'Too many votes. Please wait a few minutes.'));
@@ -199,6 +203,11 @@ app.use('/push', express.json({ limit: '8kb' }));
 // Calls: signaling JSON (CSRF token header x-csrf-token ya body ke _csrf mein; sendBeacon body mein bhejta hai). Ye bhi csrf se pehle.
 app.use('/calls', express.json({ limit: '64kb' }));
 
+// Live: signaling JSON (CSRF token header ya body ke _csrf mein; sendBeacon body mein bhejta hai). Ye bhi csrf se pehle.
+app.use('/live', express.json({ limit: '64kb' }));
+// Live ki recording: host ka browser seedhi video bytes bhejta hai (CSRF token header x-csrf-token mein). Ye bhi csrf se pehle.
+app.post('/live/:id/recording', express.raw({ type: ['video/mp4', 'video/webm'], limit: config.liveRecordMaxMb + 'mb' }));
+
 app.use(
   session({
     store: new pgSession({ pool, createTableIfMissing: true }),
@@ -217,6 +226,8 @@ app.use(
 app.use(async (req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.isAdmin = !!(req.session.user && req.session.user.role === 'admin');
+  res.locals.liveCanStart = !!(req.session.user && (!config.liveAdminOnly || res.locals.isAdmin)); // post box ka "🔴 Live" button
+  res.locals.liveMax = config.liveMaxViewers;
   res.locals.metaDescription = 'Notes and tutorials on cricket, video editing, AI, freelancing and web development.';
   res.locals.subscribed = req.query.subscribed === '1';
   res.locals.subscribeError = req.query.subscribeError || null;
@@ -328,6 +339,7 @@ app.use('/', profileRouter);
 app.use('/', friendsRouter);
 app.use('/', messagesRouter);
 app.use('/', callsRouter);
+app.use('/', liveRouter);
 app.use('/', avatarRouter);
 app.use('/', moderationRouter);
 app.use('/', feedRouter);
@@ -341,6 +353,7 @@ app.use((req, res) => {
 
 app.use((err, req, res, next) => {
   if (err.type === 'entity.too.large') {
+    if (/^\/live\/\d+\/recording$/.test(req.path)) return res.status(413).json({ error: `Recording is too large (max ${config.liveRecordMaxMb} MB).` });
     const isVideo = req.path === '/upload-video';
     return res.status(413).json({
       error: isVideo ? `Video is too large (max ${config.videoMaxMb} MB).` : req.path === '/upload-feed-image' ? 'Photo is too large. Please choose a smaller one.' : 'Image is too large (max 5 MB).',

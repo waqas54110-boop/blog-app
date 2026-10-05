@@ -15,6 +15,13 @@ router.use('/calls', (req, res, next) => {
 const toId = (v) => (/^\d{1,12}$/.test(String(v)) ? parseInt(v, 10) : null);
 const fail = (res, code, msg, extra = {}) => res.status(code).json({ error: msg, ...extra });
 const wrap = (fn) => (req, res) => fn(req, res).catch((err) => {
+  // 42P01 = table nahi hai: migration_v24.sql abhi chali nahi. Har tab ke poll par log na bharein.
+  if (err.code === '42P01') {
+    if (req.path === '/calls/incoming') return res.json({ call: null });
+    if (!wrap.warned) { wrap.warned = true; console.error('[calls] "calls" table nahi mili: Neon mein migration_v24.sql run karein.'); }
+    if (!res.headersSent) res.status(503).json({ error: 'Calls are not set up yet. The site owner needs to run migration_v24.sql.' });
+    return;
+  }
   console.error('[calls]', err.message);
   if (!res.headersSent) res.status(500).json({ error: 'Server error, please try again.' });
 });

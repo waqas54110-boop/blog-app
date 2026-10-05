@@ -16,6 +16,7 @@
       <div class="d-flex align-items-center gap-2 mt-3">
         <input type="file" id="photoFile" accept="image/*" class="d-none">
         <button type="button" id="photoBtn" class="btn btn-photo">📷 Photo</button>
+        <% if (locals.liveCanStart) { %><button type="button" class="btn btn-photo btn-live" data-live-start<% if (locals.groupId) { %> data-live-group="<%= groupId %>"<% } %>><span class="live-dot"></span> Live</button><% } %>
         <span class="small text-body-secondary ms-auto" id="charCount"></span>
         <button type="submit" id="postBtn" class="btn btn-primary btn-post">Post</button>
       </div>

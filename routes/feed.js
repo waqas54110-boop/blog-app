@@ -369,6 +369,9 @@ router.post('/feed/:id/delete', requireLogin, async (req, res) => {
   if (!id) return res.redirect('/');
   const me = req.session.user;
   try {
+    // Live post ho to uski recording (agar hai) bhi hatani hai: post ke saath live_streams row khud ud jati hai, isliye pehle id nikal lo
+    let recId = null;
+    try { recId = (await pool.query('SELECT video_id FROM live_streams WHERE post_id = $1', [id])).rows[0]?.video_id || null; } catch (e) { /* live tables / migration_v28 nahi: koi baat nahi */ }
     // Post ka owner, site admin, ya us group ka admin
     const r = await pool.query(
       `DELETE FROM feed_posts WHERE id = $1 AND ($3::boolean OR user_id = $2
@@ -378,6 +381,7 @@ router.post('/feed/:id/delete', requireLogin, async (req, res) => {
     );
     let back = '/';
     if (r.rows[0]) {
+      if (recId) pool.query('DELETE FROM videos WHERE id = $1', [recId]).catch(() => {});
       await dropImageIfOrphan(r.rows[0].image_id, r.rows[0].user_id);
       if (r.rows[0].group_id) {
         const g = await pool.query('SELECT slug FROM groups WHERE id = $1', [r.rows[0].group_id]);

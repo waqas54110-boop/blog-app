@@ -30,4 +30,16 @@ module.exports = {
   telegramChat: process.env.TELEGRAM_CHAT_ID || '',   // @channelname ya -100xxxxxxxxxx
   // Groups: 1 likhein to naya group sirf admin bana sakta hai (default: har login user, max 5 groups)
   groupsAdminOnly: process.env.GROUPS_ADMIN_ONLY === '1',
+  // Live broadcasting: ek live mein ek saath kitne log dekh sakte hain (host ka upload = har viewer ke liye alag, is liye chhota rakhein)
+  liveMaxViewers: Math.min(Math.max(parseInt(process.env.LIVE_MAX_VIEWERS, 10) || 6, 1), 15),
+  // 1 likhein to live sirf admin kar sakta hai (default: har login user)
+  liveAdminOnly: process.env.LIVE_ADMIN_ONLY === '1',
+  // Bari audience: LiveKit (media server). Teeno set hon to live "sfu" mode mein chalta hai (sab viewers ek hi server se dekhte hain).
+  livekitUrl: process.env.LIVEKIT_URL || '',            // wss://your-project.livekit.cloud
+  livekitKey: process.env.LIVEKIT_API_KEY || '',
+  livekitSecret: process.env.LIVEKIT_API_SECRET || '',
+  // LiveKit mode mein ek live ke max viewers (aap ke LiveKit plan ki hadd bhi lagti hai)
+  liveSfuMaxViewers: Math.min(Math.max(parseInt(process.env.LIVE_SFU_MAX_VIEWERS, 10) || 200, 1), 2000),
+  // Live ki recording ki hadd (MB). Recording database mein save hoti hai. 0 = recording band
+  liveRecordMaxMb: Math.min(Math.max(isNaN(parseInt(process.env.LIVE_RECORD_MAX_MB, 10)) ? 60 : parseInt(process.env.LIVE_RECORD_MAX_MB, 10), 0), 200),
 };

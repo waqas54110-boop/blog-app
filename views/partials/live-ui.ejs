@@ -1,0 +1,635 @@
+<%# Live broadcasting: host screen ("🔴 Live" button) + viewer screen ("Watch live" button) + WebRTC. Har page par (login ke baad) footer se judta hai. %>
+<style>
+  .live-screen { position: fixed; inset: 0; z-index: 2100; background: #0b1020; color: #fff; display: flex; flex-direction: column; }
+  .live-screen.d-none { display: none !important; }
+  .live-screen video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #0b1020; }
+  #lhVideo.mirror { transform: scaleX(-1); }
+  .ls-top { position: relative; z-index: 3; display: flex; align-items: center; gap: .5rem; padding: calc(env(safe-area-inset-top, 0px) + .8rem) .9rem 0; text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+  .ls-top .live-badge { background: #ef4444; color: #fff; font-weight: 700; font-size: .78rem; letter-spacing: .04em; padding: .25rem .6rem; border-radius: .45rem; display: inline-flex; align-items: center; gap: .4rem; }
+  .ls-top .live-badge .live-dot { background: #fff; width: .5rem; height: .5rem; }
+  .ls-pill { background: rgba(0,0,0,.45); border-radius: 2rem; padding: .25rem .7rem; font-size: .85rem; font-weight: 600; max-width: 55vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ls-x { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(0,0,0,.5); color: #fff; font-size: 1.1rem; line-height: 1; cursor: pointer; }
+  .ls-msg { position: relative; z-index: 3; margin: auto; padding: 0 1.5rem; text-align: center; font-weight: 600; text-shadow: 0 1px 8px rgba(0,0,0,.8); pointer-events: none; }
+  .ls-msg:empty { display: none; }
+  .ls-msg.err { color: #fecaca; }
+  .ls-setup { position: relative; z-index: 3; margin-top: auto; padding: 1rem 1rem calc(env(safe-area-inset-bottom, 0px) + 1.2rem); background: linear-gradient(transparent, rgba(0,0,0,.78) 35%); }
+  .ls-setup .form-control { background: rgba(255,255,255,.14); border: 0; color: #fff; border-radius: .8rem; }
+  .ls-setup .form-control::placeholder { color: rgba(255,255,255,.65); }
+  .ls-setup .form-control:focus { background: rgba(255,255,255,.2); color: #fff; box-shadow: 0 0 0 .2rem rgba(239,68,68,.4); }
+  .ls-save { position: relative; z-index: 3; width: min(320px, 80vw); margin: 0 auto auto; text-align: center; }
+  .ls-note { font-size: .8rem; opacity: .8; margin-top: .5rem; }
+  .ls-bar { position: relative; z-index: 3; margin-top: auto; display: flex; justify-content: center; gap: 1.1rem; padding: 1rem 1rem calc(env(safe-area-inset-bottom, 0px) + 1.4rem); background: linear-gradient(transparent, rgba(0,0,0,.6)); }
+  .ls-btn { width: 56px; height: 56px; border-radius: 50%; border: 0; font-size: 1.45rem; line-height: 1; background: rgba(255,255,255,.18); color: #fff; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .12s, background .12s; }
+  .ls-btn:hover { transform: scale(1.07); background: rgba(255,255,255,.28); }
+  .ls-btn.off { background: #fff; color: #111; }
+  .ls-btn.red { background: #ef4444; } .ls-btn.red:hover { background: #dc2626; }
+  #lvPlay { position: relative; z-index: 4; margin: 0 auto auto; }
+</style>
+
+<%# ---------- HOST screen ---------- %>
+<div id="liveHost" class="live-screen d-none" role="dialog" aria-label="Go live">
+  <video id="lhVideo" class="mirror" autoplay playsinline muted></video>
+  <div class="ls-top">
+    <span id="lhBadge" class="live-badge d-none"><span class="live-dot"></span> LIVE <span id="lhTime">0:00</span></span>
+    <span id="lhViewers" class="ls-pill d-none">👁 0</span>
+    <button type="button" id="lhClose" class="ls-x" aria-label="Cancel">✕</button>
+  </div>
+  <div id="lhMsg" class="ls-msg"></div>
+  <div id="lhSave" class="ls-save d-none">
+    <div class="progress mb-2" style="height:6px"><div id="lhSaveBar" class="progress-bar bg-danger" style="width:0%"></div></div>
+    <div id="lhSaveBtns" class="d-flex justify-content-center gap-2 flex-wrap d-none">
+      <button type="button" id="lhRetry" class="btn btn-light btn-sm rounded-pill fw-semibold">↻ Try again</button>
+      <a id="lhDownload" class="btn btn-outline-light btn-sm rounded-pill fw-semibold" download="live-recording">⬇ Download</a>
+      <button type="button" id="lhSkip" class="btn btn-outline-light btn-sm rounded-pill fw-semibold">Skip</button>
+    </div>
+  </div>
+  <div id="lhSetup" class="ls-setup">
+    <input type="text" id="lhCaption" class="form-control mb-2" maxlength="300" placeholder="Say something about your live (optional)" autocomplete="off">
+    <button type="button" id="lhGo" class="btn btn-danger w-100 rounded-pill fw-bold py-2" disabled>🔴 Go live</button>
+    <div class="ls-note">Your camera and microphone go live on a new post. Keep this page open while you are live. The video is saved to your post when you end the live.</div>
+  </div>
+  <div id="lhBar" class="ls-bar d-none">
+    <button type="button" id="lhMute" class="ls-btn" title="Mute microphone" aria-label="Mute microphone">🎤</button>
+    <button type="button" id="lhCam" class="ls-btn" title="Turn camera off" aria-label="Turn camera off">📷</button>
+    <button type="button" id="lhFlip" class="ls-btn" title="Switch camera" aria-label="Switch camera" style="display:none">🔄</button>
+    <button type="button" id="lhEnd" class="ls-btn red" title="End live" aria-label="End live">⏹</button>
+  </div>
+</div>
+
+<%# ---------- VIEWER screen ---------- %>
+<div id="liveView" class="live-screen d-none" role="dialog" aria-label="Live video">
+  <video id="lvVideo" autoplay playsinline></video>
+  <div class="ls-top">
+    <span class="live-badge"><span class="live-dot"></span> LIVE</span>
+    <span id="lvHost" class="ls-pill"></span>
+    <span id="lvViewers" class="ls-pill">👁 0</span>
+    <button type="button" id="lvClose" class="ls-x" aria-label="Close">✕</button>
+  </div>
+  <div id="lvMsg" class="ls-msg">Connecting…</div>
+  <button type="button" id="lvPlay" class="btn btn-light rounded-pill fw-semibold d-none">▶ Tap to play</button>
+</div>
+
+<script>
+(function () {
+  var csrf = '<%= csrfToken %>';
+  var $ = function (id) { return document.getElementById(id); };
+  var noop = function () {};
+  var host = null;   // chalta hua live (mera)
+  var view = null;   // jo live main dekh raha hoon
+  var saving = false; // live khatam hone ke baad recording upload ho rahi hai
+
+  // LiveKit (media server) ki library: sirf tab load hoti hai jab live "sfu" mode mein ho
+  var lkP = null;
+  function loadLk() {
+    if (window.LivekitClient) return Promise.resolve();
+    if (lkP) return lkP;
+    lkP = new Promise(function (res, rej) {
+      var sc = document.createElement('script');
+      sc.src = 'https://cdn.jsdelivr.net/npm/livekit-client@2/dist/livekit-client.umd.min.js';
+      sc.onload = function () { window.LivekitClient ? res() : (lkP = null, rej(new Error('Could not load the live video library.'))); };
+      sc.onerror = function () { lkP = null; rej(new Error('Could not load the live video library.')); };
+      document.head.appendChild(sc);
+    });
+    return lkP;
+  }
+
+  function api(method, path, body) {
+    var opts = { method: method, credentials: 'same-origin', headers: { 'x-csrf-token': csrf } };
+    if (method !== 'GET') { opts.headers['Content-Type'] = 'application/json'; opts.body = JSON.stringify(body || {}); }
+    return fetch(path, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { j._ok = r.ok; j._status = r.status; return j; });
+    });
+  }
+  function fmt(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  function beacon(path, data) {
+    if (!navigator.sendBeacon) return;
+    data._csrf = csrf;
+    navigator.sendBeacon(path, new Blob([JSON.stringify(data)], { type: 'application/json' }));
+  }
+  function supported(needCamera) {
+    if (!window.RTCPeerConnection || (needCamera && (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia))) {
+      alert('Live is not supported in this browser. Please use an up-to-date Chrome, Edge, Firefox or Safari.'); return false;
+    }
+    if (needCamera && !window.isSecureContext) { alert('Live needs a secure (HTTPS) connection.'); return false; }
+    return true;
+  }
+  function camError(e) {
+    if (!e) return 'Could not start the camera.';
+    if (e.name === 'NotAllowedError' || e.name === 'SecurityError') return 'Please allow camera and microphone access in your browser to go live.';
+    if (e.name === 'NotFoundError' || e.name === 'OverconstrainedError') return 'No camera or microphone found on this device.';
+    if (e.name === 'NotReadableError') return 'Your camera or microphone is being used by another app.';
+    return e.message || 'Could not start the camera.';
+  }
+  function flush(p) {
+    var list = p.pending; p.pending = [];
+    return list.reduce(function (q, c) { return q.then(function () { return p.pc.addIceCandidate(c).catch(noop); }); }, Promise.resolve());
+  }
+  function parse(s) { try { return JSON.parse(s.payload); } catch (e) { return null; } }
+
+  /* =================== HOST =================== */
+  function hostMsg(t, err) { var m = $('lhMsg'); m.textContent = t || ''; m.className = 'ls-msg' + (err ? ' err' : ''); }
+
+  function openHost(opts) {
+    if (host || view) return;
+    if (!supported(true)) return;
+    var h = host = { id: 0, postId: 0, stream: null, peers: {}, dead: {}, ice: [], lastSig: 0, ended: false, live: false,
+      fails: 0, pollT: null, tick: null, t0: 0, facing: 'user', wl: null, bitrate: 600000, groupId: opts.groupId || '',
+      mode: 'p2p', room: null, rec: null };
+    $('lhCaption').value = String(opts.body || '').slice(0, 300);
+    $('lhSetup').classList.remove('d-none'); $('lhBar').classList.add('d-none');
+    $('lhBadge').classList.add('d-none'); $('lhViewers').classList.add('d-none');
+    $('lhClose').style.display = '';
+    $('lhGo').disabled = true; $('lhGo').textContent = '🔴 Go live';
+    $('lhMute').className = 'ls-btn'; $('lhMute').textContent = '🎤';
+    $('lhCam').className = 'ls-btn'; $('lhCam').textContent = '📷';
+    $('lhFlip').style.display = 'none';
+    $('lhVideo').classList.add('mirror');
+    $('lhSave').classList.add('d-none'); $('lhSaveBtns').classList.add('d-none');
+    hostMsg('Starting camera…');
+    $('liveHost').classList.remove('d-none');
+
+    navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      video: { facingMode: 'user', width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } }
+    }).then(function (stream) {
+      if (h.ended) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
+      h.stream = stream;
+      $('lhVideo').srcObject = stream;
+      hostMsg('');
+      $('lhGo').disabled = false;
+      if (navigator.mediaDevices.enumerateDevices) {
+        navigator.mediaDevices.enumerateDevices().then(function (d) {
+          var cams = d.filter(function (x) { return x.kind === 'videoinput'; });
+          $('lhFlip').style.display = cams.length > 1 ? '' : 'none';
+        }).catch(noop);
+      }
+    }).catch(function (e) { hostMsg(camError(e), true); });
+  }
+
+  function goLive() {
+    var h = host;
+    if (!h || h.live || !h.stream) return;
+    $('lhGo').disabled = true; $('lhGo').textContent = 'Starting…'; hostMsg('');
+    api('POST', '/live/start', { body: $('lhCaption').value, group_id: h.groupId || undefined }).then(function (j) {
+      if (h.ended) { if (j._ok) api('POST', '/live/' + j.id + '/end').catch(noop); return; }
+      if (!j._ok) { hostMsg(j.error || 'Could not start the live.', true); $('lhGo').disabled = false; $('lhGo').textContent = '🔴 Go live'; return; }
+      h.id = j.id; h.postId = j.post_id; h.ice = j.ice || []; h.mode = j.mode || 'p2p';
+      h.bitrate = Math.max(350000, Math.min(900000, Math.round(3500000 / (j.max || 6))));
+      var begin = function () {
+        if (h.ended) return;
+        h.live = true; h.t0 = Date.now();
+        $('lhSetup').classList.add('d-none'); $('lhBar').classList.remove('d-none');
+        $('lhClose').style.display = 'none';
+        $('lhBadge').classList.remove('d-none'); $('lhViewers').classList.remove('d-none'); $('lhViewers').textContent = '👁 0';
+        function paint() { $('lhTime').textContent = fmt(Math.floor((Date.now() - h.t0) / 1000)); }
+        paint(); h.tick = setInterval(paint, 1000);
+        if (navigator.wakeLock && navigator.wakeLock.request) navigator.wakeLock.request('screen').then(function (l) { h.wl = l; }).catch(noop);
+        startRec(h, j.rec_max_mb || 0);
+        hostPoll(h);
+      };
+      if (h.mode === 'sfu' && j.lk) {
+        hostMsg('Connecting to the live server…');
+        connectHostSfu(h, j.lk).then(function () { hostMsg(''); begin(); }).catch(function (e) {
+          console.error('[live] sfu', e);
+          // Shuru hi na ho saka: live aur khali post dono hata do
+          api('POST', '/live/' + h.id + '/end').catch(noop);
+          fetch('/feed/' + h.postId + '/delete', { method: 'POST', credentials: 'same-origin', headers: { 'x-csrf-token': csrf, 'Content-Type': 'application/x-www-form-urlencoded' }, body: '' }).catch(noop);
+          if (h.room) { try { h.room.disconnect(); } catch (x) { /* ignore */ } h.room = null; }
+          hostMsg((e && e.message) || 'Could not connect to the live server.', true);
+          $('lhGo').disabled = false; $('lhGo').textContent = '🔴 Go live';
+        });
+      } else begin();
+    }).catch(function () { hostMsg('Network problem. Please try again.', true); $('lhGo').disabled = false; $('lhGo').textContent = '🔴 Go live'; });
+  }
+
+  function stopMedia(h) {
+    try { if (h.stream) h.stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) { /* ignore */ }
+    Object.keys(h.peers).forEach(function (k) { closePeer(h, k); });
+    try { if (h.room) h.room.disconnect(); } catch (e) { /* ignore */ }
+    try { if (h.wl) h.wl.release(); } catch (e) { /* ignore */ }
+    $('lhVideo').srcObject = null;
+  }
+
+  // ----- Recording (host ke browser mein; live khatam hone par server par save) -----
+  function startRec(h, maxMb) {
+    if (!maxMb || !window.MediaRecorder || !h.stream) return;
+    var mime = '';
+    ['video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].some(function (t) {
+      try { if (MediaRecorder.isTypeSupported(t)) { mime = t; return true; } } catch (e) { /* ignore */ }
+      return false;
+    });
+    if (!mime) return;
+    var mr;
+    try { mr = new MediaRecorder(h.stream, { mimeType: mime, videoBitsPerSecond: 700000, audioBitsPerSecond: 64000 }); }
+    catch (e) { return; }
+    var r = h.rec = { mr: mr, chunks: [], bytes: 0, type: mime.indexOf('mp4') > -1 ? 'video/mp4' : 'video/webm', capped: false };
+    r.done = new Promise(function (res) { mr.onstop = res; });
+    mr.ondataavailable = function (e) {
+      if (!e.data || !e.data.size) return;
+      r.chunks.push(e.data); r.bytes += e.data.size;
+      if (r.bytes > maxMb * 1048576 * 0.9 && mr.state === 'recording') {
+        r.capped = true;
+        try { mr.stop(); } catch (x) { /* ignore */ }
+        hostMsg('Recording limit reached. The live continues, but only the first part is saved.');
+        setTimeout(function () { if (host === h && !h.ended) hostMsg(''); }, 5000);
+      }
+    };
+    mr.onerror = function () { try { if (mr.state !== 'inactive') mr.stop(); } catch (x) { /* ignore */ } };
+    try { mr.start(4000); } catch (e) { h.rec = null; }
+  }
+
+  // Recorder band karo aur ab tak ki video ka Blob do (ya null)
+  function finalizeRec(h) {
+    var r = h.rec;
+    if (!r) return Promise.resolve(null);
+    try { if (r.mr.state !== 'inactive') r.mr.stop(); } catch (e) { /* ignore */ }
+    return Promise.race([r.done, new Promise(function (res) { setTimeout(res, 3000); })]).then(function () {
+      var b = new Blob(r.chunks, { type: r.type });
+      return b.size > 20000 ? b : null;
+    });
+  }
+
+  function uploadRec(h, blob, onProgress) {
+    return new Promise(function (res) {
+      var x = new XMLHttpRequest();
+      x.open('POST', '/live/' + h.id + '/recording');
+      x.withCredentials = true;
+      x.setRequestHeader('x-csrf-token', csrf);
+      x.setRequestHeader('Content-Type', blob.type);
+      x.upload.onprogress = function (e) { if (e.lengthComputable) onProgress(Math.round(e.loaded * 100 / e.total)); };
+      x.onload = function () {
+        var j = {}; try { j = JSON.parse(x.responseText); } catch (e) { /* ignore */ }
+        res({ ok: x.status >= 200 && x.status < 300, j: j });
+      };
+      x.onerror = function () { res({ ok: false, j: { error: 'Network problem.' } }); };
+      x.send(blob);
+    });
+  }
+
+  function gotoPost(h) { saving = false; $('liveHost').classList.add('d-none'); location.href = '/feed/' + h.postId; }
+
+  function saveFlow(h, blob) {
+    saving = true;
+    $('lhSave').classList.remove('d-none'); $('lhSaveBtns').classList.add('d-none');
+    $('lhSaveBar').style.width = '0%';
+    hostMsg('Saving your recording… 0%');
+    uploadRec(h, blob, function (p) { $('lhSaveBar').style.width = p + '%'; hostMsg('Saving your recording… ' + p + '%'); }).then(function (x) {
+      if (x.ok) { $('lhSaveBar').style.width = '100%'; hostMsg('Recording saved ✓'); return setTimeout(function () { gotoPost(h); }, 900); }
+      hostMsg((x.j && x.j.error) || 'Could not save the recording.', true);
+      $('lhSaveBtns').classList.remove('d-none');
+      var dl = $('lhDownload');
+      if (dl._u) URL.revokeObjectURL(dl._u);
+      dl._u = URL.createObjectURL(blob);
+      dl.href = dl._u; dl.setAttribute('download', 'live-recording.' + (blob.type === 'video/mp4' ? 'mp4' : 'webm'));
+      $('lhRetry').onclick = function () { saveFlow(h, blob); };
+      $('lhSkip').onclick = function () { gotoPost(h); };
+    });
+  }
+
+  // Sab band. live thi to recording save karke post par le jao
+  function finishHost(h, text, tellServer) {
+    if (h.ended) return;
+    h.ended = true;
+    clearTimeout(h.pollT); clearInterval(h.tick);
+    if (tellServer && h.id) api('POST', '/live/' + h.id + '/end').catch(noop);
+    var recP = h.live ? finalizeRec(h) : Promise.resolve(null);   // stopMedia se PEHLE (tracks band hone se pehle recorder ko roko)
+    stopMedia(h);
+    if (host === h) host = null;
+    if (!h.live) { $('liveHost').classList.add('d-none'); return; }
+    $('lhBar').classList.add('d-none');
+    $('lhBadge').classList.add('d-none'); $('lhViewers').classList.add('d-none');
+    hostMsg(text || 'Live ended');
+    recP.then(function (blob) {
+      if (blob && h.id) return saveFlow(h, blob);
+      setTimeout(function () { gotoPost(h); }, 1600);
+    });
+  }
+
+  // Media server mode: host apni video LiveKit par bhejta hai, viewers wahin se dekhte hain (host ka upload ek hi rehta hai)
+  function connectHostSfu(h, lk) {
+    return loadLk().then(function () {
+      var L = window.LivekitClient;
+      var room = new L.Room({ dynacast: true });
+      h.room = room;
+      return room.connect(lk.url, lk.token).then(function () {
+        var v = h.stream.getVideoTracks()[0], a = h.stream.getAudioTracks()[0], jobs = [];
+        if (v) jobs.push(room.localParticipant.publishTrack(v, { source: L.Track.Source.Camera, name: 'camera', simulcast: true, videoEncoding: { maxBitrate: 1200000, maxFramerate: 24 } }));
+        if (a) jobs.push(room.localParticipant.publishTrack(a, { source: L.Track.Source.Microphone, name: 'mic' }));
+        return Promise.all(jobs);
+      });
+    });
+  }
+
+  function closePeer(h, sess) {
+    var p = h.peers[sess];
+    if (!p) return;
+    try { p.pc.onicecandidate = p.pc.onconnectionstatechange = null; p.pc.close(); } catch (e) { /* ignore */ }
+    delete h.peers[sess];
+  }
+
+  function sendSig(h, sess, type, obj) {
+    return api('POST', '/live/' + h.id + '/signal', { sess: sess, type: type, payload: JSON.stringify(obj) }).catch(noop);
+  }
+
+  function limitBitrate(h, pc) {
+    pc.getSenders().forEach(function (s) {
+      if (!s.track || s.track.kind !== 'video' || !s.getParameters) return;
+      var p = s.getParameters();
+      if (!p.encodings || !p.encodings.length) p.encodings = [{}];
+      p.encodings[0].maxBitrate = h.bitrate;
+      s.setParameters(p).catch(noop);
+    });
+  }
+
+  // Har naye dekhne wale ke liye alag connection
+  function addPeer(h, sess) {
+    var pc = new RTCPeerConnection({ iceServers: h.ice });
+    var p = { pc: pc, pending: [], remoteSet: false, chain: Promise.resolve() };
+    h.peers[sess] = p;
+    h.stream.getTracks().forEach(function (t) { pc.addTrack(t, h.stream); });
+    pc.onicecandidate = function (e) { if (e.candidate) sendSig(h, sess, 'ice', e.candidate); };
+    pc.onconnectionstatechange = function () {
+      if (pc.connectionState === 'failed') { h.dead[sess] = true; closePeer(h, sess); }
+    };
+    pc.createOffer()
+      .then(function (o) { return pc.setLocalDescription(o); })
+      .then(function () { limitBitrate(h, pc); return sendSig(h, sess, 'offer', pc.localDescription); })
+      .catch(function (e) { console.error('[live] offer', e); h.dead[sess] = true; closePeer(h, sess); });
+  }
+
+  function hostSignal(h, p, s) {
+    var data = parse(s);
+    if (!data || h.ended) return Promise.resolve();
+    if (s.type === 'answer') return p.pc.setRemoteDescription(data).then(function () { p.remoteSet = true; return flush(p); });
+    if (s.type === 'ice') {
+      if (p.remoteSet) return p.pc.addIceCandidate(data).catch(noop);
+      p.pending.push(data);
+    }
+    return Promise.resolve();
+  }
+
+  // Har ~1 second: naye viewers + unke signals. Ye "main zinda hoon" ka ishara bhi hai.
+  function hostPoll(h) {
+    if (h.ended) return;
+    api('GET', '/live/' + h.id + '/host?after=' + h.lastSig).then(function (j) {
+      if (h.ended) return;
+      if (!j._ok) {
+        if (j._status === 404 || j._status === 401) return finishHost(h, 'Live ended', false);
+        if (++h.fails > 15) return finishHost(h, 'Connection lost. Live ended.', true);
+      } else {
+        h.fails = 0;
+        if (j.status !== 'live') return finishHost(h, 'Live ended', false);
+        var set = {};
+        (j.sessions || []).forEach(function (sess) {
+          set[sess] = 1;
+          if (!h.peers[sess] && !h.dead[sess]) addPeer(h, sess);
+        });
+        Object.keys(h.peers).forEach(function (k) { if (!set[k]) closePeer(h, k); });
+        $('lhViewers').textContent = '👁 ' + (j.viewers != null ? j.viewers : (j.sessions || []).length);
+        (j.signals || []).forEach(function (s) {
+          if (s.id > h.lastSig) h.lastSig = s.id;
+          var p = h.peers[s.sess];
+          if (!p) return;
+          p.chain = p.chain.then(function () { return hostSignal(h, p, s); }).catch(function (e) { console.error('[live] signal', e); });
+        });
+      }
+      h.pollT = setTimeout(function () { hostPoll(h); }, 1000);
+    }).catch(function () {
+      if (h.ended) return;
+      if (++h.fails > 15) return finishHost(h, 'Connection lost. Live ended.', true);
+      h.pollT = setTimeout(function () { hostPoll(h); }, 1500);
+    });
+  }
+
+  $('lhGo').addEventListener('click', goLive);
+  $('lhClose').addEventListener('click', function () { if (host && !host.live) finishHost(host, '', false); });
+  $('lhEnd').addEventListener('click', function () {
+    if (host && host.live && confirm('End your live video?')) finishHost(host, 'Live ended', true);
+  });
+  $('lhMute').addEventListener('click', function () {
+    if (!host || !host.stream) return;
+    var off = false;
+    host.stream.getAudioTracks().forEach(function (t) { t.enabled = !t.enabled; off = !t.enabled; });
+    this.classList.toggle('off', off); this.textContent = off ? '🔇' : '🎤';
+    this.title = off ? 'Unmute microphone' : 'Mute microphone';
+  });
+  $('lhCam').addEventListener('click', function () {
+    if (!host || !host.stream) return;
+    var off = false;
+    host.stream.getVideoTracks().forEach(function (t) { t.enabled = !t.enabled; off = !t.enabled; });
+    this.classList.toggle('off', off); this.textContent = off ? '🚫' : '📷';
+    this.title = off ? 'Turn camera on' : 'Turn camera off';
+  });
+  $('lhFlip').addEventListener('click', function () {
+    var h = host;
+    if (!h || !h.stream) return;
+    var rec = h.rec && h.rec.mr.state === 'recording';
+    // Browser stream ka track badalte hi recorder rok deta hai, isliye pehle poochte hain
+    if (rec && !confirm('Switching the camera stops the recording at this point (the live continues, and what was recorded so far is saved). Switch anyway?')) return;
+    var next = h.facing === 'user' ? 'environment' : 'user';
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: next }, width: { ideal: 854 }, height: { ideal: 480 } }, audio: false }).then(function (s) {
+      var nt = s.getVideoTracks()[0], old = h.stream.getVideoTracks()[0];
+      if (rec) { try { h.rec.mr.stop(); } catch (e) { /* ignore */ } }
+      if (h.mode === 'sfu' && h.room) {
+        try {
+          var pub = h.room.localParticipant.getTrackPublication(window.LivekitClient.Track.Source.Camera);
+          if (pub && pub.track) pub.track.replaceTrack(nt);
+        } catch (e) { console.error('[live] flip', e); }
+      }
+      Object.keys(h.peers).forEach(function (k) {
+        var sender = h.peers[k].pc.getSenders().filter(function (x) { return x.track && x.track.kind === 'video'; })[0];
+        if (sender) sender.replaceTrack(nt).catch(noop);
+      });
+      if (old) { h.stream.removeTrack(old); old.stop(); }
+      h.stream.addTrack(nt);
+      h.facing = next;
+      $('lhVideo').srcObject = new MediaStream([nt]);
+      $('lhVideo').classList.toggle('mirror', next === 'user');
+    }).catch(noop);
+  });
+  document.addEventListener('visibilitychange', function () {
+    if (!document.hidden && host && host.live && navigator.wakeLock && navigator.wakeLock.request) {
+      navigator.wakeLock.request('screen').then(function (l) { host.wl = l; }).catch(noop);
+    }
+  });
+
+  /* =================== VIEWER =================== */
+  function viewMsg(t, err) { var m = $('lvMsg'); m.textContent = t || ''; m.className = 'ls-msg' + (err ? ' err' : ''); }
+
+  function openView(id, hostName) {
+    if (host || view) return;
+    if (!supported(false)) return;
+    var v = view = { id: id, sess: 0, pc: null, lastSig: 0, pending: [], remoteSet: false, chain: Promise.resolve(),
+      ended: false, fails: 0, pollT: null, playing: false, slowT: null, room: null, pollMs: 1500 };
+    $('lvHost').textContent = hostName || '';
+    $('lvViewers').textContent = '👁 …';
+    $('lvVideo').srcObject = null;
+    $('lvPlay').classList.add('d-none');
+    viewMsg('Connecting…');
+    $('liveView').classList.remove('d-none');
+
+    api('POST', '/live/' + id + '/join').then(function (j) {
+      if (v.ended) { if (j._ok) api('POST', '/live/' + id + '/leave', { sess: j.sess }).catch(noop); return; }
+      if (!j._ok) {
+        viewMsg(j.error || 'Could not join this live.', true);
+        if (j._status === 410) markCardEnded(id);
+        setTimeout(function () { closeView(v, null, false); }, 2600);
+        return;
+      }
+      v.sess = j.sess;
+      v.slowT = setTimeout(function () { if (!v.playing && !v.ended) viewMsg('Still connecting… the host may have a weak connection.'); }, 15000);
+      if (j.mode === 'sfu' && j.lk) {
+        v.pollMs = 5000;
+        connectViewerSfu(v, j.lk).then(function () { if (!v.ended) viewPoll(v); }).catch(function (e) {
+          console.error('[live] sfu', e);
+          viewMsg((e && e.message) || 'Could not connect to the live.', true);
+          setTimeout(function () { closeView(v, null, true); }, 2600);
+        });
+        return;
+      }
+      makeViewerPc(v, j.ice || []);
+      viewPoll(v);
+    }).catch(function () { viewMsg('Network problem. Please try again.', true); setTimeout(function () { closeView(v, null, false); }, 2600); });
+  }
+
+  function markCardEnded(id) {
+    var el = document.querySelector('[data-live-card="' + id + '"]');
+    if (!el) return;
+    el.className = 'live-panel ended mx-3 mb-2 small text-body-secondary';
+    el.removeAttribute('data-live-card');
+    el.textContent = '⚫ Live ended';
+  }
+
+  // Media server mode: video LiveKit se aati hai
+  function connectViewerSfu(v, lk) {
+    return loadLk().then(function () {
+      var L = window.LivekitClient;
+      var room = new L.Room({ adaptiveStream: true });
+      v.room = room;
+      var vid = $('lvVideo');
+      room.on(L.RoomEvent.TrackSubscribed, function (track) {
+        track.attach(vid);   // video aur awaaz dono isi element par
+        var pr = vid.play && vid.play();
+        if (pr && pr.catch) pr.catch(function () { $('lvPlay').classList.remove('d-none'); });
+      });
+      room.on(L.RoomEvent.Disconnected, function () { if (!v.ended) viewMsg('Connection lost…', true); });
+      return room.connect(lk.url, lk.token);
+    });
+  }
+
+  function closeView(v, text, tellServer) {
+    if (v.ended) return;
+    v.ended = true;
+    clearTimeout(v.pollT); clearTimeout(v.slowT);
+    if (tellServer && v.sess) api('POST', '/live/' + v.id + '/leave', { sess: v.sess }).catch(noop);
+    try { if (v.room) v.room.disconnect(); } catch (e) { /* ignore */ }
+    try { if (v.pc) { v.pc.ontrack = v.pc.onicecandidate = v.pc.onconnectionstatechange = null; v.pc.close(); } } catch (e) { /* ignore */ }
+    $('lvVideo').srcObject = null;
+    if (view === v) view = null;
+    if (text) {
+      viewMsg(text);
+      setTimeout(function () { if (!view) $('liveView').classList.add('d-none'); }, 2200);
+    } else {
+      $('liveView').classList.add('d-none');
+    }
+  }
+
+  function makeViewerPc(v, ice) {
+    var pc = new RTCPeerConnection({ iceServers: ice });
+    v.pc = pc;
+    pc.onicecandidate = function (e) {
+      if (e.candidate) api('POST', '/live/' + v.id + '/signal', { sess: v.sess, type: 'ice', payload: JSON.stringify(e.candidate) }).catch(noop);
+    };
+    pc.ontrack = function (e) {
+      var vid = $('lvVideo');
+      if (e.streams && e.streams[0] && vid.srcObject !== e.streams[0]) vid.srcObject = e.streams[0];
+      var pr = vid.play && vid.play();
+      if (pr && pr.catch) pr.catch(function () { $('lvPlay').classList.remove('d-none'); });
+    };
+    pc.onconnectionstatechange = function () {
+      if (v.ended) return;
+      var s = pc.connectionState;
+      if (s === 'disconnected' && v.playing) viewMsg('Reconnecting…');
+      else if (s === 'connected' && v.playing) viewMsg('');
+      else if (s === 'failed') viewMsg('Could not connect. A TURN server may be needed on this network.', true);
+    };
+  }
+
+  function viewSignal(v, s) {
+    var data = parse(s);
+    if (!data || v.ended || !v.pc) return Promise.resolve();
+    if (s.type === 'offer') {
+      return v.pc.setRemoteDescription(data)
+        .then(function () { v.remoteSet = true; return flush(v); })
+        .then(function () { return v.pc.createAnswer(); })
+        .then(function (a) { return v.pc.setLocalDescription(a); })
+        .then(function () { return api('POST', '/live/' + v.id + '/signal', { sess: v.sess, type: 'answer', payload: JSON.stringify(v.pc.localDescription) }); });
+    }
+    if (s.type === 'ice') {
+      if (v.remoteSet) return v.pc.addIceCandidate(data).catch(noop);
+      v.pending.push(data);
+    }
+    return Promise.resolve();
+  }
+
+  function viewPoll(v) {
+    if (v.ended) return;
+    api('GET', '/live/' + v.id + '/watch?sess=' + v.sess + '&after=' + v.lastSig).then(function (j) {
+      if (v.ended) return;
+      if (!j._ok) {
+        if (j._status === 404 || j._status === 401) { markCardEnded(v.id); return closeView(v, 'This live has ended', false); }
+        if (++v.fails > 12) return closeView(v, 'Connection lost', true);
+      } else {
+        v.fails = 0;
+        if (j.status !== 'live') { markCardEnded(v.id); return closeView(v, 'This live has ended', false); }
+        $('lvViewers').textContent = '👁 ' + (j.viewers || 1);
+        (j.signals || []).forEach(function (s) {
+          if (s.id > v.lastSig) v.lastSig = s.id;
+          v.chain = v.chain.then(function () { return viewSignal(v, s); }).catch(function (e) { console.error('[live] signal', e); });
+        });
+      }
+      if (j.poll_ms) v.pollMs = j.poll_ms;
+      v.pollT = setTimeout(function () { viewPoll(v); }, v.pollMs);
+    }).catch(function () {
+      if (v.ended) return;
+      if (++v.fails > 12) return closeView(v, 'Connection lost', true);
+      v.pollT = setTimeout(function () { viewPoll(v); }, 2000);
+    });
+  }
+
+  $('lvVideo').addEventListener('playing', function () {
+    if (!view) return;
+    view.playing = true; viewMsg(''); $('lvPlay').classList.add('d-none');
+  });
+  $('lvPlay').addEventListener('click', function () {
+    if (view && view.room && view.room.startAudio) view.room.startAudio().catch(noop);
+    var pr = $('lvVideo').play();
+    if (pr && pr.catch) pr.catch(noop);
+    this.classList.add('d-none');
+  });
+  $('lvClose').addEventListener('click', function () { if (view) closeView(view, null, true); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && view) closeView(view, null, true); });
+
+  /* =================== buttons + page leave =================== */
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var w = t.closest('[data-live-watch]');
+    if (w) { e.preventDefault(); openView(w.getAttribute('data-live-watch'), w.getAttribute('data-live-host')); return; }
+    var s = t.closest('[data-live-start]');
+    if (s) {
+      e.preventDefault();
+      var ta = document.querySelector('#composer textarea');
+      openHost({ body: ta ? ta.value : '', groupId: s.getAttribute('data-live-group') || '' });
+    }
+  });
+
+  window.addEventListener('beforeunload', function (e) {
+    if ((host && host.live && !host.ended) || saving) { e.preventDefault(); e.returnValue = ''; }
+  });
+  window.addEventListener('pagehide', function () {
+    if (host && host.live && !host.ended && host.id) beacon('/live/' + host.id + '/end', {});
+    if (view && !view.ended && view.sess) beacon('/live/' + view.id + '/leave', { sess: view.sess });
+  });
+})();
+</script>
