@@ -208,6 +208,12 @@
                 </a>
               </li>
               <li>
+                <a class="dropdown-item d-flex justify-content-between align-items-center" href="/admin/payouts">
+                  Payouts
+                  <% if (locals.pendingPayouts > 0) { %><span class="badge rounded-pill bg-danger ms-2"><%= pendingPayouts %></span><% } %>
+                </a>
+              </li>
+              <li>
                 <a class="dropdown-item d-flex justify-content-between align-items-center" href="/inbox">
                   Inbox
                   <% if (locals.newInquiries > 0) { %><span class="badge rounded-pill bg-danger ms-2"><%= newInquiries %></span><% } %>
@@ -224,6 +230,7 @@
                 <% if (locals.pendingFriends > 0) { %><span class="badge rounded-pill bg-danger ms-2"><%= pendingFriends %></span><% } %>
               </a>
             </li>
+            <li><a class="dropdown-item" href="/earnings">💰 Earnings</a></li>
             <li><a class="dropdown-item" href="/invite">🎁 Invite Friends</a></li>
             <li><a class="dropdown-item" href="/bookmarks">My Bookmarks</a></li>
             <li><hr class="dropdown-divider"></li>

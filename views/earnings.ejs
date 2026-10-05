@@ -1,0 +1,125 @@
+<%- include('partials/header') %>
+
+<% const fmt = (d) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); %>
+<% const mLabel = { jazzcash: 'JazzCash', easypaisa: 'Easypaisa' }; %>
+<% const w = o.wallet; const pendingReq = o.requests.find(r => r.status === 'pending'); %>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <h2 class="mb-1">💰 My Earnings</h2>
+    <p class="text-body-secondary">
+      You earn <strong>Rs <%= rs(perHundred * 100) %> for every 100 views</strong> on your community posts.
+      Your own views, bots and hidden posts are not counted.
+    </p>
+
+    <% if (flash) { %><div class="alert alert-<%= flash.type %>"><%= flash.text %></div><% } %>
+
+    <% if (!enabled) { %>
+      <div class="alert alert-info">Earnings are not switched on yet. Check back soon.</div>
+    <% } else { %>
+
+      <% if (!o.verified) { %>
+        <div class="alert alert-warning">Verify your email to start earning. Views on your posts are saved and will count once you verify.</div>
+      <% } %>
+
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body">
+          <div class="small text-body-secondary">Balance</div><div class="fs-4 fw-bold">Rs <%= rs(w.balance_paisa) %></div>
+        </div></div></div>
+        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body">
+          <div class="small text-body-secondary">Total earned</div><div class="fs-4 fw-bold">Rs <%= rs(w.total_earned_paisa) %></div>
+        </div></div></div>
+        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body">
+          <div class="small text-body-secondary">Paid to you</div><div class="fs-4 fw-bold">Rs <%= rs(w.total_paid_paisa) %></div>
+        </div></div></div>
+        <div class="col-6 col-md-3"><div class="card border-0 shadow-sm h-100"><div class="card-body">
+          <div class="small text-body-secondary">Post views</div><div class="fs-4 fw-bold"><%= o.views.total.toLocaleString('en-US') %></div>
+        </div></div></div>
+      </div>
+
+      <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+          <h5 class="mb-3">Withdraw</h5>
+          <% if (pendingReq) { %>
+            <div class="alert alert-secondary mb-0">
+              Your request for <strong>Rs <%= rs(pendingReq.amount_paisa) %></strong> to <%= mLabel[pendingReq.method] %>
+              <%= pendingReq.account_number %> is waiting to be paid. You can send a new one after it is processed.
+            </div>
+          <% } else if (Number(w.balance_paisa) < minRs * 100) { %>
+            <p class="mb-0 text-body-secondary">
+              Minimum withdrawal is <strong>Rs <%= minRs %></strong>. You need Rs <%= rs(minRs * 100 - Number(w.balance_paisa)) %> more
+              (about <%= Math.ceil((minRs * 100 - Number(w.balance_paisa)) / perHundred).toLocaleString('en-US') %> more views).
+            </p>
+          <% } else { %>
+            <form action="/earnings/withdraw" method="POST" class="row g-3">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <div class="col-12 col-md-4">
+                <label class="form-label">Send to</label>
+                <select name="method" class="form-select" required>
+                  <option value="jazzcash">JazzCash</option>
+                  <option value="easypaisa">Easypaisa</option>
+                </select>
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label">Mobile number</label>
+                <input name="account_number" class="form-control" inputmode="numeric" placeholder="03001234567" maxlength="16" required>
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label">Account holder name</label>
+                <input name="account_name" class="form-control" maxlength="80" required>
+              </div>
+              <div class="col-12 col-md-4">
+                <label class="form-label">Amount (Rs)</label>
+                <input name="amount" type="number" class="form-control" min="<%= minRs %>" max="<%= Math.floor(Number(w.balance_paisa) / 100) %>"
+                       value="<%= Math.floor(Number(w.balance_paisa) / 100) %>" required>
+              </div>
+              <div class="col-12 d-flex align-items-center gap-3">
+                <button class="btn btn-primary" type="submit">Request withdrawal</button>
+                <span class="small text-body-secondary">Double-check the number. Payments are sent by hand and cannot be reversed.</span>
+              </div>
+            </form>
+          <% } %>
+        </div>
+      </div>
+
+      <% if (o.top.length) { %>
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body">
+            <h5 class="mb-3">Your top posts</h5>
+            <% o.top.forEach(p => { %>
+              <div class="d-flex justify-content-between border-bottom py-2">
+                <a href="/feed/<%= p.id %>" class="text-decoration-none text-truncate me-3"><%= p.body || '(photo post)' %></a>
+                <span class="text-nowrap small text-body-secondary"><%= p.views.toLocaleString('en-US') %> views</span>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      <% } %>
+
+      <% if (o.requests.length) { %>
+        <div class="card border-0 shadow-sm mb-4">
+          <div class="card-body">
+            <h5 class="mb-3">Withdrawal history</h5>
+            <% o.requests.forEach(r => { %>
+              <div class="d-flex flex-wrap justify-content-between align-items-center border-bottom py-2 gap-2">
+                <div>
+                  <strong>Rs <%= rs(r.amount_paisa) %></strong> to <%= mLabel[r.method] %> <%= r.account_number %>
+                  <div class="small text-body-secondary"><%= fmt(r.created_at) %><% if (r.txn_ref) { %> · Ref <%= r.txn_ref %><% } %><% if (r.admin_note) { %> · <%= r.admin_note %><% } %></div>
+                </div>
+                <span class="badge text-bg-<%= r.status === 'paid' ? 'success' : r.status === 'rejected' ? 'danger' : 'warning' %>"><%= r.status === 'paid' ? 'Paid' : r.status === 'rejected' ? 'Not sent' : 'Pending' %></span>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      <% } %>
+
+      <p class="small text-body-secondary">
+        Earnings are for real views only. Asking people to open your posts again and again, or using fake accounts or bots,
+        will cancel your earnings and can get your account removed.
+        <% if (capRs > 0) { %>You can earn up to Rs <%= capRs %> per day.<% } %>
+      </p>
+    <% } %>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

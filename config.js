@@ -42,4 +42,12 @@ module.exports = {
   liveSfuMaxViewers: Math.min(Math.max(parseInt(process.env.LIVE_SFU_MAX_VIEWERS, 10) || 200, 1), 2000),
   // Live ki recording ki hadd (MB). Recording database mein save hoti hai. 0 = recording band
   liveRecordMaxMb: Math.min(Math.max(isNaN(parseInt(process.env.LIVE_RECORD_MAX_MB, 10)) ? 60 : parseInt(process.env.LIVE_RECORD_MAX_MB, 10), 0), 200),
+  // V29: Creators ki kamayi. EARN_ENABLED=1 likhne par hi chalti hai (default band)
+  earnEnabled: process.env.EARN_ENABLED === '1',
+  // Ek view ke kitne paisa. 1 paisa = 100 views par Rs 1 (default)
+  earnPaisaPerView: Math.min(Math.max(parseInt(process.env.EARN_PAISA_PER_VIEW, 10) || 1, 1), 100),
+  // Kam az kam withdraw (rupees)
+  earnMinWithdrawRs: Math.min(Math.max(parseInt(process.env.EARN_MIN_WITHDRAW_RS, 10) || 500, 1), 100000),
+  // Ek user ki roz ki zyada se zyada kamayi (rupees). 0 = koi hadd nahi
+  earnDailyCapRs: Math.min(Math.max(isNaN(parseInt(process.env.EARN_DAILY_CAP_RS, 10)) ? 200 : parseInt(process.env.EARN_DAILY_CAP_RS, 10), 0), 1000000),
 };

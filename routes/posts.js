@@ -474,7 +474,7 @@ router.get('/robots.txt', (req, res) => {
     '/messages', '/inbox', '/notifications', '/settings', '/dashboard', '/bookmarks', '/analytics', '/admin',
     '/friends', '/push', '/stories', '/upload-', '/auth', '/report', '/unsubscribe', '/r/',
     '/groups/join/', '/groups/new', '/votes/new', '/posts/new', '/invite', '/offline', '/feed/views',
-    '/posts/*/edit', '/groups/*/manage', '/groups/*/chat', '/votes/*/go', '/votes/*/state.json',
+    '/earnings', '/posts/*/edit', '/groups/*/manage', '/groups/*/chat', '/votes/*/go', '/votes/*/state.json',
   ];
   res.set('Cache-Control', 'public, max-age=3600');
   res.type('text/plain').send(

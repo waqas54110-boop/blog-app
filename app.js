@@ -33,6 +33,8 @@ const moderationLib = require('./lib/moderation');
 const feedRouter = require('./routes/feed');
 const storiesRouter = require('./routes/stories');
 const groupsRouter = require('./routes/groups');
+const earningsRouter = require('./routes/earnings');
+const earningsLib = require('./lib/earnings');
 const { startCleaner: startStoryCleaner } = require('./lib/stories');
 const { startFollowNotifier } = require('./lib/follow');
 const { startTelegramPoster } = require('./lib/telegram');
@@ -128,6 +130,7 @@ app.get(['/auth/google', '/auth/google/callback'], limiter(15, 30, 'Too many log
 app.post('/forgot-password', limiter(60, 5, 'Too many reset requests. Please try again in an hour.'));
 app.post('/reset-password/:token', limiter(15, 10, 'Too many attempts. Please try again in a few minutes.'));
 app.post('/upload-image', limiter(10, 40, 'Too many uploads. Please wait a few minutes.'));
+app.post('/earnings/withdraw', limiter(60, 10, 'Too many withdrawal attempts. Please try again later.'));
 app.post('/upload-video', limiter(30, 10, 'Too many video uploads. Please wait a while.'));
 // Calls: shuru karne par sakht limit; baaqi (poll / signal) ke liye kharab-khorak se bachne wala bara limit
 app.post('/calls/start', limiter(10, 20, 'You are calling too often. Please wait a few minutes.'));
@@ -312,6 +315,16 @@ app.use(async (req, res, next) => {
     }
   }
 
+  // Admin ke liye: kitni withdraw requests paid hone ka intezar kar rahi hain (alag try: migration_v29 na chali ho to site na ruke)
+  res.locals.pendingPayouts = 0;
+  if (res.locals.isAdmin && config.earnEnabled) {
+    try {
+      res.locals.pendingPayouts = await earningsLib.pendingCount();
+    } catch (err) {
+      console.error('pending payouts count (migration_v29.sql chali?):', err.message);
+    }
+  }
+
   // Owner ke liye: kitni nayi "Hire Me" inquiries abhi parhi nahi (alag try: migration_v6 na chali ho to baaqi site na ruke)
   res.locals.newInquiries = 0;
   if (res.locals.isAdmin) {
@@ -345,6 +358,7 @@ app.use('/', moderationRouter);
 app.use('/', feedRouter);
 app.use('/', storiesRouter);
 app.use('/', groupsRouter);
+app.use('/', earningsRouter);
 app.use('/', authRouter);
 
 app.use((req, res) => {
