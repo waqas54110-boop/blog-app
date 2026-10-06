@@ -1,48 +1,85 @@
 <%- include('partials/header') %>
 
 <style>
-  .kz-front { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 28px; margin-top: .25rem; }
-  .kz-front a, .kz-sec a, .kz-rail a { color: inherit; text-decoration: none; }
-  .kz-front a:hover h1, .kz-front a:hover h2, .kz-sec a:hover h4, .kz-sec li a:hover, .kz-rail a:hover h4, .kz-sec h3 a:hover { text-decoration: underline; text-underline-offset: 3px; }
-  .kz-tag { font: 700 13px var(--kz-sans); color: var(--kz-accent); margin-top: 12px; }
-  .kz-tag a:hover { text-decoration: underline; }
-  .kz-art { display: block; position: relative; overflow: hidden; border-radius: 4px; aspect-ratio: 16 / 9; }
-  .kz-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-  .kz-art b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 800 clamp(48px, 9vw, 96px)/1 var(--kz-serif); color: rgba(255,255,255,.35); }
+  .kz-home a { color: inherit; text-decoration: none; }
+  .kz-art { display: block; position: relative; overflow: hidden; border-radius: 12px; aspect-ratio: 16 / 9; }
+  .kz-art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform .5s ease; }
+  .kz-art b { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font: 800 clamp(48px, 9vw, 96px)/1 var(--kz-serif); color: rgba(255,255,255,.3); }
   .g1 { background: linear-gradient(135deg, #12355b, #0a6b4d 60%, #9bd1a8); }
   .g2 { background: linear-gradient(135deg, #5a1e3a, #c1553b); }
   .g3 { background: linear-gradient(135deg, #1c3d5a, #3d8fb5); }
   .g4 { background: linear-gradient(135deg, #3b2a63, #8a63d2); }
   .g5 { background: linear-gradient(135deg, #1b4d3e, #5fb98a); }
-
-  .kz-lead h1 { font: 800 clamp(28px, 4.6vw, 44px)/1.08 var(--kz-serif); letter-spacing: -.015em; margin: 8px 0 8px; }
-  .kz-lead p { font: 400 18px/1.5 var(--kz-serif); color: var(--kz-muted); margin: 0 0 8px; max-width: 62ch; }
+  .kz-chip { display: inline-block; font: 700 12px/1 var(--kz-sans); padding: 6px 11px; border-radius: 99px; background: var(--kz-accent); color: #fff; position: relative; z-index: 2; }
+  [data-bs-theme="dark"] .kz-chip { color: #06261c; }
+  .kz-chip:hover { filter: brightness(1.1); }
+  .kz-cat { font: 700 13px var(--kz-sans); color: var(--kz-accent); position: relative; z-index: 2; }
+  .kz-cat:hover { text-decoration: underline; text-underline-offset: 3px; }
   .kz-by { font: 400 13px var(--kz-sans); color: var(--kz-muted); }
-  .kz-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 26px; padding-top: 22px; border-top: 1px solid var(--kz-line); }
-  .kz-pair .kz-art { aspect-ratio: 3 / 2; }
-  .kz-pair h2 { font: 700 21px/1.18 var(--kz-serif); margin: 6px 0 6px; }
+
+  /* ticker */
+  .kz-ticker { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; background: var(--kz-paper); border: 1px solid var(--kz-line); border-radius: 99px; padding: 6px 14px 6px 6px; overflow: hidden; }
+  .kz-ticker > b { flex: 0 0 auto; font: 700 12px/1 var(--kz-sans); background: var(--kz-live, #c8102e); color: #fff; padding: 7px 12px; border-radius: 99px; letter-spacing: .02em; }
+  .kz-track { flex: 1; min-width: 0; overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 4%, #000 96%, transparent); }
+  .kz-roll { display: flex; width: max-content; animation: kzroll 45s linear infinite; }
+  .kz-track:hover .kz-roll, .kz-track:focus-within .kz-roll { animation-play-state: paused; }
+  .kz-roll div { display: flex; flex: 0 0 auto; }
+  .kz-roll a { font: 600 14px var(--kz-sans); white-space: nowrap; padding: 0 22px; border-right: 1px solid var(--kz-line); }
+  .kz-roll a:hover { color: var(--kz-accent); }
+  @keyframes kzroll { to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .kz-roll { animation: none; } .kz-track { overflow-x: auto; } }
+
+  /* front page */
+  .kz-front { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 28px; }
+  .kz-hero { position: relative; border-radius: 16px; overflow: hidden; min-height: 400px; display: flex; align-items: flex-end; color: #fff; isolation: isolate; background: #0e1a2b; }
+  .kz-hero .kz-art { position: absolute; inset: 0; border-radius: 0; aspect-ratio: auto; z-index: -2; }
+  .kz-hero:hover .kz-art img { transform: scale(1.04); }
+  .kz-hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(to top, rgba(7,13,24,.94) 0%, rgba(7,13,24,.62) 38%, rgba(7,13,24,.05) 72%); }
+  .kz-hero-in { padding: clamp(18px, 3.2vw, 34px); width: 100%; }
+  .kz-hero h1 { font: 800 clamp(28px, 4.4vw, 46px)/1.07 var(--kz-serif); letter-spacing: -.015em; margin: 12px 0 10px; text-wrap: balance; }
+  .kz-hero h1 a:hover { text-decoration: underline; text-underline-offset: 4px; }
+  .kz-hero p { font: 400 17px/1.5 var(--kz-serif); color: rgba(255,255,255,.82); margin: 0 0 12px; max-width: 60ch; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .kz-hero .kz-by { color: rgba(255,255,255,.72); }
+
+  .kz-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 24px; }
+  .kz-pair article { position: relative; }
+  .kz-pair article:hover .kz-art img, .kz-sec .lead:hover .kz-art img { transform: scale(1.05); }
+  .kz-pair .kz-art { aspect-ratio: 3 / 2; margin-bottom: 10px; }
+  .kz-pair h2 { font: 700 21px/1.18 var(--kz-serif); margin: 4px 0 6px; }
+  .kz-pair h2 a:hover { text-decoration: underline; text-underline-offset: 3px; }
   .kz-pair p { font: 400 15px/1.45 var(--kz-serif); color: var(--kz-muted); margin: 0 0 6px; }
 
-  .kz-rail { background: var(--kz-paper); border: 1px solid var(--kz-line); border-top: 4px solid var(--kz-accent); padding: 6px 18px 10px; align-self: start; }
-  .kz-rail h3 { font: 700 18px var(--kz-sans); margin: 14px 0 4px; }
+  .kz-rail { background: var(--kz-paper); border: 1px solid var(--kz-line); border-radius: 16px; padding: 8px 20px 12px; align-self: start; box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 10px 28px rgba(0,0,0,.05); }
+  .kz-rail h3 { font: 800 20px var(--kz-serif); margin: 14px 0 4px; display: flex; align-items: center; gap: 10px; }
+  .kz-rail h3::before { content: ""; width: 5px; height: 22px; border-radius: 3px; background: var(--kz-accent); }
   .kz-rail ol { list-style: none; margin: 0; padding: 0; counter-reset: n; }
-  .kz-rail li { counter-increment: n; display: grid; grid-template-columns: 34px 1fr; gap: 6px; padding: 13px 0; border-top: 1px solid var(--kz-line); }
+  .kz-rail li { counter-increment: n; display: grid; grid-template-columns: 40px 1fr; gap: 8px; padding: 14px 0; border-top: 1px solid var(--kz-line); }
   .kz-rail li:first-child { border-top: 0; }
-  .kz-rail li::before { content: counter(n); font: 800 30px/1 var(--kz-serif); color: var(--kz-accent); }
-  .kz-rail h4 { font: 600 17px/1.25 var(--kz-serif); margin: 0 0 3px; }
+  .kz-rail li::before { content: counter(n); font: 800 34px/1 var(--kz-serif); color: var(--kz-accent); opacity: .9; }
+  .kz-rail h4 { font: 600 17px/1.28 var(--kz-serif); margin: 0 0 4px; }
+  .kz-rail a:hover h4 { color: var(--kz-accent); }
   .kz-rail small { font: 400 12px var(--kz-sans); color: var(--kz-muted); }
 
-  .kz-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 26px; margin-top: 34px; }
-  .kz-sec h3 { font: 800 22px var(--kz-serif); margin: 0 0 12px; padding-bottom: 8px; border-bottom: 3px solid var(--bs-body-color); }
-  .kz-sec .kz-art { margin-bottom: 10px; }
-  .kz-sec h4 { font: 700 19px/1.2 var(--kz-serif); margin: 0 0 6px; }
-  .kz-sec ul { list-style: none; margin: 12px 0 0; padding: 0; }
-  .kz-sec li { padding: 10px 0; border-top: 1px solid var(--kz-line); font: 600 16px/1.3 var(--kz-serif); }
-  .kz-sec li span { display: block; font: 400 12px var(--kz-sans); color: var(--kz-muted); margin-top: 2px; }
-  .kz-more { text-align: center; margin: 34px 0 6px; }
-  @media (max-width: 860px) { .kz-front { grid-template-columns: 1fr; } }
-  @media (max-width: 520px) { .kz-pair { grid-template-columns: 1fr; } .kz-lead p { font-size: 16px; } }
+  .kz-sections { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 30px; margin-top: 44px; }
+  .kz-sec h3 { font: 800 24px var(--kz-serif); margin: 0 0 16px; }
+  .kz-sec h3 a::after { content: ""; display: block; width: 44px; height: 4px; border-radius: 2px; background: var(--kz-accent); margin-top: 8px; transition: width .25s ease; }
+  .kz-sec h3 a:hover::after { width: 84px; }
+  .kz-sec .lead .kz-art { margin-bottom: 12px; }
+  .kz-sec h4 { font: 700 19px/1.22 var(--kz-serif); margin: 0 0 4px; }
+  .kz-sec .lead:hover h4 { color: var(--kz-accent); }
+  .kz-sec ul { list-style: none; margin: 14px 0 0; padding: 0; }
+  .kz-sec li { padding: 11px 0; border-top: 1px solid var(--kz-line); font: 600 16px/1.3 var(--kz-serif); }
+  .kz-sec li a:hover { color: var(--kz-accent); }
+  .kz-sec li span { display: block; font: 400 12px var(--kz-sans); color: var(--kz-muted); margin-top: 3px; }
+  .kz-more { text-align: center; margin: 40px 0 8px; }
+  .kz-more a { display: inline-block; font: 700 14px var(--kz-sans); padding: 12px 26px; border-radius: 99px; border: 2px solid var(--bs-body-color); transition: background .15s, color .15s; }
+  .kz-more a:hover { background: var(--bs-body-color); color: var(--bs-body-bg); }
+
+  @media (max-width: 860px) { .kz-front { grid-template-columns: 1fr; } .kz-hero { min-height: 340px; } }
+  @media (max-width: 575px) { .kz-pair { grid-template-columns: 1fr; } .kz-hero { min-height: 300px; border-radius: 12px; } .kz-hero p { display: none; } .kz-ticker > b { padding: 7px 10px; } }
 </style>
+
+<div class="kz-home">
 
 <% if (locals.liveContest) { const lc = liveContest; %>
   <section class="card border-0 shadow-sm mb-4" id="live-contest">
@@ -59,30 +96,45 @@
   <%- include('partials/poll-script') %>
 <% } %>
 
+
+<% if (locals.ticker && ticker.length > 1) { %>
+  <div class="kz-ticker" role="region" aria-label="Latest headlines">
+    <b>Latest</b>
+    <div class="kz-track">
+      <div class="kz-roll">
+        <div><% ticker.forEach(t => { %><a href="/posts/<%= t.slug %>"><%= t.title %></a><% }) %></div>
+        <div aria-hidden="true"><% ticker.forEach(t => { %><a href="/posts/<%= t.slug %>" tabindex="-1"><%= t.title %></a><% }) %></div>
+      </div>
+    </div>
+  </div>
+<% } %>
+
 <% if (!top) { %>
   <div class="text-center py-5">
-    <h4 class="text-body-secondary">Abhi koi post nahi hai</h4>
+    <h4 class="text-body-secondary">No posts yet</h4>
     <% if (isAdmin) { %><a href="/posts/new" class="btn btn-primary mt-2">Write a post</a><% } %>
   </div>
 <% } else { %>
 
   <div class="kz-front">
     <div>
-      <article class="kz-lead">
-        <a href="/posts/<%= top.slug %>" aria-label="<%= top.title %>"><%- include('partials/home-art', { p: top }) %></a>
-        <div class="kz-tag"><a href="/blog?category=<%= encodeURIComponent(top.category) %>"><%= top.category %></a></div>
-        <a href="/posts/<%= top.slug %>"><h1><%= top.title %></h1></a>
-        <% if (top.preview) { %><p><%= top.preview %></p><% } %>
-        <div class="kz-by"><%= top.username %>, <%= top.ago %>, <%= top.reading_time %> min parhai</div>
+      <article class="kz-hero">
+        <%- include('partials/home-art', { p: top, eager: true }) %>
+        <div class="kz-hero-in">
+          <a class="kz-chip" href="/blog?category=<%= encodeURIComponent(top.category) %>"><%= top.category %></a>
+          <h1><a class="stretched-link" href="/posts/<%= top.slug %>"><%= top.title %></a></h1>
+          <% if (top.preview) { %><p><%= top.preview %></p><% } %>
+          <div class="kz-by"><%= top.username %>, <%= top.ago %>, <%= top.reading_time %> min read</div>
+        </div>
       </article>
 
       <% if (pair.length) { %>
         <div class="kz-pair">
           <% pair.forEach(p => { %>
             <article>
-              <a href="/posts/<%= p.slug %>" aria-label="<%= p.title %>"><%- include('partials/home-art', { p }) %></a>
-              <div class="kz-tag"><a href="/blog?category=<%= encodeURIComponent(p.category) %>"><%= p.category %></a></div>
-              <a href="/posts/<%= p.slug %>"><h2><%= p.title %></h2></a>
+              <a href="/posts/<%= p.slug %>" tabindex="-1" aria-hidden="true"><%- include('partials/home-art', { p }) %></a>
+              <a class="kz-cat" href="/blog?category=<%= encodeURIComponent(p.category) %>"><%= p.category %></a>
+              <h2><a class="stretched-link" href="/posts/<%= p.slug %>"><%= p.title %></a></h2>
               <% if (p.preview) { %><p><%= p.preview.length > 110 ? p.preview.slice(0, 110).trim() + '...' : p.preview %></p><% } %>
               <div class="kz-by"><%= p.ago %></div>
             </article>
@@ -92,14 +144,14 @@
     </div>
 
     <% if (mostRead.length) { %>
-      <aside class="kz-rail" aria-label="Sab se zyada parhi gayi">
-        <h3>Sab se zyada parhi gayi</h3>
+      <aside class="kz-rail" aria-label="Most read">
+        <h3>Most read</h3>
         <ol>
           <% mostRead.forEach(p => { %>
             <li>
               <div>
                 <a href="/posts/<%= p.slug %>"><h4><%= p.title %></h4></a>
-                <small><%= p.views %> bar parhi gayi</small>
+                <small><%= p.views %> view<%= p.views === 1 ? '' : 's' %></small>
               </div>
             </li>
           <% }) %>
@@ -113,7 +165,7 @@
       <% sections.forEach(s => { %>
         <section class="kz-sec">
           <h3><a href="/blog?category=<%= encodeURIComponent(s.name) %>"><%= s.name %></a></h3>
-          <a href="/posts/<%= s.lead.slug %>"><%- include('partials/home-art', { p: s.lead }) %><h4><%= s.lead.title %></h4></a>
+          <a class="lead d-block" href="/posts/<%= s.lead.slug %>"><%- include('partials/home-art', { p: s.lead }) %><h4><%= s.lead.title %></h4><div class="kz-by"><%= s.lead.ago %></div></a>
           <% if (s.rest.length) { %>
             <ul>
               <% s.rest.forEach(p => { %>
@@ -126,7 +178,9 @@
     </div>
   <% } %>
 
-  <p class="kz-more"><a href="/blog" class="btn btn-outline-secondary">Sab posts dekhein</a></p>
+  <p class="kz-more"><a href="/blog">View all posts</a></p>
 <% } %>
+
+</div>
 
 <%- include('partials/footer') %>

@@ -17,12 +17,13 @@ const previewOf = (p) => {
   return t.length > 150 ? t.slice(0, 150).trim() + '...' : t;
 };
 
-function agoUr(d) {
+function ago(d) {
   const s = Math.max(0, Math.floor((Date.now() - new Date(d).getTime()) / 1000));
-  if (s < 60) return 'abhi abhi';
-  if (s < 3600) return Math.floor(s / 60) + ' minute pehle';
-  if (s < 86400) return Math.floor(s / 3600) + ' ghantay pehle';
-  if (s < 86400 * 30) return Math.floor(s / 86400) + ' din pehle';
+  const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'} ago`;
+  if (s < 60) return 'just now';
+  if (s < 3600) return plural(Math.floor(s / 60), 'minute');
+  if (s < 86400) return plural(Math.floor(s / 3600), 'hour');
+  if (s < 86400 * 30) return plural(Math.floor(s / 86400), 'day');
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: config.timezone || 'Asia/Karachi' });
 }
 
@@ -31,7 +32,7 @@ const COLS = `p.id, p.slug, p.title, p.excerpt, LEFT(p.content, 700) AS content,
   p.publish_at AS created_at, u.username,
   GREATEST(CEIL(array_length(regexp_split_to_array(trim(p.content), '\\s+'), 1) / 200.0), 1)::int AS reading_time`;
 
-const shape = (p) => ({ ...p, preview: previewOf(p), ago: agoUr(p.created_at) });
+const shape = (p) => ({ ...p, preview: previewOf(p), ago: ago(p.created_at) });
 
 router.get('/', async (req, res, next) => {
   if (FEED_KEYS.some((k) => k in req.query)) return next();
@@ -93,6 +94,7 @@ router.get('/', async (req, res, next) => {
       title: 'Khabzo - Cricket, News aur Community',
       metaDescription: `${config.siteName}: cricket, news and web development posts plus a community feed. Read, share, like and comment.`,
       top, pair, mostRead, sections, liveContest,
+      ticker: rows.map((p) => ({ slug: p.slug, title: p.title })),
     });
   } catch (err) { next(err); }
 });

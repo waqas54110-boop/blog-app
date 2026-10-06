@@ -105,7 +105,7 @@
       --kz-accent: #0a6b4d;
     }
     [data-bs-theme="dark"] { --kz-accent: #3cc99a; }
-    .kz-mast { background: var(--kz-paper); border-bottom: 1px solid var(--kz-line); }
+    .kz-mast { background: var(--kz-paper); border-top: 4px solid var(--kz-accent); border-bottom: 1px solid var(--kz-line); }
     .kz-mast-in { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; padding-top: 18px; padding-bottom: 12px; }
     .kz-logo { font: 800 clamp(38px, 8vw, 60px)/.9 var(--kz-serif); letter-spacing: -.03em; color: var(--bs-body-color); text-decoration: none; }
     .kz-logo:hover { color: var(--bs-body-color); }
@@ -155,11 +155,11 @@
 
 <header class="kz-mast">
   <div class="container kz-mast-in">
-    <a class="kz-logo" href="/" aria-label="<%= locals.siteName || 'Khabzo' %> home"><%= locals.siteName || 'Khabzo' %><small><%= locals.todayLabel ? locals.todayLabel + ' | ' : '' %>Cricket, khabrein aur community</small></a>
+    <a class="kz-logo" href="/" aria-label="<%= locals.siteName || 'Khabzo' %> home"><%= locals.siteName || 'Khabzo' %><small><%= locals.todayLabel ? locals.todayLabel + ' | ' : '' %>Cricket, news and community</small></a>
     <div class="d-flex align-items-center gap-2 flex-wrap flex-grow-1 flex-sm-grow-0 justify-content-end">
       <button id="installBtn" class="btn btn-sm btn-primary kz-install d-none" type="button">📲 Install</button>
       <form class="kz-search" action="/blog" method="GET" role="search">
-        <input class="form-control form-control-sm" type="search" name="q" placeholder="Posts mein talash karein..." aria-label="Search posts">
+        <input class="form-control form-control-sm" type="search" name="q" placeholder="Search posts..." aria-label="Search posts">
         <button class="btn btn-sm btn-outline-secondary" type="submit">Search</button>
       </form>
     </div>

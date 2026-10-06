@@ -272,13 +272,11 @@ app.use(async (req, res, next) => {
   res.locals.unreadCount = 0;
   res.locals.navCategories = [];
   res.locals.currentPath = req.path;
-  // Masthead ki tareekh (Roman Urdu din ka naam), site ke timezone mein
+  // Masthead ki tareekh (English), site ke timezone mein, jaise "Tuesday, 6 October 2026"
   try {
-    const DAYS_UR = { Monday: 'Peer', Tuesday: 'Mangal', Wednesday: 'Budh', Thursday: 'Jumerat', Friday: 'Jumma', Saturday: 'Hafta', Sunday: 'Itwar' };
     const tz = config.timezone || 'Asia/Karachi';
     const now = new Date();
-    const wd = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: tz });
-    res.locals.todayLabel = `${DAYS_UR[wd] || wd}, ${now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: tz })}`;
+    res.locals.todayLabel = `${now.toLocaleDateString('en-US', { weekday: 'long', timeZone: tz })}, ${now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: tz })}`;
   } catch (e) { res.locals.todayLabel = ''; }
   try {
     const r = await pool.query(
