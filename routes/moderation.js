@@ -33,6 +33,14 @@ async function lookup(type, id, meId) {
     const m = r.rows[0];
     return m && m.receiver_id === meId ? { owner: m.owner, path: `/messages/${encodeURIComponent(m.username)}`, hash: `#m${id}` } : null;
   }
+  if (type === 'petition') {
+    const r = await pool.query('SELECT user_id AS owner FROM petitions WHERE id = $1', [id]);
+    return r.rows[0] ? { owner: r.rows[0].owner, path: `/petitions/${id}`, hash: '' } : null;
+  }
+  if (type === 'court_case') {
+    const r = await pool.query('SELECT created_by AS owner FROM court_cases WHERE id = $1', [id]);
+    return r.rows[0] ? { owner: r.rows[0].owner, path: `/court/${id}`, hash: '' } : null;
+  }
   if (type === 'feed_post') {
     const r = await pool.query('SELECT user_id AS owner FROM feed_posts WHERE id = $1', [id]);
     return r.rows[0] ? { owner: r.rows[0].owner, path: `/feed/${id}`, hash: '' } : null;
@@ -133,7 +141,7 @@ router.post('/admin/moderation/act', requireAdmin, async (req, res, next) => {
       }
       await pool.query(`DELETE FROM ${M.HIDEABLE[type]} WHERE id = $1`, [id]);
       await M.resolve(type, id, 'resolved', 'delete', me);
-      return done('Comment deleted ✅');
+      return done(type === 'petition' ? 'Petition deleted ✅' : type === 'court_case' ? 'Court case deleted ✅' : 'Comment deleted ✅');
     }
     if (action === 'keep') {
       if (type !== 'poll') await pool.query(`UPDATE ${M.HIDEABLE[type]} SET is_hidden = false WHERE id = $1`, [id]);

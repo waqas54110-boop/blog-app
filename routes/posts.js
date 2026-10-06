@@ -437,7 +437,11 @@ router.get('/sitemap.xml', async (req, res) => {
       voteRows = (await pool.query(`SELECT p.id, p.created_at AS lastmod FROM polls p ORDER BY p.created_at DESC LIMIT 1000`)).rows;
     } catch (e) { console.error('[sitemap votes]', e.message); }
 
-    const newest = result.rows.length ? new Date(result.rows[0].lastmod).toISOString() : null;
+    // People's Court + petitions (migration_v34 na chali ho to skip)
+  let courtRows = []; let petRows = [];
+  try { courtRows = (await pool.query(`SELECT c.id, COALESCE(c.jury_ends_at, c.created_at) AS lastmod FROM court_cases c WHERE NOT c.is_hidden ORDER BY c.created_at DESC LIMIT 1000`)).rows; } catch (e) { console.error('[sitemap court]', e.message); }
+  try { petRows = (await pool.query(`SELECT p.id, p.updated_at AS lastmod FROM petitions p WHERE NOT p.is_hidden AND p.status <> 'closed' ORDER BY p.updated_at DESC LIMIT 3000`)).rows; } catch (e) { console.error('[sitemap petitions]', e.message); }
+  const newest = result.rows.length ? new Date(result.rows[0].lastmod).toISOString() : null;
     const lm = (d) => (d ? `\n    <lastmod>${new Date(d).toISOString()}</lastmod>` : '');
     const url = (loc, d, extra = '') => `\n  <url>\n    <loc>${xmlEsc(baseUrl + loc)}</loc>${lm(d)}${extra}\n  </url>`;
     const img = (u) => (u ? `\n    <image:image><image:loc>${xmlEsc(absUrl(baseUrl, u))}</image:loc></image:image>` : '');
@@ -446,16 +450,19 @@ router.get('/sitemap.xml', async (req, res) => {
     const staticXml = [
       url('/', newest), url('/blog', newest), url('/community', newest), url('/groups', null), url('/votes', null),
       url('/predictions', null), url('/leaderboard', null), url('/about', null), url('/hire', null),
+    url('/court', null), url('/petitions', null),
     ].join('');
     const postsXml = result.rows.map((p) => url('/posts/' + p.slug, p.lastmod, img(p.cover_url))).join('');
     const catXml = catRows.map((c) => url(homeUrl({ category: c.name }), c.lastmod)).join('');
     const tagXml = tagRows.map((t) => url(homeUrl({ tag: t.name }), t.lastmod)).join('');
     const groupXml = groupRows.map((g) => url('/groups/' + g.slug, g.lastmod)).join('');
     const voteXml = voteRows.map((v) => url('/votes/' + v.id, v.lastmod)).join('');
-    const feedXml = feedRows.map((f) => url('/feed/' + f.id, f.lastmod, f.image_id ? `\n    <image:image><image:loc>${baseUrl}/img/${f.image_id}</image:loc></image:image>` : '')).join('');
+    const courtXml = courtRows.map((c) => url('/court/' + c.id, c.lastmod)).join('');
+  const petXml = petRows.map((p) => url('/petitions/' + p.id, p.lastmod)).join('');
+  const feedXml = feedRows.map((f) => url('/feed/' + f.id, f.lastmod, f.image_id ? `\n    <image:image><image:loc>${baseUrl}/img/${f.image_id}</image:loc></image:image>` : '')).join('');
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${staticXml}${postsXml}${catXml}${tagXml}${groupXml}${voteXml}${feedXml}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${staticXml}${postsXml}${catXml}${tagXml}${groupXml}${voteXml}${courtXml}${petXml}${feedXml}
 </urlset>`;
 
     res.set('Cache-Control', 'public, max-age=300');
@@ -474,7 +481,7 @@ router.get('/robots.txt', (req, res) => {
     '/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/resend-verification',
     '/messages', '/inbox', '/notifications', '/settings', '/dashboard', '/bookmarks', '/analytics', '/admin',
     '/friends', '/push', '/stories', '/upload-', '/auth', '/report', '/unsubscribe', '/r/',
-    '/groups/join/', '/groups/new', '/votes/new', '/posts/new', '/invite', '/offline', '/feed/views',
+    '/groups/join/', '/groups/new', '/votes/new', '/court/new', '/petitions/new', '/posts/new', '/invite', '/offline', '/feed/views',
     '/earnings', '/posts/*/edit', '/groups/*/manage', '/groups/*/chat', '/votes/*/go', '/votes/*/state.json',
   ];
   res.set('Cache-Control', 'public, max-age=3600');

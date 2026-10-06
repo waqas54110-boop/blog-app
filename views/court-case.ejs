@@ -1,0 +1,271 @@
+<%- include('partials/header') %>
+<style>
+  .court { --c-a: #0e7c86; --c-b: #b3261e; --c-brass: #9a7b2f; }
+  [data-bs-theme="dark"] .court { --c-a: #3cc9d4; --c-b: #ff8a80; --c-brass: #d9b45a; }
+  .cs-head h1 { font: 800 clamp(28px, 5vw, 44px)/1.1 var(--kz-serif); letter-spacing: -.02em; margin: 6px 0 12px; }
+  .cs-meta { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font: 500 14px var(--kz-sans); color: var(--kz-muted); }
+  .cs-pill { font: 700 12px var(--kz-sans); padding: 4px 10px; border-radius: 99px; background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+  .cs-pill.jury { background: color-mix(in srgb, var(--c-a) 18%, transparent); color: var(--c-a); }
+  .cs-pill.recruiting { background: color-mix(in srgb, var(--c-brass) 20%, transparent); color: var(--c-brass); }
+  .cs-time { font: 700 15px var(--kz-sans); font-variant-numeric: tabular-nums; color: var(--bs-body-color); }
+  .cs-sum { border-left: 4px solid var(--c-brass); padding: 4px 0 4px 16px; margin: 18px 0 26px; font: 400 17px/1.6 var(--kz-serif); white-space: pre-line; }
+  .cs-split { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 768px) { .cs-split { grid-template-columns: 1fr; } }
+  .cs-col { border: 1px solid var(--kz-line); border-radius: 16px; padding: 18px; display: flex; flex-direction: column; gap: 10px; position: relative; }
+  .cs-col.a { border-top: 6px solid var(--c-a); }
+  .cs-col.b { border-top: 6px solid var(--c-b); }
+  .cs-col.win { box-shadow: 0 0 0 3px var(--c-brass); }
+  .cs-side { font: 800 22px/1.2 var(--kz-serif); }
+  .cs-col.a .cs-side { color: var(--c-a); }
+  .cs-col.b .cs-side { color: var(--c-b); }
+  .cs-law { font: 600 14px var(--kz-sans); }
+  .cs-law span { color: var(--kz-muted); font-weight: 400; }
+  .cs-tag { font: italic 600 20px/1.35 var(--kz-serif); }
+  .cs-arg { font: 400 16px/1.65 var(--kz-serif); white-space: pre-line; overflow-wrap: anywhere; }
+  .cs-close { border-top: 1px dashed var(--kz-line); padding-top: 10px; font: 400 15px/1.55 var(--kz-serif); white-space: pre-line; }
+  .cs-close b { font: 700 12px var(--kz-sans); display: block; color: var(--kz-muted); margin-bottom: 2px; }
+  .cs-empty { text-align: center; color: var(--kz-muted); padding: 26px 8px; font: 500 15px var(--kz-sans); }
+  .cs-panel { border: 1px solid var(--kz-line); border-radius: 16px; padding: 18px; margin-top: 22px; }
+  .cs-panel h2 { font: 800 24px var(--kz-serif); margin: 0 0 6px; }
+  .cs-vote { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  @media (max-width: 576px) { .cs-vote { grid-template-columns: 1fr; } }
+  .cs-vbtn { border: 2px solid; border-radius: 14px; background: transparent; padding: 14px 12px; font: 700 17px/1.25 var(--kz-sans); text-align: left; cursor: pointer; color: var(--bs-body-color); width: 100%; transition: background .15s; }
+  .cs-vbtn small { display: block; font: 500 12px var(--kz-sans); color: var(--kz-muted); margin-bottom: 2px; }
+  .cs-vbtn.a { border-color: var(--c-a); } .cs-vbtn.a:hover { background: color-mix(in srgb, var(--c-a) 14%, transparent); }
+  .cs-vbtn.b { border-color: var(--c-b); } .cs-vbtn.b:hover { background: color-mix(in srgb, var(--c-b) 14%, transparent); }
+  .cs-bar { margin-top: 14px; }
+  .cs-row { display: grid; grid-template-columns: minmax(90px, 200px) 1fr 56px; gap: 10px; align-items: center; margin-bottom: 8px; font: 600 15px var(--kz-sans); }
+  .cs-row .nm { overflow-wrap: anywhere; }
+  .cs-track { height: 22px; border-radius: 99px; background: var(--bs-secondary-bg); overflow: hidden; }
+  .cs-fill { height: 100%; border-radius: 99px; min-width: 6px; }
+  .cs-fill.a { background: var(--c-a); } .cs-fill.b { background: var(--c-b); }
+  .cs-pct { text-align: right; font-variant-numeric: tabular-nums; }
+  .cs-verdict { font: 800 clamp(24px, 4vw, 34px)/1.15 var(--kz-serif); margin: 4px 0 0; }
+  .cs-verdict .gold { color: var(--c-brass); }
+  .cs-note { font: 400 14px var(--kz-sans); color: var(--kz-muted); }
+  .cs-share .btn { font-weight: 600; }
+</style>
+
+<%
+  const c = st.c, L = st.lawyers, ph = st.phase;
+  const phaseText = { recruiting: 'Lawyers wanted', jury: 'Jury is voting', closed: 'Verdict reached', expired: 'Not argued' }[ph];
+  const openSides = ['a', 'b'].filter((s) => !L[s]);
+  const win = ph === 'closed' && (st.verdict === 'a' || st.verdict === 'b') ? st.verdict : null;
+  const iAmLawyer = !!mySide;
+  const canArgue = ph === 'recruiting' && openSides.length > 0 && !iAmLawyer;
+  const canVote = ph === 'jury' && !iAmLawyer && !st.myVote;
+  const countdownTo = ph === 'jury' ? c.jury_ends_at : ph === 'recruiting' ? c.recruit_until : null;
+%>
+<div class="court">
+  <div class="cs-head">
+    <a href="/court" class="small text-decoration-none">&larr; All cases</a>
+    <h1><%= c.title %></h1>
+    <div class="cs-meta">
+      <span class="cs-pill <%= ph %>"><%= phaseText %></span>
+      <% if (countdownTo) { %>
+        <span class="cs-time" id="csClock" data-until="<%= new Date(countdownTo).toISOString() %>" data-phase="<%= ph %>">&nbsp;</span>
+      <% } %>
+      <span><%= st.total %> juror<%= st.total === 1 ? '' : 's' %> so far</span>
+      <% if (c.is_hidden) { %><span class="cs-pill" style="background:#dc3545;color:#fff;">Hidden from public</span><% } %>
+    </div>
+  </div>
+
+  <% if (notice) { %><div class="alert alert-info py-2 mt-3" role="status"><%= notice %></div><% } %>
+  <% if (locals.reportedFlash) { %><div class="alert alert-success py-2 mt-3">Thanks, your report was sent to the site owner.</div><% } %>
+
+  <div class="cs-sum"><%= c.summary %></div>
+
+  <div class="cs-split" id="arguments">
+    <% ['a', 'b'].forEach(function (s) { const l = L[s]; %>
+      <section class="cs-col <%= s %><%= win === s ? ' win' : '' %>" aria-label="Side: <%= st.label[s] %>">
+        <div class="cs-side"><%= st.label[s] %></div>
+        <% if (l) { %>
+          <div class="cs-law">
+            Lawyer: <a href="/u/<%= encodeURIComponent(l.username) %>" class="text-decoration-none"><%= l.username %></a>
+            <% if (st.canSee && st.via[s] > 0) { %><span>&middot; brought <%= st.via[s] %> juror<%= st.via[s] === 1 ? '' : 's' %></span><% } %>
+          </div>
+          <div class="cs-tag">&ldquo;<%= l.tagline %>&rdquo;</div>
+          <div class="cs-arg"><%= l.opening %></div>
+          <% if (l.closing) { %><div class="cs-close"><b>Closing statement</b><%= l.closing %></div><% } %>
+        <% } else { %>
+          <div class="cs-empty">
+            <% if (ph === 'recruiting') { %>
+              No lawyer yet. Be the voice of this side.
+              <% if (canArgue) { %><div class="mt-2"><a href="#lawyer" class="btn btn-sm btn-outline-dark">Argue this side</a></div><% } %>
+            <% } else { %>This side never found a lawyer.<% } %>
+          </div>
+        <% } %>
+      </section>
+    <% }) %>
+  </div>
+
+  <div class="cs-panel" id="verdict">
+    <% if (ph === 'closed') { %>
+      <h2>The jury has spoken</h2>
+      <p class="cs-verdict">
+        <% if (st.verdict === 'none') { %>No one voted, so there is no verdict.
+        <% } else if (st.verdict === 'tie') { %>A hung jury: <span class="gold">dead even</span>.
+        <% } else { %>Verdict: <span class="gold"><%= st.label[st.verdict] %></span><% } %>
+      </p>
+    <% } else if (ph === 'jury') { %>
+      <h2>You are the jury</h2>
+      <% if (iAmLawyer) { %>
+        <p class="cs-note mb-0">You are a lawyer in this case, so you cannot vote. Rally your supporters below.</p>
+      <% } else if (st.myVote) { %>
+        <p class="cs-note mb-0">Your vote is in: <strong><%= st.label[st.myVote] %></strong>. It cannot be changed. Live results:</p>
+      <% } else { %>
+        <p class="cs-note mb-0">Read both arguments, then pick the side that convinced you. Results stay hidden until you vote, so the crowd cannot sway you.</p>
+      <% } %>
+    <% } else if (ph === 'recruiting') { %>
+      <h2>Waiting for lawyers</h2>
+      <p class="cs-note mb-0">The jury starts voting as soon as both sides have a lawyer. <%= openSides.length %> seat<%= openSides.length === 1 ? ' is' : 's are' %> open.</p>
+    <% } else { %>
+      <h2>No trial this time</h2>
+      <p class="cs-note mb-0">The sign-up time ran out before both sides found a lawyer.</p>
+    <% } %>
+
+    <% if (canVote) { %>
+      <form action="/court/<%= c.id %>/vote" method="POST" class="cs-vote">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button class="cs-vbtn a" name="side" value="a"><small>I side with</small><%= st.label.a %></button>
+        <button class="cs-vbtn b" name="side" value="b"><small>I side with</small><%= st.label.b %></button>
+      </form>
+      <% if (!user) { %><div class="cs-note mt-2">You will be asked to log in first, then your vote is counted.</div><% } %>
+    <% } %>
+
+    <% if (st.result) { %>
+      <div class="cs-bar" aria-label="Results">
+        <% ['a', 'b'].forEach(function (s) { %>
+          <div class="cs-row">
+            <div class="nm"><%= st.label[s] %><% if (st.myVote === s) { %> <span class="cs-pill">your vote</span><% } %></div>
+            <div class="cs-track"><div class="cs-fill <%= s %>" style="width: <%= st.result['p' + s] %>%"></div></div>
+            <div class="cs-pct"><%= st.result['p' + s] %>%</div>
+          </div>
+        <% }) %>
+        <div class="cs-note"><%= st.result.a + st.result.b %> vote<%= (st.result.a + st.result.b) === 1 ? '' : 's' %> in total</div>
+      </div>
+    <% } %>
+  </div>
+
+  <% if (canArgue) { %>
+    <div class="cs-panel" id="lawyer">
+      <h2>Be a lawyer</h2>
+      <% if (!user) { %>
+        <p class="cs-note">Log in to take a side and argue this case.</p>
+        <a href="/login" class="btn btn-dark">Log in to argue</a>
+      <% } else { %>
+        <p class="cs-note">Pick a side and make your case. Once you submit, your argument is locked, so write it carefully. Argue the issue, do not attack people.</p>
+        <form action="/court/<%= c.id %>/argue" method="POST" id="argueForm">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="mb-3">
+            <div class="fw-semibold mb-1">Your side</div>
+            <% openSides.forEach(function (s, i) { %>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="side" id="side-<%= s %>" value="<%= s %>" <%= openSides.length === 1 ? 'checked' : '' %> required>
+                <label class="form-check-label" for="side-<%= s %>"><%= st.label[s] %></label>
+              </div>
+            <% }) %>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="tagline">One-line punchline</label>
+            <input class="form-control" id="tagline" name="tagline" maxlength="140" minlength="10" required placeholder="The sentence you want the jury to remember">
+            <div class="form-text">Shown on the share card. 10 to 140 characters.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="opening">Your opening argument</label>
+            <textarea class="form-control" id="opening" name="opening" rows="9" maxlength="1500" minlength="120" required placeholder="Give your best reasons, facts and examples."></textarea>
+            <div class="form-text"><span id="openCount">0</span> / 1500 characters (minimum 120)</div>
+          </div>
+          <button class="btn btn-dark" id="argueBtn">Submit my argument</button>
+        </form>
+      <% } %>
+    </div>
+  <% } %>
+
+  <% if (iAmLawyer && ph === 'jury' && !L[mySide].closing) { %>
+    <div class="cs-panel" id="lawyer">
+      <h2>Closing statement</h2>
+      <p class="cs-note">You get one closing statement while the jury is voting. Use it to answer the other side.</p>
+      <form action="/court/<%= c.id %>/closing" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <textarea class="form-control mb-2" name="closing" rows="4" maxlength="500" minlength="20" required placeholder="Your final words to the jury"></textarea>
+        <button class="btn btn-dark">Post closing statement</button>
+      </form>
+    </div>
+  <% } %>
+
+  <% if (ph === 'jury' || ph === 'recruiting' || ph === 'closed') { %>
+    <div class="cs-panel cs-share">
+      <h2><%= iAmLawyer && ph !== 'closed' ? 'Rally your supporters' : ph === 'closed' ? 'Share the verdict' : 'Bring more jurors' %></h2>
+      <p class="cs-note">
+        <% if (iAmLawyer && ph !== 'closed') { %>Your personal link counts every juror you bring. Share it in your WhatsApp groups and on Facebook.
+        <% } else if (ph === 'recruiting') { %>Know someone who would argue well? Send them this case.
+        <% } else { %>Every vote counts. Send this case to people who have an opinion.<% } %>
+      </p>
+      <div class="d-flex flex-wrap gap-2" id="courtShare">
+        <a class="btn btn-success" data-share="whatsapp" target="_blank" rel="noopener" href="https://wa.me/?text=<%= encodeURIComponent(waText) %>">WhatsApp</a>
+        <a class="btn btn-primary" data-share="facebook" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=<%= encodeURIComponent(shareUrls.facebook) %>">Facebook</a>
+        <a class="btn btn-dark" data-share="x" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=<%= encodeURIComponent(c.title + ' - you be the jury') %>&url=<%= encodeURIComponent(shareUrls.x) %>">X</a>
+        <button type="button" class="btn btn-outline-secondary" data-share="copy" data-url="<%= shareUrls.copy %>">Copy link</button>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-4">
+    <div class="cs-note">People's Court is a public opinion game. A verdict shows what readers think, not a legal ruling. Lawyers speak for themselves, not for <%= siteName %>.</div>
+    <% if (user && !isAdmin) { %>
+      <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#reportModal" data-report-type="court_case" data-report-id="<%= c.id %>">Report this case</button>
+    <% } %>
+  </div>
+
+  <% if (isAdmin) { %>
+    <div class="cs-panel">
+      <div class="fw-semibold mb-2">Admin</div>
+      <div class="d-flex flex-wrap gap-2">
+        <% if (ph === 'recruiting' || ph === 'expired') { %>
+          <form action="/court/<%= c.id %>/extend" method="POST" class="mb-0"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-primary">Give lawyers 24 more hours</button></form>
+        <% } %>
+        <% if (ph === 'jury') { %>
+          <form action="/court/<%= c.id %>/endjury" method="POST" class="mb-0" onsubmit="return confirm('End the jury vote now and announce the verdict?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-warning">End jury now</button></form>
+        <% } %>
+        <form action="/court/<%= c.id %>/hide" method="POST" class="mb-0"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-secondary"><%= c.is_hidden ? 'Show to public' : 'Hide from public' %></button></form>
+        <form action="/court/<%= c.id %>/delete" method="POST" class="mb-0" onsubmit="return confirm('Delete this case with all arguments and votes?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-danger">Delete case</button></form>
+      </div>
+      <div class="cs-note mt-2">Shares: <%= c.shares %></div>
+    </div>
+  <% } %>
+</div>
+
+<script>
+(function () {
+  var csrf = <%- JSON.stringify(csrfToken) %>; var cid = <%= c.id %>;
+  var clock = document.getElementById('csClock');
+  if (clock) {
+    var until = new Date(clock.getAttribute('data-until')).getTime(), phase = clock.getAttribute('data-phase'), done = false;
+    var fmt = function (ms) { var s = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+      return d > 0 ? d + 'd ' + h + 'h ' + m + 'm' : h > 0 ? h + 'h ' + m + 'm ' + (s % 60) + 's' : m + 'm ' + (s % 60) + 's'; };
+    var tick = function () {
+      var left = until - Date.now();
+      if (left <= 0) { clock.textContent = phase === 'jury' ? 'Counting the votes...' : 'Time is up'; if (!done) { done = true; setTimeout(function () { location.reload(); }, 4000); } return; }
+      clock.textContent = (phase === 'jury' ? 'Jury closes in ' : 'Lawyer sign-up closes in ') + fmt(left);
+    };
+    tick(); setInterval(tick, 1000);
+  }
+  var op = document.getElementById('opening'), cnt = document.getElementById('openCount');
+  if (op && cnt) { var upd = function () { cnt.textContent = op.value.length; }; op.addEventListener('input', upd); upd(); }
+  var af = document.getElementById('argueForm');
+  if (af) af.addEventListener('submit', function (e) {
+    if (!confirm('Submit your argument? It will be locked and cannot be edited.')) { e.preventDefault(); return; }
+    document.getElementById('argueBtn').disabled = true;
+  });
+  var box = document.getElementById('courtShare');
+  if (box) box.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-share]'); if (!t) return;
+    try { var fd = new URLSearchParams(); fd.set('_csrf', csrf); navigator.sendBeacon('/court/' + cid + '/share', fd); } catch (x) {}
+    if (t.dataset.share === 'copy') { var u = t.dataset.url;
+      (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(function () { t.textContent = 'Copied!'; }, function () { window.prompt('Copy this link:', u); }); }
+  });
+})();
+</script>
+<%- include('partials/report-modal') %>
+<%- include('partials/footer') %>

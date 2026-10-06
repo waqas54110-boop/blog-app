@@ -1,0 +1,65 @@
+<%- include('partials/header') %>
+<% const fmt = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); %>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Petition milestones</h2>
+  <a href="/petitions" class="btn btn-outline-secondary btn-sm">View public page</a>
+</div>
+<p class="text-body-secondary">Petitions that passed 100 signatures (and every bigger milestone) show up here. Download the card, copy the caption, post it on Facebook and X, then tick "Posted".</p>
+
+<% if (ready.length === 0) { %>
+  <div class="card border-0 shadow-sm mb-4"><div class="card-body text-center text-body-secondary py-5">Nothing to post right now.</div></div>
+<% } %>
+<% ready.forEach(p => { %>
+  <div class="card border-0 shadow-sm mb-3"><div class="card-body">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <span class="badge text-bg-warning fs-6"><%= p.milestone %> signatures</span>
+      <a class="fw-semibold text-decoration-none" href="/petitions/<%= p.id %>"><%= p.title %></a>
+      <span class="small text-body-secondary"><%= p.where %> &middot; by <%= p.username %> &middot; now <%= p.sign_count %></span>
+    </div>
+    <div class="row g-3">
+      <div class="col-12 col-md-5">
+        <% if (cardOk) { %><img src="/og/petition/<%= p.id %>.png" alt="Share card" class="img-fluid rounded border" loading="lazy"><% } else { %><div class="small text-body-secondary">Share cards need the sharp package.</div><% } %>
+      </div>
+      <div class="col-12 col-md-7">
+        <label class="form-label small fw-semibold" for="cap<%= p.id %>">Caption</label>
+        <textarea class="form-control" id="cap<%= p.id %>" rows="6" readonly><%= p.caption %></textarea>
+        <div class="d-flex flex-wrap gap-2 mt-2">
+          <button type="button" class="btn btn-sm btn-outline-primary" data-copy="cap<%= p.id %>">Copy caption</button>
+          <% if (cardOk) { %><a class="btn btn-sm btn-outline-primary" href="/og/petition/<%= p.id %>.png?dl=1">Download card</a><% } %>
+          <form action="/admin/petitions/<%= p.id %>/posted" method="POST" class="mb-0">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="btn btn-sm btn-success">Posted</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div></div>
+<% }) %>
+
+<h3 class="h5 mt-4">Latest petitions</h3>
+<div class="table-responsive">
+  <table class="table table-sm align-middle">
+    <thead><tr><th>Petition</th><th>City</th><th>By</th><th>Signatures</th><th>Shares</th><th>Status</th><th></th></tr></thead>
+    <tbody>
+      <% recent.forEach(p => { %>
+        <tr>
+          <td><a href="/petitions/<%= p.id %>" class="text-decoration-none"><%= p.title.length > 60 ? p.title.slice(0, 57) + '...' : p.title %></a> <span class="text-body-secondary small"><%= fmt(p.created_at) %></span></td>
+          <td><%= p.city %></td><td><%= p.username %></td><td><%= p.sign_count %></td><td><%= p.shares %></td>
+          <td><%= p.is_hidden ? 'hidden' : p.status %></td>
+          <td class="text-nowrap">
+            <form action="/petitions/<%= p.id %>/hide" method="POST" class="d-inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="admin"><button class="btn btn-sm btn-outline-secondary"><%= p.is_hidden ? 'Show' : 'Hide' %></button></form>
+            <form action="/petitions/<%= p.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Delete this petition?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="back" value="admin"><button class="btn btn-sm btn-outline-danger">Delete</button></form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<script>
+document.addEventListener('click', function (e) {
+  var b = e.target.closest('[data-copy]'); if (!b) return;
+  var ta = document.getElementById(b.getAttribute('data-copy')); ta.select();
+  (navigator.clipboard ? navigator.clipboard.writeText(ta.value) : Promise.reject()).then(function () { b.textContent = 'Copied!'; }, function () { document.execCommand('copy'); b.textContent = 'Copied!'; });
+});
+</script>
+<%- include('partials/footer') %>

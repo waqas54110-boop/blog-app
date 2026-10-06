@@ -1,0 +1,74 @@
+<%- include('partials/header') %>
+<%- include('partials/petition-assets') %>
+<%
+  const qs = (over) => {
+    const m = Object.assign({ city: f.city, cat: f.cat, sort: f.sort === 'trending' ? '' : f.sort, status: f.won ? 'won' : '', q: f.q, page: '' }, over);
+    const s = Object.keys(m).filter((k) => m[k]).map((k) => encodeURIComponent(k) + '=' + encodeURIComponent(m[k])).join('&');
+    return '/petitions' + (s ? '?' + s : '');
+  };
+  const filtered = !!(f.city || f.cat || f.q || f.won);
+%>
+<div class="pt">
+  <div class="pt-hero">
+    <h1>Raise Your Voice</h1>
+    <p>Broken road, no water, no gas, a school without teachers? Start a petition for your street or city, collect signatures and make it impossible to ignore.</p>
+    <a class="pt-btn" href="/petitions/new">Start a petition</a>
+    <div class="pt-stats">
+      <div><b><%= stats.petitions %></b>petitions</div>
+      <div><b><%= stats.signatures %></b>signatures</div>
+      <div><b><%= stats.won %></b>victories</div>
+    </div>
+  </div>
+
+  <% if (locals.msg) { %><div class="alert alert-info py-2 mt-3"><%= msg %></div><% } %>
+
+  <form class="d-flex gap-2 mt-3" action="/petitions" method="GET" role="search">
+    <% if (f.city) { %><input type="hidden" name="city" value="<%= f.city %>"><% } %>
+    <% if (f.cat) { %><input type="hidden" name="cat" value="<%= f.cat %>"><% } %>
+    <% if (f.won) { %><input type="hidden" name="status" value="won"><% } %>
+    <input class="form-control" type="search" name="q" value="<%= f.q %>" maxlength="60" placeholder="Search by problem, area or city" aria-label="Search petitions">
+    <button class="btn btn-dark">Search</button>
+  </form>
+
+  <div class="pt-filters">
+    <div class="pt-scroll">
+      <a class="pt-chip <%= !f.won ? 'on' : '' %>" href="<%= qs({ status: '' }) %>">Active</a>
+      <a class="pt-chip <%= f.won ? 'on' : '' %>" href="<%= qs({ status: 'won' }) %>">Victories</a>
+      <span class="pt-chip" style="border:0;padding-left:4px;padding-right:0;">Sort:</span>
+      <a class="pt-chip <%= f.sort === 'trending' ? 'on' : '' %>" href="<%= qs({ sort: '' }) %>">Trending</a>
+      <a class="pt-chip <%= f.sort === 'new' ? 'on' : '' %>" href="<%= qs({ sort: 'new' }) %>">Newest</a>
+      <a class="pt-chip <%= f.sort === 'top' ? 'on' : '' %>" href="<%= qs({ sort: 'top' }) %>">Most signed</a>
+    </div>
+  </div>
+  <div class="pt-scroll mb-1" aria-label="Cities">
+    <a class="pt-chip <%= !f.city ? 'on' : '' %>" href="<%= qs({ city: '' }) %>">All cities</a>
+    <% cities.forEach(c => { %><a class="pt-chip <%= f.city && f.city.toLowerCase() === c.city.toLowerCase() ? 'on' : '' %>" href="<%= qs({ city: c.city }) %>"><%= c.city %> <small><%= c.n %></small></a><% }) %>
+  </div>
+  <div class="pt-scroll" aria-label="Categories">
+    <a class="pt-chip <%= !f.cat ? 'on' : '' %>" href="<%= qs({ cat: '' }) %>">All topics</a>
+    <% categories.forEach(c => { %><a class="pt-chip <%= f.cat === c ? 'on' : '' %>" href="<%= qs({ cat: c }) %>"><%= c %></a><% }) %>
+  </div>
+
+  <% if (filtered) { %>
+    <div class="small text-body-secondary mt-3"><%= total %> petition<%= total === 1 ? '' : 's' %> found <a href="/petitions" class="ms-1">Clear filters</a></div>
+  <% } %>
+
+  <% if (petitions.length === 0) { %>
+    <div class="card border-0 shadow-sm mt-4"><div class="card-body text-center py-5">
+      <div class="fs-5 fw-semibold mb-1"><%= f.won ? 'No victories yet.' : 'No petitions here yet.' %></div>
+      <div class="text-body-secondary mb-3">Be the first to speak up about a problem in <%= f.city || 'your area' %>.</div>
+      <a class="btn btn-success" href="/petitions/new">Start a petition</a>
+    </div></div>
+  <% } else { %>
+    <div class="pt-grid"><% petitions.forEach(p => { %><%- include('partials/petition-card', { p, goalOf }) %><% }) %></div>
+  <% } %>
+
+  <% if (pages > 1) { %>
+    <nav class="d-flex justify-content-center gap-2 mt-4" aria-label="Pages">
+      <% if (page > 1) { %><a class="pt-chip" href="<%= qs({ page: page - 1 }) %>">&larr; Previous</a><% } %>
+      <span class="pt-chip on">Page <%= page %> of <%= pages %></span>
+      <% if (page < pages) { %><a class="pt-chip" href="<%= qs({ page: page + 1 }) %>">Next &rarr;</a><% } %>
+    </nav>
+  <% } %>
+</div>
+<%- include('partials/footer') %>

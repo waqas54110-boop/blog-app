@@ -1,0 +1,100 @@
+<%- include('partials/header') %>
+<style>
+  .court { --c-a: #0e7c86; --c-b: #b3261e; --c-brass: #9a7b2f; }
+  [data-bs-theme="dark"] .court { --c-a: #3cc9d4; --c-b: #ff8a80; --c-brass: #d9b45a; }
+  .ct-hero { border: 1px solid var(--kz-line); border-radius: 18px; padding: clamp(20px, 4vw, 38px); margin-bottom: 26px;
+    background: linear-gradient(115deg, color-mix(in srgb, var(--c-a) 13%, transparent) 0%, transparent 46%, color-mix(in srgb, var(--c-b) 13%, transparent) 100%), var(--bs-body-bg); }
+  .ct-hero h1 { font: 800 clamp(34px, 6vw, 56px)/1 var(--kz-serif); letter-spacing: -.02em; margin: 0 0 10px; }
+  .ct-hero p { font: 400 17px/1.5 var(--kz-sans); color: var(--kz-muted); max-width: 620px; margin: 0; }
+  .ct-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 22px; }
+  .ct-step { border-top: 3px solid var(--c-brass); padding-top: 8px; font: 500 14px/1.4 var(--kz-sans); }
+  .ct-step b { display: block; font: 700 15px var(--kz-sans); margin-bottom: 2px; }
+  @media (max-width: 640px) { .ct-steps { grid-template-columns: 1fr; } }
+  .ct-h { font: 700 22px var(--kz-serif); margin: 28px 0 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ct-h small { font: 500 14px var(--kz-sans); color: var(--kz-muted); }
+  .ct-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+  .cc-card { display: block; text-decoration: none; color: inherit; border: 1px solid var(--kz-line); border-radius: 14px; padding: 16px; background: var(--bs-body-bg); transition: border-color .15s, transform .15s; }
+  .cc-card:hover { border-color: var(--c-brass); transform: translateY(-2px); color: inherit; }
+  .cc-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .cc-badge { font: 700 12px var(--kz-sans); padding: 3px 9px; border-radius: 99px; background: var(--bs-secondary-bg); }
+  .cc-b-jury { background: color-mix(in srgb, var(--c-a) 18%, transparent); color: var(--c-a); }
+  .cc-b-recruiting { background: color-mix(in srgb, var(--c-brass) 20%, transparent); color: var(--c-brass); }
+  .cc-time { font: 700 13px var(--kz-sans); font-variant-numeric: tabular-nums; }
+  .cc-time-soft { font-weight: 500; color: var(--kz-muted); }
+  .cc-title { font: 700 19px/1.25 var(--kz-serif); margin: 0 0 12px; }
+  .cc-sides { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: stretch; }
+  .cc-side { border-radius: 10px; padding: 8px 10px; min-width: 0; }
+  .cc-a { background: color-mix(in srgb, var(--c-a) 12%, transparent); border-left: 4px solid var(--c-a); }
+  .cc-b { background: color-mix(in srgb, var(--c-b) 11%, transparent); border-left: 4px solid var(--c-b); }
+  .cc-win { outline: 2px solid var(--c-brass); }
+  .cc-lbl { font: 700 14px/1.25 var(--kz-sans); overflow-wrap: anywhere; }
+  .cc-law { font: 400 12px var(--kz-sans); color: var(--kz-muted); margin-top: 2px; }
+  .cc-vs { align-self: center; font: italic 700 14px var(--kz-serif); color: var(--c-brass); }
+  .cc-foot { margin-top: 10px; font: 500 13px var(--kz-sans); color: var(--kz-muted); }
+  .ct-side-box { border: 1px solid var(--kz-line); border-radius: 14px; padding: 14px 16px; }
+  .ct-side-box li { padding: 4px 0; font: 500 14px var(--kz-sans); }
+</style>
+
+<div class="court">
+  <div class="ct-hero">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <h1>People's Court</h1>
+      <% if (isAdmin) { %><a href="/court/new" class="btn btn-dark btn-sm">New case</a><% } %>
+    </div>
+    <p>Two readers argue a live issue. You are the jury. Hear both sides, vote, and see the verdict when time runs out.</p>
+    <div class="ct-steps">
+      <div class="ct-step"><b>1. A case is filed</b>A trending question with two sides.</div>
+      <div class="ct-step"><b>2. Two lawyers argue</b>Any reader can take a side and make their case.</div>
+      <div class="ct-step"><b>3. The jury decides</b>Everyone votes. The verdict lands when the clock hits zero.</div>
+    </div>
+  </div>
+
+  <% if (locals.msg) { %><div class="alert alert-info py-2"><%= msg %></div><% } %>
+
+  <div class="row g-4">
+    <div class="col-12 col-lg-9">
+      <% if (jury.length) { %>
+        <h2 class="ct-h">Jury is voting <small>Your vote counts until the clock ends</small></h2>
+        <div class="ct-grid"><% jury.forEach(c => { %><%- include('partials/court-card', { c }) %><% }) %></div>
+      <% } %>
+      <% if (recruiting.length) { %>
+        <h2 class="ct-h">Lawyers wanted <small>Take a side and argue it</small></h2>
+        <div class="ct-grid"><% recruiting.forEach(c => { %><%- include('partials/court-card', { c }) %><% }) %></div>
+      <% } %>
+      <% if (decided.length) { %>
+        <h2 class="ct-h">Decided</h2>
+        <div class="ct-grid"><% decided.forEach(c => { %><%- include('partials/court-card', { c }) %><% }) %></div>
+      <% } %>
+      <% if (!jury.length && !recruiting.length && !decided.length) { %>
+        <div class="ct-side-box text-center text-body-secondary py-5 mt-4">No cases yet. The first one will be filed soon.</div>
+      <% } %>
+    </div>
+    <div class="col-12 col-lg-3">
+      <div class="ct-side-box mt-lg-4">
+        <div class="fw-bold mb-2" style="font-family:var(--kz-serif);font-size:18px;">Top lawyers</div>
+        <% if (top.length) { %>
+          <ol class="ps-3 mb-0">
+            <% top.forEach(t => { %>
+              <li><a href="/u/<%= encodeURIComponent(t.username) %>" class="text-decoration-none"><%= t.username %></a> <span class="text-body-secondary">- <%= t.wins %> win<%= t.wins === 1 ? '' : 's' %> of <%= t.cases %></span></li>
+            <% }) %>
+          </ol>
+        <% } else { %>
+          <div class="small text-body-secondary">No verdicts yet. Win a case to get on this list.</div>
+        <% } %>
+      </div>
+      <div class="small text-body-secondary mt-3">People's Court is a public opinion game. A verdict shows what readers think, not a legal ruling.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var els = document.querySelectorAll('[data-until]');
+  function fmt(ms) { var s = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+    return d > 0 ? d + 'd ' + h + 'h' : h > 0 ? h + 'h ' + m + 'm' : m + 'm ' + (s % 60) + 's'; }
+  function tick() { els.forEach(function (el) { var left = new Date(el.getAttribute('data-until')).getTime() - Date.now();
+    el.textContent = left <= 0 ? 'ended' : (el.getAttribute('data-prefix') || '') + fmt(left) + (el.getAttribute('data-prefix') ? '' : ' left'); }); }
+  if (els.length) { tick(); setInterval(tick, 1000); }
+})();
+</script>
+<%- include('partials/footer') %>

@@ -1,7 +1,7 @@
 <%- include('partials/header') %>
 
 <% const fmt = (d) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); %>
-<% const label = { comment: 'Post comment', poll_comment: 'Contest comment', poll: 'Contest', user: 'User', message: 'Private message', feed_post: 'Feed post', feed_comment: 'Feed comment' }; %>
+<% const label = { comment: 'Post comment', poll_comment: 'Contest comment', poll: 'Contest', user: 'User', message: 'Private message', feed_post: 'Feed post', feed_comment: 'Feed comment', petition: 'Petition', court_case: 'Court case' }; %>
 <% const reasonLabel = { spam: 'Spam', abuse: 'Abuse', hate: 'Hate', misleading: 'Misleading', other: 'Other' }; %>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -75,7 +75,7 @@
             <button class="btn btn-sm btn-primary">✔ Mark handled</button>
           </form>
         <% } else if (g.target_type !== 'poll') { %>
-          <form action="/admin/moderation/act" method="POST" class="mb-0" onsubmit="return confirm('Delete this <%= g.target_type === 'message' ? 'message' : g.target_type === 'feed_post' ? 'post (with its photo and comments)' : 'comment (and its replies)' %>?')">
+          <form action="/admin/moderation/act" method="POST" class="mb-0" onsubmit="return confirm('Delete this <%= g.target_type === 'message' ? 'message' : g.target_type === 'feed_post' ? 'post (with its photo and comments)' : g.target_type === 'petition' ? 'petition (with all its signatures)' : g.target_type === 'court_case' ? 'court case (with arguments and votes)' : 'comment (and its replies)' %>?')">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <input type="hidden" name="type" value="<%= g.target_type %>"><input type="hidden" name="id" value="<%= g.target_id %>">
             <input type="hidden" name="action" value="delete">

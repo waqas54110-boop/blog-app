@@ -19,6 +19,8 @@ const uploadsRouter = require('./routes/uploads');
 const growthRouter = require('./routes/growth');
 const hireRouter = require('./routes/hire');
 const votesRouter = require('./routes/votes');
+const courtRouter = require('./routes/court');
+const petitionsRouter = require('./routes/petitions');
 const sponsorRouter = require('./routes/sponsor');
 const profileRouter = require('./routes/profile');
 const friendsRouter = require('./routes/friends');
@@ -40,6 +42,7 @@ const { startCleaner: startStoryCleaner } = require('./lib/stories');
 const { startFollowNotifier } = require('./lib/follow');
 const { startTelegramPoster } = require('./lib/telegram');
 const { startPollScheduler } = require('./lib/polls');
+const { startCourtScheduler } = require('./lib/court');
 
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
@@ -148,6 +151,15 @@ app.post('/votes/:id/share', limiter(10, 60, 'Too many requests.'));
 app.get('/votes/:id/go', limiter(1, 30, 'Too many requests.'));
 app.post('/votes/:id/comments', limiter(5, 10, 'You are commenting too fast. Please wait a few minutes.'));
 app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
+// V34: People's Court + petitions
+app.post('/court/:id/argue', limiter(60, 10, 'Too many attempts. Please try again later.', { skipFailedRequests: true }));
+app.post('/court/:id/vote', limiter(10, 60, 'Too many votes. Please wait a few minutes.'));
+app.post('/court/:id/closing', limiter(30, 10, 'Too many requests. Please wait a while.'));
+app.post('/court/:id/share', limiter(10, 60, 'Too many requests.'));
+app.post('/petitions', limiter(60, 8, 'You are starting petitions too fast. Please try again later.', { skipFailedRequests: true }));
+app.post(['/petitions/:id/sign', '/petitions/:id/unsign'], limiter(10, 60, 'Too many requests. Please wait a few minutes.'));
+app.post(['/petitions/:id/update', '/petitions/:id/resolve', '/petitions/:id/close'], limiter(30, 20, 'Too many requests. Please wait a while.'));
+app.post('/petitions/:id/share', limiter(10, 60, 'Too many requests.'));
 app.post('/report', limiter(10, 10, 'You are reporting too fast. Please wait a few minutes.'));
 app.post(['/u/:username/follow', '/u/:username/unfollow', '/u/:username/follow-email'], limiter(10, 30, 'Too many requests. Please wait a few minutes.'));
 app.post('/friends/:action/:username', limiter(10, 40, 'Too many requests. Please wait a few minutes.'));
@@ -357,6 +369,8 @@ app.use('/', growthRouter);
 app.use('/', hireRouter);
 app.use('/', sponsorRouter);
 app.use('/', votesRouter);
+app.use('/', courtRouter);
+app.use('/', petitionsRouter);
 app.use('/', profileRouter);
 app.use('/', friendsRouter);
 app.use('/', messagesRouter);
@@ -397,6 +411,7 @@ app.listen(PORT, (err) => {
   startNewsletterScheduler();
   startPublisher();
   startPollScheduler(); // knockout rounds jin ka time ho gaya unhein agle round par le jata hai
+  startCourtScheduler(); // People's Court: jury ka waqt khatam hone par faisla + notifications (+ Telegram)
   startTelegramPoster(); // naya contest / result Telegram channel mein (token set ho to)
   startStoryCleaner(); // 24 ghante purani stories (aur un ki photos) hata deta hai
   startFollowNotifier(); // followers ko naya post / contest ki notification (+ email)

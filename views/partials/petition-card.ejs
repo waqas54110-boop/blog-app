@@ -1,0 +1,20 @@
+<%# Ek petition ka card (list page). p = petition row; goalOf parent view se aata hai %>
+<%
+  const goal = goalOf(p.sign_count);
+  const pct = Math.max(3, Math.min(100, Math.round((p.sign_count * 100) / goal)));
+  const hue = (p.city.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0) * 37) % 360;
+%>
+<a class="pc-card" href="/petitions/<%= p.id %>">
+  <div class="pc-media" style="<%= p.image_id ? '' : 'background: linear-gradient(135deg, hsl(' + hue + ' 45% 30%), hsl(' + ((hue + 40) % 360) + ' 50% 22%));' %>">
+    <% if (p.image_id) { %><img src="/img/<%= p.image_id %>" alt="" loading="lazy"><% } else { %><span class="pc-city-big"><%= p.city %></span><% } %>
+    <span class="pc-cat"><%= p.category %></span>
+    <% if (p.status === 'resolved') { %><span class="pc-won">Victory</span>
+    <% } else if (p.recent > 0) { %><span class="pc-hot">+<%= p.recent %> in 48h</span><% } %>
+  </div>
+  <div class="pc-body">
+    <h3 class="pc-title"><%= p.title %></h3>
+    <div class="pc-where"><%= [p.area, p.city].filter(Boolean).join(', ') %></div>
+    <div class="pc-meter" role="img" aria-label="<%= p.sign_count %> of <%= goal %> signatures"><span style="width: <%= pct %>%"></span></div>
+    <div class="pc-nums"><b><%= p.sign_count %></b> signature<%= p.sign_count === 1 ? '' : 's' %><% if (p.status === 'active') { %> <span>goal <%= goal %></span><% } %></div>
+  </div>
+</a>

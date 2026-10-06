@@ -1,0 +1,31 @@
+<%# Ek case ka card (list page par). c = case row + lawyers {a,b} + phase + total %>
+<%
+  const phaseLabel = { jury: 'Jury is voting', recruiting: 'Lawyers wanted', closed: 'Verdict in', expired: 'No lawyers came forward' }[c.phase];
+  const open = ['a', 'b'].filter((s) => !c.lawyers[s]).length;
+  const winSide = c.phase === 'closed' && (c.verdict === 'a' || c.verdict === 'b') ? c.verdict : null;
+%>
+<a class="cc-card cc-<%= c.phase %>" href="/court/<%= c.id %>">
+  <div class="cc-top">
+    <span class="cc-badge cc-b-<%= c.phase %>"><%= phaseLabel %></span>
+    <% if (c.phase === 'jury') { %><span class="cc-time" data-until="<%= new Date(c.jury_ends_at).toISOString() %>">&nbsp;</span>
+    <% } else if (c.phase === 'recruiting') { %><span class="cc-time cc-time-soft" data-until="<%= new Date(c.recruit_until).toISOString() %>" data-prefix="closes in ">&nbsp;</span><% } %>
+  </div>
+  <h3 class="cc-title"><%= c.title %></h3>
+  <div class="cc-sides">
+    <div class="cc-side cc-a<%= winSide === 'a' ? ' cc-win' : '' %>">
+      <div class="cc-lbl"><%= c.side_a %></div>
+      <div class="cc-law"><%= c.lawyers.a ? c.lawyers.a.username : 'Seat open' %></div>
+    </div>
+    <div class="cc-vs">vs</div>
+    <div class="cc-side cc-b<%= winSide === 'b' ? ' cc-win' : '' %>">
+      <div class="cc-lbl"><%= c.side_b %></div>
+      <div class="cc-law"><%= c.lawyers.b ? c.lawyers.b.username : 'Seat open' %></div>
+    </div>
+  </div>
+  <div class="cc-foot">
+    <% if (c.phase === 'recruiting') { %><%= open %> seat<%= open === 1 ? '' : 's' %> open
+    <% } else if (c.phase === 'closed') { %><% if (!c.verdict) { %>Counting the votes<% } else { %><%= c.verdict === 'tie' ? 'Hung jury' : c.verdict === 'none' ? 'No verdict' : 'Verdict: ' + (c.verdict === 'a' ? c.side_a : c.side_b) %> &middot; <%= (c.votes_a || 0) + (c.votes_b || 0) %> jurors<% } %>
+    <% } else if (c.phase === 'jury') { %><%= c.total %> juror<%= c.total === 1 ? '' : 's' %> so far
+    <% } else { %>This case was not argued<% } %>
+  </div>
+</a>

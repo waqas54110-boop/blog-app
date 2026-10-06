@@ -1,0 +1,167 @@
+<%- include('partials/header') %>
+<%- include('partials/petition-assets') %>
+<style>
+  .pd-wrap { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 28px; align-items: start; margin-top: 18px; }
+  @media (max-width: 991px) { .pd-wrap { grid-template-columns: 1fr; } .pd-aside { order: -1; position: static !important; } }
+  .pd-aside { position: sticky; top: 76px; display: flex; flex-direction: column; gap: 14px; }
+  .pd-box { border: 1px solid var(--kz-line); border-radius: 16px; padding: 18px; background: var(--bs-body-bg); }
+  .pd-count { font: 800 54px/1 var(--kz-serif); }
+  .pd-count small { font: 600 16px var(--kz-sans); color: var(--kz-muted); margin-left: 6px; }
+  .pd-meter { height: 12px; border-radius: 99px; background: var(--bs-secondary-bg); overflow: hidden; margin: 12px 0 6px; }
+  .pd-meter span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, var(--pt-green), #1fbf8a); }
+  .pd-goal { font: 500 14px var(--kz-sans); color: var(--kz-muted); }
+  .pd-sign { width: 100%; background: var(--pt-green); color: #fff; font: 800 18px var(--kz-sans); border: 0; border-radius: 12px; padding: 14px; margin-top: 14px; }
+  .pd-sign:hover { filter: brightness(1.1); }
+  .pd-done { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--pt-green) 14%, transparent); font: 700 15px var(--kz-sans); color: var(--pt-green); }
+  .pd-title { font: 800 clamp(28px, 4.6vw, 42px)/1.12 var(--kz-serif); letter-spacing: -.02em; margin: 8px 0 10px; }
+  .pd-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font: 500 14px var(--kz-sans); color: var(--kz-muted); align-items: center; }
+  .pd-tag { font: 700 12px var(--kz-sans); padding: 3px 10px; border-radius: 99px; background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+  .pd-tag.won { background: #1f9d6b; color: #fff; }
+  .pd-photo { width: 100%; max-height: 460px; object-fit: cover; border-radius: 16px; display: block; }
+  .pd-body { font: 400 18px/1.7 var(--kz-serif); white-space: pre-line; overflow-wrap: anywhere; margin-top: 18px; max-width: 70ch; }
+  .pd-h { font: 800 22px var(--kz-serif); margin: 30px 0 10px; }
+  .pd-upd { border-left: 4px solid var(--pt-green); padding: 2px 0 2px 14px; margin-bottom: 14px; }
+  .pd-upd time { font: 500 12px var(--kz-sans); color: var(--kz-muted); display: block; }
+  .pd-upd div { font: 400 16px/1.55 var(--kz-serif); white-space: pre-line; overflow-wrap: anywhere; }
+  .pd-win { border: 2px solid #1f9d6b; border-radius: 16px; padding: 16px 18px; margin-top: 18px; background: color-mix(in srgb, #1f9d6b 10%, transparent); }
+  .pd-win b { font: 800 20px var(--kz-serif); display: block; color: #1f9d6b; }
+  .pd-signers { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
+  .pd-signers li { font: 500 13px var(--kz-sans); padding: 3px 10px; border-radius: 99px; background: var(--bs-secondary-bg); }
+  .pd-note { font: 400 13px/1.5 var(--kz-sans); color: var(--kz-muted); }
+</style>
+
+<div class="pt">
+  <a href="/petitions" class="small text-decoration-none">&larr; All petitions</a>
+  <% if (notice) { %><div class="alert alert-success py-2 mt-2" role="status"><%= notice %></div><% } %>
+  <% if (locals.reportedFlash) { %><div class="alert alert-success py-2 mt-2">Thanks, your report was sent to the site owner.</div><% } %>
+  <% if (p.is_hidden) { %><div class="alert alert-warning py-2 mt-2">This petition is hidden from the public.</div><% } %>
+
+  <h1 class="pd-title"><%= p.title %></h1>
+  <div class="pd-meta">
+    <span class="pd-tag"><%= p.category %></span>
+    <span><%= where %></span>
+    <span>Started by <a href="/u/<%= encodeURIComponent(p.username) %>" class="text-decoration-none"><%= p.username %></a>, <%= new Date(p.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></span>
+    <% if (p.status === 'resolved') { %><span class="pd-tag won">Victory</span><% } else if (p.status === 'closed') { %><span class="pd-tag">Closed</span><% } %>
+  </div>
+
+  <div class="pd-wrap">
+    <aside class="pd-aside" id="sign">
+      <div class="pd-box">
+        <div class="pd-count"><%= p.sign_count %><small>signature<%= p.sign_count === 1 ? '' : 's' %></small></div>
+        <% if (p.status === 'active') { %>
+          <div class="pd-meter" role="img" aria-label="<%= p.sign_count %> of <%= goal %> signatures"><span style="width: <%= pct %>%"></span></div>
+          <div class="pd-goal"><%= goal - p.sign_count %> more to reach <%= goal %><% if (today > 0) { %> &middot; <%= today %> in the last 24 hours<% } %></div>
+          <% if (signed) { %>
+            <div class="pd-done">You signed this petition. Thank you! Share it to reach <%= goal %>.</div>
+            <% if (!isOwner) { %>
+              <form action="/petitions/<%= p.id %>/unsign" method="POST" class="mt-2 mb-0">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button class="btn btn-link btn-sm p-0 text-body-secondary">Remove my signature</button>
+              </form>
+            <% } %>
+          <% } else { %>
+            <form action="/petitions/<%= p.id %>/sign" method="POST" class="mb-0">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="pd-sign"><%= user ? 'Sign this petition' : 'Log in to sign' %></button>
+            </form>
+            <% if (!user) { %><div class="pd-note mt-2">After you log in, your signature is added automatically.</div><% } %>
+          <% } %>
+        <% } else if (p.status === 'resolved') { %>
+          <div class="pd-done">This petition was resolved. Thank you to everyone who signed.</div>
+        <% } else { %>
+          <div class="pd-note mt-2">The petition owner has closed this petition.</div>
+        <% } %>
+      </div>
+
+      <% if (p.status !== 'closed') { %>
+        <div class="pd-box" id="share">
+          <div class="fw-bold mb-2" style="font-family:var(--kz-serif);font-size:19px;">Share it where people live</div>
+          <div class="d-grid gap-2" id="petShare">
+            <a class="btn btn-success fw-bold" data-share="whatsapp" target="_blank" rel="noopener" href="https://wa.me/?text=<%= encodeURIComponent(waText) %>">Share on WhatsApp</a>
+            <div class="d-flex gap-2">
+              <a class="btn btn-primary flex-fill" data-share="facebook" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=<%= encodeURIComponent(shareUrls.facebook) %>">Facebook</a>
+              <a class="btn btn-dark flex-fill" data-share="x" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=<%= encodeURIComponent(p.title + ' - ' + p.city) %>&url=<%= encodeURIComponent(shareUrls.x) %>">X</a>
+              <button type="button" class="btn btn-outline-secondary flex-fill" data-share="copy" data-url="<%= shareUrls.copy %>">Copy link</button>
+            </div>
+          </div>
+        </div>
+      <% } %>
+
+      <% if (recent.length > 1) { %>
+        <div class="pd-box">
+          <div class="fw-bold" style="font-family:var(--kz-serif);font-size:19px;">Recent signers</div>
+          <ul class="pd-signers"><% recent.forEach(s => { %><li><%= s.username %></li><% }) %></ul>
+        </div>
+      <% } %>
+    </aside>
+
+    <div>
+      <% if (p.image_id) { %><img class="pd-photo" src="/img/<%= p.image_id %>" alt="Photo shared by the petition owner"><% } %>
+      <% if (p.status === 'resolved') { %>
+        <div class="pd-win"><b>Resolved</b><%= p.outcome || 'The petition owner marked this problem as solved.' %></div>
+      <% } %>
+      <div class="pd-body"><%= p.body %></div>
+
+      <h2 class="pd-h" id="updates">Updates from the petition owner</h2>
+      <% if (updates.length === 0) { %><div class="pd-note">No updates yet.</div><% } %>
+      <% updates.forEach(u => { %>
+        <div class="pd-upd"><time><%= new Date(u.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></time><div><%= u.body %></div></div>
+      <% }) %>
+
+      <% if ((isOwner || isAdmin) && p.status === 'active') { %>
+        <div class="pd-box mt-3">
+          <div class="fw-bold mb-2">Post an update</div>
+          <form action="/petitions/<%= p.id %>/update" method="POST">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <textarea class="form-control mb-2" name="body" rows="3" maxlength="600" minlength="10" required placeholder="Who did you contact? What did they say? Everyone who signed gets a notification."></textarea>
+            <button class="btn btn-success btn-sm">Post update</button>
+          </form>
+          <hr>
+          <form action="/petitions/<%= p.id %>/resolve" method="POST" class="mb-2" onsubmit="return confirm('Mark this petition as resolved? Signing will stop.')">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input class="form-control form-control-sm mb-2" name="outcome" maxlength="500" placeholder="What changed? (optional, shown publicly)">
+            <button class="btn btn-outline-success btn-sm">Mark as resolved</button>
+          </form>
+          <form action="/petitions/<%= p.id %>/close" method="POST" class="mb-0" onsubmit="return confirm('Close this petition? Signing will stop.')">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="btn btn-outline-secondary btn-sm">Close petition</button>
+          </form>
+        </div>
+      <% } %>
+
+      <div class="pd-note mt-4">
+        Petitions are written by members, not by <%= siteName %>. We do not verify every claim. If something here is false, abusive or names a private person, please report it.
+        <% if (user && !isOwner) { %>
+          <button type="button" class="btn btn-sm btn-outline-secondary ms-2" data-bs-toggle="modal" data-bs-target="#reportModal" data-report-type="petition" data-report-id="<%= p.id %>">Report</button>
+        <% } %>
+      </div>
+
+      <% if (isAdmin) { %>
+        <div class="pd-box mt-3">
+          <div class="fw-semibold mb-2">Admin</div>
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <form action="/petitions/<%= p.id %>/hide" method="POST" class="mb-0"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-secondary"><%= p.is_hidden ? 'Show to public' : 'Hide from public' %></button></form>
+            <form action="/petitions/<%= p.id %>/delete" method="POST" class="mb-0" onsubmit="return confirm('Delete this petition and all its signatures?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-danger">Delete</button></form>
+            <a class="btn btn-sm btn-outline-primary" href="/og/petition/<%= p.id %>.png?dl=1">Download share card</a>
+            <span class="pd-note">Shares: <%= p.shares %></span>
+          </div>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var csrf = <%- JSON.stringify(csrfToken) %>, pid = <%= p.id %>;
+  var box = document.getElementById('petShare');
+  if (box) box.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-share]'); if (!t) return;
+    try { var fd = new URLSearchParams(); fd.set('_csrf', csrf); navigator.sendBeacon('/petitions/' + pid + '/share', fd); } catch (x) {}
+    if (t.dataset.share === 'copy') { var u = t.dataset.url;
+      (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(function () { t.textContent = 'Copied!'; }, function () { window.prompt('Copy this link:', u); }); }
+  });
+})();
+</script>
+<%- include('partials/report-modal') %>
+<%- include('partials/footer') %>
