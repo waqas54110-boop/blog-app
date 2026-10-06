@@ -9,6 +9,14 @@ const router = express.Router();
 const LIVE = 'p.is_draft = false AND p.publish_at <= now()';
 const FEED_KEYS = ['tab', 'user', 'before', 'partial', 'posted', 'err', 'notice', 'deleted', 'reported'];
 
+// Har category ka apna (hamesha wahi) rang: chip, section ki patti aur link ke liye
+const PALETTE = ['#0a6b4d', '#2563eb', '#c2410c', '#7c3aed', '#be185d', '#0e7490', '#a16207', '#4d7c0f'];
+const catColor = (name) => {
+  let h = 0;
+  for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+};
+
 // Post ki shuruaat ka saaf text (markdown / html hata kar)
 const plain = (s) => String(s || '').replace(/<[^>]*>/g, ' ').replace(/[#*_`>[\]()!~|]+/g, ' ').replace(/\s+/g, ' ').trim();
 const previewOf = (p) => {
@@ -32,13 +40,13 @@ const COLS = `p.id, p.slug, p.title, p.excerpt, LEFT(p.content, 700) AS content,
   p.publish_at AS created_at, u.username,
   GREATEST(CEIL(array_length(regexp_split_to_array(trim(p.content), '\\s+'), 1) / 200.0), 1)::int AS reading_time`;
 
-const shape = (p) => ({ ...p, preview: previewOf(p), ago: ago(p.created_at) });
+const shape = (p) => ({ ...p, preview: previewOf(p), ago: ago(p.created_at), color: catColor(p.category) });
 
 router.get('/', async (req, res, next) => {
   if (FEED_KEYS.some((k) => k in req.query)) return next();
   try {
     const latestQ = pool.query(
-      `SELECT ${COLS} FROM posts p JOIN users u ON u.id = p.user_id WHERE ${LIVE} ORDER BY p.publish_at DESC LIMIT 6`
+      `SELECT ${COLS} FROM posts p JOIN users u ON u.id = p.user_id WHERE ${LIVE} ORDER BY p.publish_at DESC LIMIT 14`
     );
     const catsQ = pool.query(
       `SELECT p.category, COUNT(*)::int AS total FROM posts p WHERE ${LIVE} GROUP BY p.category ORDER BY total DESC, p.category LIMIT 3`
@@ -50,10 +58,15 @@ router.get('/', async (req, res, next) => {
     const [latest, cats, recentRead] = await Promise.all([latestQ, catsQ, readQ]);
 
     const rows = latest.rows.map(shape);
-    // Top story: naye posts mein se pehli jis par tasveer ho (warna sab se nayi)
-    const topIdx = Math.max(rows.findIndex((p) => p.cover_url), 0);
-    const top = rows[topIdx] || null;
-    const pair = rows.filter((_, i) => i !== topIdx).slice(0, 2);
+
+    // Slider: pehle tasveer wali (max 4); kam hon to sab se nayi baghair tasveer wali se 3 tak bhar do
+    const slides = rows.filter((p) => p.cover_url).slice(0, 4);
+    for (const p of rows) { if (slides.length >= 3) break; if (!slides.includes(p)) slides.push(p); }
+    slides.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+    const rest1 = rows.filter((p) => !slides.includes(p));
+    const pair = rest1.slice(0, 2);
+    const strip = rest1.slice(2, 8);
 
     // Sab se zyada parhi gayi: 30 din mein; kam hon to purani mashhoor se bhar do
     let mostRead = recentRead.rows;
@@ -67,8 +80,8 @@ router.get('/', async (req, res, next) => {
       mostRead = mostRead.concat(more.rows);
     }
 
-    // Category sections (top story aur pair dobara na aayein)
-    const used = [top, ...pair].filter(Boolean).map((p) => p.id);
+    // Category sections (upar dikhai ja chuki posts dobara na aayein)
+    const used = [...slides, ...pair, ...strip].map((p) => p.id);
     let sections = [];
     if (cats.rows.length) {
       const sp = await pool.query(
@@ -82,7 +95,7 @@ router.get('/', async (req, res, next) => {
       sections = cats.rows
         .map((c) => {
           const list = sp.rows.filter((r) => r.category === c.category).map(shape);
-          return { name: c.category, lead: list[0] || null, rest: list.slice(1) };
+          return { name: c.category, color: catColor(c.category), lead: list[0] || null, rest: list.slice(1) };
         })
         .filter((s) => s.lead);
     }
@@ -93,8 +106,8 @@ router.get('/', async (req, res, next) => {
     res.render('home', {
       title: 'Khabzo - Cricket, News aur Community',
       metaDescription: `${config.siteName}: cricket, news and web development posts plus a community feed. Read, share, like and comment.`,
-      top, pair, mostRead, sections, liveContest,
-      ticker: rows.map((p) => ({ slug: p.slug, title: p.title })),
+      slides, pair, strip, mostRead, sections, liveContest,
+      ticker: rows.slice(0, 8).map((p) => ({ slug: p.slug, title: p.title })),
     });
   } catch (err) { next(err); }
 });

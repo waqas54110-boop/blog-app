@@ -105,21 +105,24 @@
       --kz-accent: #0a6b4d;
     }
     [data-bs-theme="dark"] { --kz-accent: #3cc99a; }
-    .kz-mast { background: var(--kz-paper); border-top: 4px solid var(--kz-accent); border-bottom: 1px solid var(--kz-line); }
+    .kz-mast { background: radial-gradient(900px 220px at 0% 0%, color-mix(in srgb, var(--kz-accent) 14%, transparent), transparent 70%), var(--kz-paper); border-top: 4px solid var(--kz-accent); border-bottom: 1px solid var(--kz-line); }
     .kz-mast-in { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; padding-top: 18px; padding-bottom: 12px; }
-    .kz-logo { font: 800 clamp(38px, 8vw, 60px)/.9 var(--kz-serif); letter-spacing: -.03em; color: var(--bs-body-color); text-decoration: none; }
+    .kz-logo { font: 800 clamp(38px, 8vw, 60px)/.95 var(--kz-serif); letter-spacing: -.03em; color: var(--bs-body-color); text-decoration: none; }
+    .kz-logo .nm { background: linear-gradient(100deg, var(--bs-body-color) 35%, var(--kz-accent) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
     .kz-logo:hover { color: var(--bs-body-color); }
     .kz-logo small { display: block; font: 400 13px/1.3 var(--kz-sans); letter-spacing: 0; color: var(--kz-muted); margin-top: 6px; }
     .kz-search { display: flex; gap: 6px; flex: 0 1 340px; min-width: 200px; }
     .kz-search input { flex: 1; min-width: 0; font: 400 14px var(--kz-sans); }
     .kz-search button { font: 600 13px var(--kz-sans); white-space: nowrap; }
     .kz-install { font: 600 13px var(--kz-sans); white-space: nowrap; }
-    .kz-nav { position: sticky; top: 0; z-index: 1030; background: var(--kz-paper); border-bottom: 2px solid var(--bs-body-color); }
+    .kz-nav { position: sticky; top: 0; z-index: 1030; background: var(--kz-paper); border-bottom: 1px solid var(--kz-line); box-shadow: 0 6px 24px rgba(0,0,0,.06); }
+    @supports (backdrop-filter: blur(1px)) { .kz-nav { background: color-mix(in srgb, var(--kz-paper) 82%, transparent); backdrop-filter: blur(14px) saturate(1.5); -webkit-backdrop-filter: blur(14px) saturate(1.5); } }
     .kz-nav-in { display: flex; align-items: stretch; gap: 6px; }
     .kz-links { flex: 1 1 auto; min-width: 0; display: flex; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
     .kz-links::-webkit-scrollbar { display: none; }
     .kz-links a { font: 600 15px var(--kz-sans); padding: 12px 13px; white-space: nowrap; color: var(--bs-body-color); text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; }
     .kz-links a:hover, .kz-links a.on { color: var(--kz-accent); border-bottom-color: var(--kz-accent); }
+    .kz-links a.on { font-weight: 700; }
     .kz-tools { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding-left: 8px; border-left: 1px solid var(--kz-line); }
     .kz-icon { position: relative; min-width: 38px; height: 38px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--kz-line); background: transparent; color: var(--bs-body-color); border-radius: 8px; font: 600 13px var(--kz-sans); line-height: 1; text-decoration: none; white-space: nowrap; cursor: pointer; }
     .kz-icon:hover { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
@@ -155,7 +158,7 @@
 
 <header class="kz-mast">
   <div class="container kz-mast-in">
-    <a class="kz-logo" href="/" aria-label="<%= locals.siteName || 'Khabzo' %> home"><%= locals.siteName || 'Khabzo' %><small><%= locals.todayLabel ? locals.todayLabel + ' | ' : '' %>Cricket, news and community</small></a>
+    <a class="kz-logo" href="/" aria-label="<%= locals.siteName || 'Khabzo' %> home"><span class="nm"><%= locals.siteName || 'Khabzo' %></span><small><%= locals.todayLabel ? locals.todayLabel + ' | ' : '' %>Cricket, news and community</small></a>
     <div class="d-flex align-items-center gap-2 flex-wrap flex-grow-1 flex-sm-grow-0 justify-content-end">
       <button id="installBtn" class="btn btn-sm btn-primary kz-install d-none" type="button">📲 Install</button>
       <form class="kz-search" action="/blog" method="GET" role="search">
