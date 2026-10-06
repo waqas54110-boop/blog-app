@@ -1,0 +1,38 @@
+<%# One blog post card. Locals: post, big (featured card?), wide (last card alone in a row), catColor, fmtDate %>
+<% const c = catColor(post.category); %>
+<article class="bl-card <%= locals.big ? 'bl-big bl-span' : (locals.wide ? 'bl-wide bl-span' : '') %>" style="--c: <%= c %>;">
+  <div class="bl-cover">
+    <% if (post.cover_url) { %>
+      <img src="<%= post.cover_url %>" alt="" loading="<%= locals.big ? 'eager' : 'lazy' %>" decoding="async">
+    <% } else { %>
+      <span class="bl-ph" aria-hidden="true"><b><%= String(post.category || '?').charAt(0).toUpperCase() %></b></span>
+    <% } %>
+    <span class="bl-chip"><%= post.category %></span>
+  </div>
+  <div class="bl-body">
+    <% if (locals.big) { %><div class="bl-kicker">Latest story</div><% } %>
+    <h2 class="bl-title"><a href="/posts/<%= post.slug %>" class="stretched-link"><%= post.title %></a></h2>
+    <p class="bl-ex"><%= post.preview %></p>
+
+    <% if (post.tags && post.tags.length) { %>
+      <div class="bl-tags">
+        <% post.tags.slice(0, 3).forEach(t => { %><span>#<%= t %></span><% }) %>
+      </div>
+    <% } %>
+
+    <div class="bl-by">
+      <span class="avatar"><%= post.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(post.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
+      <div class="lh-sm">
+        <div class="bl-by-n"><%= post.username %></div>
+        <div class="bl-by-d"><%= fmtDate(post.created_at) %></div>
+      </div>
+    </div>
+
+    <div class="bl-meta">
+      <span title="Reading time">⏱ <%= post.readingTime %> min read</span>
+      <span title="Views">👁 <%= post.views %></span>
+      <span title="Likes">♥ <%= post.like_count %></span>
+      <span title="Comments">💬 <%= post.comment_count %></span>
+    </div>
+  </div>
+</article>
