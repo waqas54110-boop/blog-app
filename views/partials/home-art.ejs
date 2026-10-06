@@ -1,0 +1,4 @@
+<%# Post ki tasveer; cover na ho to category ke pehle harf wala rangeen block %>
+<span class="kz-art g<%= (p.id % 5) + 1 %>"<%- p.cover_url ? '' : ' aria-hidden="true"' %>>
+  <% if (p.cover_url) { %><img src="<%= p.cover_url %>" alt="" loading="lazy"><% } else { %><b><%= String(p.category || '?').charAt(0).toUpperCase() %></b><% } %>
+</span>

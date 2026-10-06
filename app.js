@@ -31,6 +31,7 @@ const avatarRouter = require('./routes/avatar');
 const moderationRouter = require('./routes/moderation');
 const moderationLib = require('./lib/moderation');
 const feedRouter = require('./routes/feed');
+const homeRouter = require('./routes/home');
 const storiesRouter = require('./routes/stories');
 const groupsRouter = require('./routes/groups');
 const earningsRouter = require('./routes/earnings');
@@ -270,6 +271,15 @@ app.use(async (req, res, next) => {
 
   res.locals.unreadCount = 0;
   res.locals.navCategories = [];
+  res.locals.currentPath = req.path;
+  // Masthead ki tareekh (Roman Urdu din ka naam), site ke timezone mein
+  try {
+    const DAYS_UR = { Monday: 'Peer', Tuesday: 'Mangal', Wednesday: 'Budh', Thursday: 'Jumerat', Friday: 'Jumma', Saturday: 'Hafta', Sunday: 'Itwar' };
+    const tz = config.timezone || 'Asia/Karachi';
+    const now = new Date();
+    const wd = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: tz });
+    res.locals.todayLabel = `${DAYS_UR[wd] || wd}, ${now.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: tz })}`;
+  } catch (e) { res.locals.todayLabel = ''; }
   try {
     const r = await pool.query(
       'SELECT DISTINCT category FROM posts p WHERE p.is_draft = false AND p.publish_at <= now() ORDER BY category'
@@ -356,6 +366,7 @@ app.use('/', callsRouter);
 app.use('/', liveRouter);
 app.use('/', avatarRouter);
 app.use('/', moderationRouter);
+app.use('/', homeRouter); // akhbar jaisa home page; feed ke query params aayein to feedRouter ko de deta hai
 app.use('/', feedRouter);
 app.use('/', storiesRouter);
 app.use('/', groupsRouter);

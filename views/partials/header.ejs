@@ -74,6 +74,9 @@
   <script type="application/ld+json"><%- safeJson(block) %></script>
   <% }) %>
   <%- include('theme-init') %>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600;6..72,800&family=Archivo:wght@400;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   
   <style>
@@ -94,15 +97,42 @@
       position: relative; overflow: hidden;
     }
     .avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-    .navbar-nav .nav-link { white-space: nowrap; }
-
-    /* Navbar fixes */
-    .navbar .nav-search input { width: 180px; }
-    .navbar .btn { white-space: nowrap; flex-shrink: 0; }
-    @media (max-width: 1199.98px) {
-      .navbar .nav-search { width: 100%; }
-      .navbar .nav-search input { width: 100%; }
+    /* ===== Khabzo: akhbar jaisa masthead + category nav ===== */
+    :root {
+      --kz-serif: "Newsreader", Georgia, "Times New Roman", serif;
+      --kz-sans: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      --kz-paper: var(--bs-body-bg); --kz-muted: var(--bs-secondary-color); --kz-line: var(--bs-border-color);
+      --kz-accent: #0a6b4d;
     }
+    [data-bs-theme="dark"] { --kz-accent: #3cc99a; }
+    .kz-mast { background: var(--kz-paper); border-bottom: 1px solid var(--kz-line); }
+    .kz-mast-in { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px 20px; padding-top: 18px; padding-bottom: 12px; }
+    .kz-logo { font: 800 clamp(38px, 8vw, 60px)/.9 var(--kz-serif); letter-spacing: -.03em; color: var(--bs-body-color); text-decoration: none; }
+    .kz-logo:hover { color: var(--bs-body-color); }
+    .kz-logo small { display: block; font: 400 13px/1.3 var(--kz-sans); letter-spacing: 0; color: var(--kz-muted); margin-top: 6px; }
+    .kz-search { display: flex; gap: 6px; flex: 0 1 340px; min-width: 200px; }
+    .kz-search input { flex: 1; min-width: 0; font: 400 14px var(--kz-sans); }
+    .kz-search button { font: 600 13px var(--kz-sans); white-space: nowrap; }
+    .kz-install { font: 600 13px var(--kz-sans); white-space: nowrap; }
+    .kz-nav { position: sticky; top: 0; z-index: 1030; background: var(--kz-paper); border-bottom: 2px solid var(--bs-body-color); }
+    .kz-nav-in { display: flex; align-items: stretch; gap: 6px; }
+    .kz-links { flex: 1 1 auto; min-width: 0; display: flex; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    .kz-links::-webkit-scrollbar { display: none; }
+    .kz-links a { font: 600 15px var(--kz-sans); padding: 12px 13px; white-space: nowrap; color: var(--bs-body-color); text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; }
+    .kz-links a:hover, .kz-links a.on { color: var(--kz-accent); border-bottom-color: var(--kz-accent); }
+    .kz-tools { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; padding-left: 8px; border-left: 1px solid var(--kz-line); }
+    .kz-icon { position: relative; min-width: 38px; height: 38px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--kz-line); background: transparent; color: var(--bs-body-color); border-radius: 8px; font: 600 13px var(--kz-sans); line-height: 1; text-decoration: none; white-space: nowrap; cursor: pointer; }
+    .kz-icon:hover { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+    .kz-icon.solid { background: var(--bs-body-color); color: var(--bs-body-bg); border-color: var(--bs-body-color); }
+    .kz-icon.solid:hover { opacity: .88; background: var(--bs-body-color); color: var(--bs-body-bg); }
+    .kz-icon.p0 { padding: 0; border-radius: 50%; border: 0; }
+    .kz-nav .dropdown-toggle::after { display: none; }
+    @media (max-width: 575.98px) {
+      .kz-search { flex: 1 1 100%; }
+      .kz-links a { padding: 12px 11px; font-size: 14px; }
+      .kz-icon { min-width: 36px; height: 36px; padding: 0 8px; }
+    }
+    @media print { .kz-mast, .kz-nav { display: none !important; } }
 
     .post-body { line-height: 1.85; font-size: 1.08rem; }
     .post-body img { max-width: 100%; height: auto; border-radius: .5rem; }
@@ -123,74 +153,55 @@
 </head>
 <body>
 
-<nav class="navbar navbar-expand-xl bg-body shadow-sm sticky-top">
-  <div class="container">
-    <a class="navbar-brand fw-bold text-primary" href="/">Khabzo</a>
-
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav"
-            aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-
-    <div class="collapse navbar-collapse" id="mainNav">
-      <ul class="navbar-nav me-auto mb-2 mb-xl-0">
-        <li class="nav-item"><a class="nav-link" href="/">🏠 Home</a></li>
-        <li class="nav-item"><a class="nav-link" href="/blog">📝 Blog</a></li>
-
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Categories
-          </a>
-          <ul class="dropdown-menu">
-            <% if (navCategories.length === 0) { %>
-              <li><span class="dropdown-item-text text-muted">No categories yet</span></li>
-            <% } %>
-            <% navCategories.forEach(c => { %>
-              <li><a class="dropdown-item" href="/blog?category=<%= encodeURIComponent(c) %>"><%= c %></a></li>
-            <% }) %>
-          </ul>
-        </li>
-
-        <li class="nav-item"><a class="nav-link" href="/community">👥 Community</a></li>
-
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            More
-          </a>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="/groups">🫂 Groups</a></li>
-            <li><a class="dropdown-item" href="/leaderboard">🏆 Leaderboard</a></li>
-            <li><a class="dropdown-item" href="/votes">🗳️ Vote</a></li>
-            <li><a class="dropdown-item" href="/hire">💼 Hire Me</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="/about">About</a></li>
-          </ul>
-        </li>
-      </ul>
-
-      <form class="nav-search d-flex flex-nowrap me-xl-3 mb-2 mb-xl-0" action="/blog" method="GET" role="search">
-        <input class="form-control form-control-sm me-2" type="search" name="q" placeholder="Search posts..." aria-label="Search">
-        <button class="btn btn-sm btn-outline-primary" type="submit">Search</button>
+<header class="kz-mast">
+  <div class="container kz-mast-in">
+    <a class="kz-logo" href="/" aria-label="<%= locals.siteName || 'Khabzo' %> home"><%= locals.siteName || 'Khabzo' %><small><%= locals.todayLabel ? locals.todayLabel + ' | ' : '' %>Cricket, khabrein aur community</small></a>
+    <div class="d-flex align-items-center gap-2 flex-wrap flex-grow-1 flex-sm-grow-0 justify-content-end">
+      <button id="installBtn" class="btn btn-sm btn-primary kz-install d-none" type="button">📲 Install</button>
+      <form class="kz-search" action="/blog" method="GET" role="search">
+        <input class="form-control form-control-sm" type="search" name="q" placeholder="Posts mein talash karein..." aria-label="Search posts">
+        <button class="btn btn-sm btn-outline-secondary" type="submit">Search</button>
       </form>
+    </div>
+  </div>
+</header>
 
-      <button id="themeToggle" class="btn btn-sm btn-outline-secondary text-nowrap me-xl-2 mb-2 mb-xl-0" type="button">🌙 Dark</button>
-      <button id="installBtn" class="btn btn-sm btn-primary text-nowrap me-xl-2 mb-2 mb-xl-0 d-none" type="button">📲 Install</button>
+<%
+  const _path = locals.currentPath || '';
+  const _isHome = _path === '/' && typeof locals.tab === 'undefined';
+  const _isFeed = _path === '/' && typeof locals.tab !== 'undefined';
+  const _isBlog = _path === '/blog' || _path.indexOf('/posts/') === 0;
+  const _cat = _path === '/blog' ? (locals.category || '') : '';
+%>
+<nav class="kz-nav" aria-label="Main">
+  <div class="container kz-nav-in">
+    <div class="kz-links">
+      <a href="/" class="<%= _isHome ? 'on' : '' %>">Home</a>
+      <a href="/?tab=all" class="<%= _isFeed ? 'on' : '' %>">Feed</a>
+      <a href="/blog" class="<%= (_isBlog && !_cat && _path === '/blog') ? 'on' : '' %>">Blog</a>
+      <% navCategories.forEach(c => { %>
+        <a href="/blog?category=<%= encodeURIComponent(c) %>" class="<%= _cat === c ? 'on' : '' %>"><%= c %></a>
+      <% }) %>
+    </div>
+
+    <div class="kz-tools">
+      <button id="themeToggle" class="kz-icon" type="button" data-icon-only title="Dark / light mode">🌙</button>
 
       <% if (user) { %>
-        <a href="/notifications" class="btn btn-sm btn-outline-secondary position-relative me-xl-2 mb-2 mb-xl-0" title="Notifications">
+        <a href="/notifications" class="kz-icon" title="Notifications" aria-label="Notifications">
           🔔
           <% if (locals.unreadCount > 0) { %>
             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"><%= unreadCount > 9 ? '9+' : unreadCount %></span>
           <% } %>
         </a>
-        <a href="/messages" class="btn btn-sm btn-outline-secondary position-relative me-xl-2 mb-2 mb-xl-0" title="Messages">
+        <a href="/messages" class="kz-icon" title="Messages" aria-label="Messages">
           💬
           <% if (locals.unreadMessages > 0) { %>
             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"><%= unreadMessages > 9 ? '9+' : unreadMessages %></span>
           <% } %>
         </a>
         <div class="dropdown">
-          <button class="btn p-0 border-0 rounded-circle d-flex align-items-center" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+          <button class="kz-icon p0" type="button" data-bs-toggle="dropdown" aria-expanded="false"
                   title="<%= user.username %>" aria-label="Account menu for <%= user.username %>">
             <span class="avatar"><%= user.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(user.username) %>" alt="" onerror="this.remove()"></span>
           </button>
@@ -243,11 +254,23 @@
           </ul>
         </div>
       <% } else { %>
-        <div class="d-flex gap-2">
-          <a href="/login" class="btn btn-sm btn-outline-primary">Login</a>
-          <a href="/signup" class="btn btn-sm btn-primary">Sign Up</a>
-        </div>
+        <a href="/login" class="kz-icon">Login</a>
+        <a href="/signup" class="kz-icon solid d-none d-sm-inline-flex">Sign Up</a>
       <% } %>
+
+      <div class="dropdown">
+        <button class="kz-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More menu" title="More">☰</button>
+        <ul class="dropdown-menu dropdown-menu-end">
+          <li><a class="dropdown-item" href="/community">👥 Community</a></li>
+          <li><a class="dropdown-item" href="/groups">🫂 Groups</a></li>
+          <li><a class="dropdown-item" href="/leaderboard">🏆 Leaderboard</a></li>
+          <li><a class="dropdown-item" href="/votes">🗳️ Vote</a></li>
+          <li><a class="dropdown-item" href="/hire">💼 Hire Me</a></li>
+          <li><hr class="dropdown-divider"></li>
+          <li><a class="dropdown-item" href="/about">About</a></li>
+          <% if (!user) { %><li><a class="dropdown-item d-sm-none fw-semibold" href="/signup">Sign Up</a></li><% } %>
+        </ul>
+      </div>
     </div>
   </div>
 </nav>
