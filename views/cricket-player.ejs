@@ -1,0 +1,25 @@
+<%- include('partials/header') %>
+<%- include('partials/cricket-assets') %>
+<%
+  const f = (n, d = 1) => (n == null ? '-' : Number(n).toFixed(d));
+  const tile = (label, val) => `<div class="ck-card text-center" style="padding:12px"><div class="fw-bold" style="font:800 28px var(--kz-serif)">${val}</div><div class="small text-body-secondary">${label}</div></div>`;
+%>
+<div class="ck">
+  <div class="ck-hero">
+    <h1><%= p.name %></h1>
+    <p><%= p.teams || 'No team yet' %> | roster of <%= p.owner %> | <%= s.matches %> match<%= s.matches === 1 ? '' : 'es' %></p>
+  </div>
+  <h2 class="ck-h mt-4">Batting</h2>
+  <div class="ck-grid" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr))">
+    <%- tile('Runs', s.runs) %><%- tile('Innings', s.innings) %><%- tile('Strike rate', f(s.sr)) %><%- tile('Average', f(s.avg)) %>
+    <%- tile('Highest', s.hs) %><%- tile('Fours', s.fours) %><%- tile('Sixes', s.sixes) %><%- tile('50s / 100s', s.fifties + ' / ' + s.hundreds) %>
+  </div>
+  <h2 class="ck-h mt-4">Bowling</h2>
+  <div class="ck-grid" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr))">
+    <%- tile('Wickets', s.wkts) %><%- tile('Overs', s.overs) %><%- tile('Runs given', s.conceded) %><%- tile('Economy', f(s.econ, 2)) %>
+    <%- tile('Best figures', s.best) %><%- tile('Bowling avg', f(s.bowlAvg)) %>
+  </div>
+  <p class="small text-body-secondary mt-3">Career stats are added up from every ball scored for this player across all tournaments of the same organizer.</p>
+  <a class="ck-btn alt" href="/cricket">Back to Cricket Manager</a>
+</div>
+<%- include('partials/footer') %>

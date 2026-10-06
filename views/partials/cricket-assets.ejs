@@ -1,0 +1,47 @@
+<%# Mohalla Cricket Manager: shared styles %>
+<style>
+  .ck { --ck-green: #0a6b4d; --ck-red: #c8102e; font-family: var(--kz-sans); }
+  .ck h1, .ck h2, .ck h3 { font-family: var(--kz-serif); letter-spacing: -.01em; }
+  .ck-hero { background: linear-gradient(135deg, #064e3b, #0a6b4d 55%, #16a34a); color: #fff; border-radius: 18px; padding: clamp(20px, 4vw, 36px); position: relative; overflow: hidden; }
+  .ck-hero::after { content: "🏏"; position: absolute; right: 18px; top: 4px; font-size: clamp(70px, 14vw, 130px); opacity: .16; transform: rotate(-18deg); }
+  .ck-hero h1 { font-weight: 800; font-size: clamp(26px, 5vw, 40px); margin: 0 0 6px; }
+  .ck-hero p { margin: 0; max-width: 62ch; color: rgba(255,255,255,.88); }
+  .ck-card { background: var(--kz-paper); border: 1px solid var(--kz-line); border-radius: 14px; padding: 16px; }
+  .ck-card h2, .ck-h { font: 800 20px var(--kz-serif); margin: 0 0 12px; }
+  .ck-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .ck-m { display: block; text-decoration: none; color: inherit; border: 1px solid var(--kz-line); border-radius: 12px; padding: 12px 14px; background: var(--kz-paper); transition: transform .15s, box-shadow .15s; }
+  .ck-m:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,.09); color: inherit; }
+  .ck-m b { display: block; font-size: 15px; }
+  .ck-m small { color: var(--kz-muted); }
+  .ck-chip { display: inline-flex; align-items: center; gap: 6px; font: 700 11px/1 var(--kz-sans); padding: 5px 9px; border-radius: 99px; background: var(--bs-secondary-bg); color: var(--bs-body-color); text-transform: uppercase; letter-spacing: .04em; }
+  .ck-chip.live { background: var(--ck-red); color: #fff; }
+  .ck-chip.live i { width: 6px; height: 6px; border-radius: 50%; background: #fff; animation: ckpulse 1.4s infinite; }
+  .ck-chip.done { background: #dcfce7; color: #166534; }
+  [data-bs-theme="dark"] .ck-chip.done { background: #14532d; color: #bbf7d0; }
+  @keyframes ckpulse { 50% { opacity: .3; transform: scale(.7); } }
+  .ck-tbl { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .ck-tbl th { font: 700 11px var(--kz-sans); text-transform: uppercase; letter-spacing: .05em; color: var(--kz-muted); text-align: right; padding: 6px 6px; border-bottom: 1px solid var(--kz-line); }
+  .ck-tbl td { text-align: right; padding: 7px 6px; border-bottom: 1px solid var(--kz-line); font-variant-numeric: tabular-nums; }
+  .ck-tbl th:first-child, .ck-tbl td:first-child { text-align: left; }
+  .ck-tbl td small { display: block; color: var(--kz-muted); font-size: 11px; }
+  .ck-tbl tr.on td:first-child { font-weight: 700; color: var(--ck-green); }
+  .ck-scroll { overflow-x: auto; }
+  .ck-balls { display: flex; flex-wrap: wrap; gap: 6px; }
+  .ck-ball { min-width: 34px; height: 34px; padding: 0 6px; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; font: 700 13px var(--kz-sans); background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+  .ck-ball.r4 { background: #2563eb; color: #fff; } .ck-ball.r6 { background: #7c3aed; color: #fff; }
+  .ck-ball.w { background: var(--ck-red); color: #fff; } .ck-ball.x { background: #f59e0b; color: #111; }
+  .ck-score { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 14px; }
+  .ck-score .big { font: 800 clamp(40px, 9vw, 64px)/1 var(--kz-serif); font-variant-numeric: tabular-nums; }
+  .ck-score .ov { font-size: 18px; color: var(--kz-muted); }
+  .ck-flash { animation: ckflash 1s ease-out; }
+  @keyframes ckflash { 0% { background: rgba(10,107,77,.35); } 100% { background: transparent; } }
+  .ck-msg { border-radius: 10px; padding: 9px 12px; font-size: 14px; margin: 12px 0; background: var(--bs-info-bg-subtle); }
+  .ck-msg.err { background: var(--bs-danger-bg-subtle); }
+  .ck-btn { font: 700 14px var(--kz-sans); border: 0; border-radius: 99px; padding: 9px 16px; background: var(--ck-green); color: #fff; cursor: pointer; text-decoration: none; display: inline-block; }
+  .ck-btn:hover { filter: brightness(1.1); color: #fff; }
+  .ck-btn.alt { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+  .ck-btn.red { background: var(--ck-red); } .ck-btn.wa { background: #25d366; }
+  .ck-btn:disabled { opacity: .5; cursor: not-allowed; }
+  .ck-in { font: 400 15px var(--kz-sans); }
+  @media (prefers-reduced-motion: reduce) { .ck-chip.live i, .ck-flash { animation: none; } }
+</style>

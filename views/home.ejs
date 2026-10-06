@@ -153,17 +153,7 @@
 <% } %>
 
 
-<% if (locals.ticker && ticker.length > 1) { %>
-  <div class="kz-ticker" role="region" aria-label="Latest headlines">
-    <b><i></i>Latest</b>
-    <div class="kz-track">
-      <div class="kz-roll">
-        <div><% ticker.forEach(t => { %><a href="/posts/<%= t.slug %>"><%= t.title %></a><% }) %></div>
-        <div aria-hidden="true"><% ticker.forEach(t => { %><a href="/posts/<%= t.slug %>" tabindex="-1"><%= t.title %></a><% }) %></div>
-      </div>
-    </div>
-  </div>
-<% } %>
+<%# Headlines bar ab har page par header se aati hai (partials/news-bar.ejs) %>
 
 <% if (!slides.length) { %>
   <div class="text-center py-5">

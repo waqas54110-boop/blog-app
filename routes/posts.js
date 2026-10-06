@@ -450,7 +450,7 @@ router.get('/sitemap.xml', async (req, res) => {
     const staticXml = [
       url('/', newest), url('/blog', newest), url('/community', newest), url('/groups', null), url('/votes', null),
       url('/predictions', null), url('/leaderboard', null), url('/about', null), url('/hire', null),
-    url('/court', null), url('/petitions', null),
+    url('/court', null), url('/petitions', null), url('/cricket', null),
     ].join('');
     const postsXml = result.rows.map((p) => url('/posts/' + p.slug, p.lastmod, img(p.cover_url))).join('');
     const catXml = catRows.map((c) => url(homeUrl({ category: c.name }), c.lastmod)).join('');
@@ -482,7 +482,7 @@ router.get('/robots.txt', (req, res) => {
     '/messages', '/inbox', '/notifications', '/settings', '/dashboard', '/bookmarks', '/analytics', '/admin',
     '/friends', '/push', '/stories', '/upload-', '/auth', '/report', '/unsubscribe', '/r/',
     '/groups/join/', '/groups/new', '/votes/new', '/court/new', '/petitions/new', '/posts/new', '/invite', '/offline', '/feed/views',
-    '/earnings', '/posts/*/edit', '/groups/*/manage', '/groups/*/chat', '/votes/*/go', '/votes/*/state.json',
+    '/earnings', '/posts/*/edit', '/groups/*/manage', '/groups/*/chat', '/votes/*/go', '/votes/*/state.json', '/cricket/m/*/score', '/cricket/bar/', '/cricket/m/*/state.json',
   ];
   res.set('Cache-Control', 'public, max-age=3600');
   res.type('text/plain').send(

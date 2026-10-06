@@ -21,6 +21,9 @@ const hireRouter = require('./routes/hire');
 const votesRouter = require('./routes/votes');
 const courtRouter = require('./routes/court');
 const petitionsRouter = require('./routes/petitions');
+const cricketRouter = require('./routes/cricket');
+const headlinesRouter = require('./routes/headlines');
+const headlinesLib = require('./lib/headlines');
 const sponsorRouter = require('./routes/sponsor');
 const profileRouter = require('./routes/profile');
 const friendsRouter = require('./routes/friends');
@@ -122,7 +125,7 @@ const limiter = (windowMinutes, limit, message, opts = {}) =>
 // ek page par kai images hoti hain aur video har seek par chhoti requests bhejti hai
 app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try again.', {
   // /votes/:id/state.json (live counting) ka apna alag limit neeche hai
-  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/messages\/media\/\d+$/.test(req.path) || /^\/groups\/[^/]+\/chat\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path) || req.path.startsWith('/calls/') || req.path.startsWith('/live/')
+  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/messages\/media\/\d+$/.test(req.path) || /^\/groups\/[^/]+\/chat\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path) || req.path.startsWith('/calls/') || req.path.startsWith('/live/') || req.path.startsWith('/cricket/bar/') || /^\/cricket\/m\/\d+\/state\.json$/.test(req.path)
     || req.path.startsWith('/stories/') || req.path.startsWith('/icons/') || req.path === '/sw.js' || req.path === '/manifest.webmanifest' || req.path === '/offline',
 }));
 app.post(['/login', '/signup'], limiter(15, 15, 'Too many login/signup attempts. Please try again in 15 minutes.'));
@@ -151,6 +154,12 @@ app.post('/votes/:id/share', limiter(10, 60, 'Too many requests.'));
 app.get('/votes/:id/go', limiter(1, 30, 'Too many requests.'));
 app.post('/votes/:id/comments', limiter(5, 10, 'You are commenting too fast. Please wait a few minutes.'));
 app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
+// V35: Mohalla Cricket Manager. Score bar / scorecard poll har 4 second hota hai, is liye alag bara limit
+app.get('/cricket/bar/:streamId', limiter(1, 60, 'Too many requests.'));
+app.get('/cricket/m/:id/state.json', limiter(1, 60, 'Too many requests.'));
+app.post('/cricket/m/:id/ball', limiter(1, 90, 'You are scoring too fast. Please wait a moment.'));
+app.post('/cricket', limiter(60, 10, 'You are creating tournaments too fast. Please try again later.', { skipFailedRequests: true }));
+app.post(['/cricket/t/:id/teams', '/cricket/t/:id/fixtures', '/cricket/t/:id/fixtures/auto', '/cricket/t/:id/teams/:tid/players'], limiter(10, 60, 'Too many requests. Please wait a few minutes.'));
 // V34: People's Court + petitions
 app.post('/court/:id/argue', limiter(60, 10, 'Too many attempts. Please try again later.', { skipFailedRequests: true }));
 app.post('/court/:id/vote', limiter(10, 60, 'Too many votes. Please wait a few minutes.'));
@@ -219,6 +228,9 @@ app.use('/push', express.json({ limit: '8kb' }));
 
 // Calls: signaling JSON (CSRF token header x-csrf-token ya body ke _csrf mein; sendBeacon body mein bhejta hai). Ye bhi csrf se pehle.
 app.use('/calls', express.json({ limit: '64kb' }));
+
+// Cricket scorer: JSON (CSRF token header x-csrf-token mein). Ye bhi csrf se pehle.
+app.use('/cricket', express.json({ limit: '16kb' }));
 
 // Live: signaling JSON (CSRF token header ya body ke _csrf mein; sendBeacon body mein bhejta hai). Ye bhi csrf se pehle.
 app.use('/live', express.json({ limit: '64kb' }));
@@ -306,6 +318,14 @@ app.use(async (req, res, next) => {
     console.error('locals middleware:', err.message);
   }
 
+
+  // Headlines bar (V35): sirf page (HTML) wali GET requests par; category cookie / page ki category ke mutabiq
+  res.locals.newsBar = null;
+  if (req.method === 'GET' && !/^\/(img|video|a|icons|live|calls|stories|cricket\/bar|headlines\.json)(\/|$)/.test(req.path) && !/\.(json|xml|png|jpg|js|webmanifest|txt)$/.test(req.path)) {
+    try { res.locals.newsBar = await headlinesLib.forRequest(req); }
+    catch (err) { console.error('headlines bar:', err.message); }
+  }
+
   // Friend requests jo accept ka intezar kar rahi hain (header badge). Alag try: migration_v14 na chali ho to site na ruke
   res.locals.pendingFriends = 0;
   if (req.session.user) {
@@ -371,6 +391,8 @@ app.use('/', sponsorRouter);
 app.use('/', votesRouter);
 app.use('/', courtRouter);
 app.use('/', petitionsRouter);
+app.use('/', cricketRouter);
+app.use('/', headlinesRouter);
 app.use('/', profileRouter);
 app.use('/', friendsRouter);
 app.use('/', messagesRouter);

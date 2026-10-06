@@ -1,0 +1,106 @@
+<%- include('partials/header') %>
+<%- include('partials/cricket-assets') %>
+<%
+  const csrf = '<input type="hidden" name="_csrf" value="' + csrfToken + '">';
+  const teamName = {}; teams.forEach(x => { teamName[x.id] = x.name; });
+  const when = (d) => d ? new Date(d).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Karachi' }) : '';
+%>
+<div class="ck">
+  <div class="ck-hero">
+    <h1><%= t.name %></h1>
+    <p><%= t.city ? t.city + ' | ' : '' %><%= t.overs %>-over matches | organized by <%= t.owner_name %></p>
+  </div>
+  <% if (locals.err) { %><div class="ck-msg err"><%= err %></div><% } %>
+  <% if (locals.ok) { %><div class="ck-msg"><%= ok %></div><% } %>
+
+  <div class="row g-3 mt-1">
+    <div class="col-lg-7">
+      <div class="ck-card">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+          <h2 class="mb-0">Fixtures</h2>
+          <% if (manage && teams.length > 1) { %>
+            <form action="/cricket/t/<%= t.id %>/fixtures/auto" method="POST" class="mb-0"><%- csrf %><button class="ck-btn alt" type="submit">Auto-create all fixtures</button></form>
+          <% } %>
+        </div>
+        <% if (!matches.length) { %><p class="text-body-secondary mb-0">No fixtures yet.</p><% } %>
+        <div class="d-flex flex-column gap-2">
+          <% matches.forEach(m => { %>
+            <div class="ck-m" style="padding:10px 12px">
+              <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <a class="fw-bold text-decoration-none" style="color:inherit" href="/cricket/m/<%= m.id %>"><%= m.a_name %> vs <%= m.b_name %></a>
+                <span class="ck-chip <%= m.status === 'live' ? 'live' : m.status === 'finished' ? 'done' : '' %>"><% if (m.status === 'live') { %><i></i><% } %><%= m.status === 'upcoming' ? 'Upcoming' : m.status === 'live' ? 'Live' : 'Final' %></span>
+              </div>
+              <small><%= m.result || (when(m.scheduled_at) || (m.overs + ' overs')) %></small>
+              <div class="d-flex gap-2 flex-wrap mt-2">
+                <a class="ck-btn alt py-1" href="/cricket/m/<%= m.id %>">Scorecard</a>
+                <% if (manage) { %>
+                  <a class="ck-btn py-1" href="/cricket/m/<%= m.id %>/score"><%= m.status === 'upcoming' ? 'Start scoring' : m.status === 'live' ? 'Continue scoring' : 'Edit score' %></a>
+                  <form action="/cricket/m/<%= m.id %>/delete" method="POST" class="mb-0" onsubmit="return confirm('Delete this fixture and its score?')"><%- csrf %><button class="ck-btn alt py-1" type="submit">Delete</button></form>
+                <% } %>
+                <a class="ck-btn wa py-1" target="_blank" rel="noopener" href="https://wa.me/?text=<%= encodeURIComponent('🏏 ' + m.a_name + ' vs ' + m.b_name + ' - live scorecard: ' + base + "/cricket/m/" + m.id) %>">WhatsApp</a>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+        <% if (manage && teams.length > 1) { %>
+          <form class="row g-2 mt-3 align-items-end" action="/cricket/t/<%= t.id %>/fixtures" method="POST"><%- csrf %>
+            <div class="col-6 col-md-3"><label class="small text-body-secondary">Team A</label><select class="form-select ck-in" name="team_a"><% teams.forEach(x => { %><option value="<%= x.id %>"><%= x.name %></option><% }) %></select></div>
+            <div class="col-6 col-md-3"><label class="small text-body-secondary">Team B</label><select class="form-select ck-in" name="team_b"><% teams.forEach((x, i) => { %><option value="<%= x.id %>" <%= i === 1 ? 'selected' : '' %>><%= x.name %></option><% }) %></select></div>
+            <div class="col-6 col-md-2"><label class="small text-body-secondary">Overs</label><input class="form-control ck-in" type="number" name="overs" min="1" max="50" value="<%= t.overs %>"></div>
+            <div class="col-6 col-md-4"><label class="small text-body-secondary">Date / time (optional)</label><input class="form-control ck-in" type="datetime-local" name="when"></div>
+            <div class="col-12"><button class="ck-btn" type="submit">Add fixture</button></div>
+          </form>
+        <% } %>
+      </div>
+
+      <% if (table.length) { %>
+      <div class="ck-card mt-3">
+        <h2>Points table</h2>
+        <div class="ck-scroll"><table class="ck-tbl"><thead><tr><th>Team</th><th>P</th><th>W</th><th>L</th><th>T</th><th>Pts</th></tr></thead><tbody>
+          <% table.forEach(x => { %><tr><td><%= x.name %></td><td><%= x.p %></td><td><%= x.w %></td><td><%= x.l %></td><td><%= x.t %></td><td><b><%= x.pts %></b></td></tr><% }) %>
+        </tbody></table></div>
+        <small class="text-body-secondary">2 points for a win, 1 for a tie.</small>
+      </div>
+      <% } %>
+    </div>
+
+    <div class="col-lg-5">
+      <div class="ck-card">
+        <h2>Teams &amp; players</h2>
+        <% if (!teams.length) { %><p class="text-body-secondary">No teams yet.</p><% } %>
+        <% teams.forEach(x => { const sq = players.filter(p => p.team_id === x.id); %>
+          <div class="mb-3 pb-3 border-bottom">
+            <div class="d-flex justify-content-between align-items-center"><b><%= x.name %></b><span class="small text-body-secondary"><%= sq.length %> players</span></div>
+            <div class="d-flex flex-wrap gap-1 mt-2">
+              <% sq.forEach(p => { %>
+                <span class="ck-chip" style="text-transform:none;letter-spacing:0;font-size:12px">
+                  <a href="/cricket/p/<%= p.id %>" class="text-decoration-none" style="color:inherit"><%= p.name %></a>
+                  <% if (manage) { %><form action="/cricket/t/<%= t.id %>/teams/<%= x.id %>/players/<%= p.id %>/remove" method="POST" class="d-inline mb-0"><%- csrf %><button type="submit" class="btn btn-link p-0 text-danger" style="line-height:1;text-decoration:none" aria-label="Remove <%= p.name %>">&times;</button></form><% } %>
+                </span>
+              <% }) %>
+            </div>
+            <% if (manage) { %>
+              <form action="/cricket/t/<%= t.id %>/teams/<%= x.id %>/players" method="POST" class="mt-2 d-flex gap-2"><%- csrf %>
+                <input class="form-control form-control-sm ck-in" name="players" placeholder="Add players: Ali, Bilal, Usman" aria-label="Add players to <%= x.name %>">
+                <button class="ck-btn py-1" type="submit">Add</button>
+              </form>
+              <form action="/cricket/t/<%= t.id %>/teams/<%= x.id %>/delete" method="POST" class="mt-1" onsubmit="return confirm('Delete this team?')"><%- csrf %><button class="btn btn-link btn-sm p-0 text-danger" type="submit">Delete team</button></form>
+            <% } %>
+          </div>
+        <% }) %>
+        <% if (manage) { %>
+          <form action="/cricket/t/<%= t.id %>/teams" method="POST"><%- csrf %>
+            <h3 class="h6">Add a team</h3>
+            <input class="form-control ck-in mb-2" name="name" maxlength="40" placeholder="Team name" required>
+            <textarea class="form-control ck-in mb-2" name="players" rows="4" placeholder="Players, one per line or comma separated"></textarea>
+            <button class="ck-btn" type="submit">Add team</button>
+          </form>
+        <% } %>
+      </div>
+      <% if (manage) { %>
+        <form class="mt-3" action="/cricket/t/<%= t.id %>/delete" method="POST" onsubmit="return confirm('Delete the whole tournament, all fixtures and scores?')"><%- csrf %><button class="btn btn-link text-danger p-0" type="submit">Delete this tournament</button></form>
+      <% } %>
+    </div>
+  </div>
+</div>
+<%- include('partials/footer') %>

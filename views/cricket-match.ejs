@@ -1,0 +1,35 @@
+<%- include('partials/header') %>
+<%- include('partials/cricket-assets') %>
+<div class="ck">
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <a class="ck-btn wa" target="_blank" rel="noopener" href="https://wa.me/?text=<%= encodeURIComponent(shareText) %>">Share on WhatsApp</a>
+    <button class="ck-btn alt" type="button" id="ckCopy">Copy link</button>
+    <% if (canScore) { %><a class="ck-btn" href="/cricket/m/<%= st.match.id %>/score">Open scorer</a><% } %>
+    <a class="ck-btn alt" href="/cricket/t/<%= st.match.tournament_id %>">Tournament</a>
+  </div>
+  <%- include('partials/cricket-board') %>
+  <noscript><p><%= summary %></p></noscript>
+  <p class="small text-body-secondary mt-3 mb-0">Scored by <%= st.match.scorer || st.match.owner %>. This page refreshes by itself.</p>
+</div>
+<script id="ckInit" type="application/json"><%- safeJson(st) %></script>
+<script>
+(function () {
+  var st = JSON.parse(document.getElementById('ckInit').textContent);
+  var id = st.match.id;
+  CK.render(st);
+  document.getElementById('ckCopy').addEventListener('click', function () {
+    var b = this, u = <%- safeJson(shareUrl) %>;
+    (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(function () { b.textContent = 'Copied'; }, function () { prompt('Copy this link', u); });
+  });
+  var busy = false;
+  function poll() {
+    if (document.hidden || busy || st.match.status === 'finished') return;
+    busy = true;
+    fetch('/cricket/m/' + id + '/state.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j) { st = j; CK.render(st); } }).catch(function () {}).then(function () { busy = false; });
+  }
+  setInterval(poll, 4000);
+  document.addEventListener('visibilitychange', poll);
+})();
+</script>
+<%- include('partials/footer') %>

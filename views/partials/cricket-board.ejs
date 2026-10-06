@@ -1,0 +1,107 @@
+<%# Scoreboard (public match page + scorer page): <div id="ckBoard"></div> + window.CK.render(st). Saara dynamic text textContent se (XSS safe). %>
+<div id="ckBoard"></div>
+<script>
+(function () {
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function f1(n) { return (Math.round(n * 10) / 10).toFixed(1); }
+  function ballCls(l) { return 'ck-ball' + (l === '4' ? ' r4' : l === '6' ? ' r6' : l.charAt(0) === 'W' ? ' w' : (/wd|nb|b$|lb$/.test(l) ? ' x' : '')); }
+  var OUT = { bowled: 'bowled', caught: 'caught', lbw: 'lbw', runout: 'run out', stumped: 'stumped', hitwicket: 'hit wicket' };
+
+  function battingTable(sum, strikerId, nonId, live) {
+    var wrap = el('div', 'ck-scroll'), t = el('table', 'ck-tbl'), h = el('thead'), hr = el('tr');
+    ['Batter', 'R', 'B', '4s', '6s', 'SR'].forEach(function (x) { hr.appendChild(el('th', '', x)); });
+    h.appendChild(hr); t.appendChild(h);
+    var b = el('tbody');
+    sum.batters.forEach(function (x) {
+      var tr = el('tr', live && (x.id === strikerId) ? 'on' : ''), td = el('td', '', x.name + (live && x.id === strikerId ? ' *' : ''));
+      td.appendChild(el('small', '', x.out ? (OUT[x.out] || x.out) : 'not out'));
+      tr.appendChild(td);
+      [x.runs, x.balls, x.fours, x.sixes, f1(x.sr)].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+      b.appendChild(tr);
+    });
+    if (!sum.batters.length) { var e = el('tr'); var c = el('td', '', 'No balls yet'); c.colSpan = 6; e.appendChild(c); b.appendChild(e); }
+    t.appendChild(b); wrap.appendChild(t); return wrap;
+  }
+  function bowlingTable(sum) {
+    var wrap = el('div', 'ck-scroll'), t = el('table', 'ck-tbl'), h = el('thead'), hr = el('tr');
+    ['Bowler', 'O', 'R', 'W', 'Econ'].forEach(function (x) { hr.appendChild(el('th', '', x)); });
+    h.appendChild(hr); t.appendChild(h);
+    var b = el('tbody');
+    sum.bowlers.forEach(function (x) {
+      var tr = el('tr'); tr.appendChild(el('td', '', x.name));
+      [x.overs, x.runs, x.wkts, f1(x.econ)].forEach(function (v) { tr.appendChild(el('td', '', v)); });
+      b.appendChild(tr);
+    });
+    t.appendChild(b); wrap.appendChild(t); return wrap;
+  }
+  function inningsBlock(title, team, sum, strikerId, nonId, live, extra) {
+    var box = el('div', 'ck-card mt-3');
+    var hd = el('div', 'd-flex justify-content-between align-items-baseline flex-wrap gap-2');
+    hd.appendChild(el('h2', '', title + ' - ' + team));
+    hd.appendChild(el('b', '', sum.runs + '/' + sum.wkts + ' (' + sum.overs + ' ov)'));
+    box.appendChild(hd);
+    box.appendChild(battingTable(sum, strikerId, nonId, live));
+    box.appendChild(el('div', 'small text-body-secondary mt-2 mb-3', 'Extras: ' + sum.extras));
+    box.appendChild(bowlingTable(sum));
+    return box;
+  }
+
+  var last = null;
+  function render(st) {
+    var root = document.getElementById('ckBoard'); if (!root) return;
+    var m = st.match, a = st.teams.a, b = st.teams.b, c = st.cur;
+    var nameOf = function (id) { return id === a.id ? a.name : b.name; };
+    var out = el('div');
+    var top = el('div', 'd-flex align-items-center flex-wrap gap-2 mb-2');
+    var chip = el('span', 'ck-chip ' + (m.status === 'live' ? 'live' : m.status === 'finished' ? 'done' : ''));
+    if (m.status === 'live') chip.appendChild(el('i'));
+    chip.appendChild(document.createTextNode(m.status === 'live' ? 'Live' : m.status === 'finished' ? 'Result' : 'Upcoming'));
+    top.appendChild(chip);
+    var tl = el('a', 'small text-body-secondary', m.tournament); tl.href = '/cricket/t/' + m.tournament_id; top.appendChild(tl);
+    top.appendChild(el('span', 'small text-body-secondary', m.overs + ' overs'));
+    out.appendChild(top);
+
+    var hero = el('div', 'ck-card');
+    hero.appendChild(el('h1', 'h4 mb-3', a.name + ' vs ' + b.name));
+    if (m.status === 'upcoming') {
+      hero.appendChild(el('p', 'mb-0 text-body-secondary', 'The match has not started yet. Check back soon - this page updates by itself.'));
+    } else {
+      var sc = el('div', 'ck-score'); sc.id = 'ckScore';
+      sc.appendChild(el('span', 'fw-bold', nameOf(st.batTeam)));
+      sc.appendChild(el('span', 'big', c.runs + '/' + c.wkts));
+      sc.appendChild(el('span', 'ov', '(' + c.overs + ' / ' + m.overs + ' ov)'));
+      hero.appendChild(sc);
+      var line = [];
+      line.push('CRR ' + f1(c.crr));
+      if (m.innings === 2 && m.status === 'live') { line.push('Target ' + m.target); if (c.rrr != null) line.push('RRR ' + f1(c.rrr)); }
+      hero.appendChild(el('div', 'text-body-secondary mt-1', line.join('  |  ')));
+      if (m.innings === 2) hero.appendChild(el('div', 'text-body-secondary', nameOf(st.firstBat) + ': ' + st.inn1.runs + '/' + st.inn1.wkts + ' (' + st.inn1.overs + ' ov)'));
+      if (m.status === 'live' && m.innings === 2 && c.need > 0) hero.appendChild(el('div', 'fw-bold mt-2', nameOf(st.batTeam) + ' need ' + c.need + ' run' + (c.need === 1 ? '' : 's') + ' from ' + c.ballsLeft + ' ball' + (c.ballsLeft === 1 ? '' : 's')));
+      if (m.status === 'live' && c.thisOver.length) {
+        hero.appendChild(el('div', 'small text-body-secondary mt-3 mb-1', 'This over'));
+        var bs = el('div', 'ck-balls'); c.thisOver.forEach(function (l) { bs.appendChild(el('span', ballCls(l), l)); }); hero.appendChild(bs);
+      }
+      if (m.status === 'live' && m.innings === 1 && c.over) hero.appendChild(el('div', 'ck-msg mt-3', 'Innings break'));
+    }
+    if (m.result) hero.appendChild(el('div', 'ck-msg mt-3 fw-bold', '🏆 ' + m.result));
+    if (m.toss) hero.appendChild(el('div', 'small text-body-secondary mt-2', m.toss));
+    out.appendChild(hero);
+
+    if (m.status !== 'upcoming') {
+      var live = m.status === 'live';
+      var curLive = live;
+      if (m.innings === 2 && st.inn2.batters.length + st.inn2.bowlers.length > 0)
+        out.appendChild(inningsBlock('2nd innings', nameOf(st.secondBat), st.inn2, st.next.striker, st.next.nonStriker, curLive));
+      if (st.inn1.batters.length)
+        out.appendChild(inningsBlock('1st innings', nameOf(st.firstBat), st.inn1, st.next.striker, st.next.nonStriker, curLive && m.innings === 1));
+    }
+    root.replaceChildren(out);
+
+    // runs / wicket badalne par halka flash
+    var key = m.status + ':' + m.innings + ':' + c.runs + '/' + c.wkts + ':' + c.legal;
+    if (last && last !== key) { var s = document.getElementById('ckScore'); if (s) { s.classList.add('ck-flash'); } }
+    last = key;
+  }
+  window.CK = { render: render, el: el, f1: f1, ballCls: ballCls };
+})();
+</script>

@@ -1,0 +1,199 @@
+<%- include('partials/header') %>
+<%- include('partials/cricket-assets') %>
+<style>
+  .ck-run { flex: 1 0 56px; height: 56px; font: 800 22px var(--kz-sans); border: 0; border-radius: 14px; background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+  .ck-run:active { transform: scale(.95); }
+  .ck-run.four { background: #2563eb; color: #fff; } .ck-run.six { background: #7c3aed; color: #fff; }
+  .ck-tog { font: 700 13px var(--kz-sans); border: 2px solid var(--kz-line); background: transparent; color: var(--bs-body-color); padding: 8px 14px; border-radius: 99px; }
+  .ck-tog.on { background: #f59e0b; border-color: #f59e0b; color: #111; }
+  .ck-tog.wk.on { background: var(--ck-red); border-color: var(--ck-red); color: #fff; }
+  .ck-sw { position: relative; width: 52px; height: 30px; flex: 0 0 auto; }
+  .ck-sw input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 2; }
+  .ck-sw span { position: absolute; inset: 0; border-radius: 99px; background: var(--bs-secondary-bg); border: 1px solid var(--kz-line); transition: background .2s; }
+  .ck-sw span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s; }
+  .ck-sw input:checked + span { background: var(--ck-green); }
+  .ck-sw input:checked + span::after { transform: translateX(22px); }
+  .ck-sw input:focus-visible + span { outline: 3px solid color-mix(in srgb, var(--ck-green) 40%, transparent); }
+</style>
+<div class="ck">
+  <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <a class="ck-btn alt" href="/cricket/m/<%= st.match.id %>">Public scorecard</a>
+    <a class="ck-btn wa" id="ckWa" target="_blank" rel="noopener" href="#">Share on WhatsApp</a>
+    <a class="ck-btn alt" href="/cricket/t/<%= st.match.tournament_id %>">Tournament</a>
+  </div>
+  <div id="ckErr" class="ck-msg err d-none" role="alert"></div>
+
+  <%# ---------- Toss ---------- %>
+  <div id="ckToss" class="ck-card d-none mb-3">
+    <h2>Toss</h2>
+    <p class="small text-body-secondary mb-2">Who won the toss?</p>
+    <div class="d-flex gap-2 mb-3 flex-wrap" id="ckTossTeams"></div>
+    <p class="small text-body-secondary mb-2">They chose to</p>
+    <div class="d-flex gap-2 mb-3"><button type="button" class="ck-tog on" data-choice="bat">Bat</button><button type="button" class="ck-tog" data-choice="bowl">Bowl</button></div>
+    <button class="ck-btn" type="button" id="ckStart">Start match</button>
+  </div>
+
+  <%# ---------- Live controls ---------- %>
+  <div id="ckLive" class="d-none">
+    <div class="ck-card mb-3">
+      <div class="row g-2">
+        <div class="col-12 col-md-4"><label class="small text-body-secondary">Striker *</label><select id="selStriker" class="form-select ck-in"></select></div>
+        <div class="col-6 col-md-4"><label class="small text-body-secondary">Non-striker</label><select id="selNon" class="form-select ck-in"></select></div>
+        <div class="col-6 col-md-4"><label class="small text-body-secondary">Bowler</label><select id="selBowler" class="form-select ck-in"></select></div>
+      </div>
+      <div id="ckHint" class="ck-msg d-none mt-2 mb-0"></div>
+    </div>
+
+    <div class="ck-card mb-3">
+      <div class="d-flex gap-2 flex-wrap mb-3" id="ckExtras">
+        <button type="button" class="ck-tog" data-x="wd">Wide</button><button type="button" class="ck-tog" data-x="nb">No ball</button>
+        <button type="button" class="ck-tog" data-x="b">Bye</button><button type="button" class="ck-tog" data-x="lb">Leg bye</button>
+        <button type="button" class="ck-tog wk" id="ckWk">Wicket</button>
+      </div>
+      <div id="ckWkBox" class="ck-msg d-none">
+        <div class="row g-2">
+          <div class="col-6"><label class="small">How out?</label><select id="wkType" class="form-select ck-in">
+            <option value="bowled">Bowled</option><option value="caught">Caught</option><option value="lbw">LBW</option>
+            <option value="runout">Run out</option><option value="stumped">Stumped</option><option value="hitwicket">Hit wicket</option></select></div>
+          <div class="col-6"><label class="small">Who is out? (run out)</label><select id="wkOut" class="form-select ck-in"><option value="striker">Striker</option><option value="nonStriker">Non-striker</option></select></div>
+        </div>
+        <div class="small mt-2">Pick the runs below to record the wicket ball (0 for a plain wicket).</div>
+      </div>
+      <div class="d-flex gap-2 flex-wrap" id="ckRuns">
+        <% [0,1,2,3,4,5,6].forEach(n => { %><button type="button" class="ck-run <%= n === 4 ? 'four' : n === 6 ? 'six' : '' %>" data-r="<%= n %>"><%= n %></button><% }) %>
+      </div>
+      <div class="d-flex gap-2 mt-3 flex-wrap">
+        <button type="button" class="ck-btn alt" id="ckUndo">Undo last ball</button>
+        <button type="button" class="ck-btn alt" id="ckEndInn">End innings</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="ckInnOver" class="ck-card d-none mb-3">
+    <h2>Innings over</h2>
+    <p class="mb-3" id="ckInnText"></p>
+    <button type="button" class="ck-btn" id="ckInn2">Start 2nd innings</button>
+    <button type="button" class="ck-btn alt ms-2" id="ckUndo2">Undo last ball</button>
+  </div>
+  <div id="ckDone" class="ck-card d-none mb-3"><h2>Match finished</h2><p class="mb-2 fw-bold" id="ckResult"></p><button type="button" class="ck-btn alt" id="ckUndo3">Undo last ball (fix a mistake)</button></div>
+
+  <%# ---------- Live stream bar (boolean) ---------- %>
+  <div class="ck-card mb-3">
+    <div class="d-flex align-items-center gap-3">
+      <label class="ck-sw mb-0"><input type="checkbox" id="ckStream" aria-label="Show score bar on my live stream"><span></span></label>
+      <div>
+        <b>Show score bar on my live stream</b>
+        <div class="small text-body-secondary" id="ckStreamHint"></div>
+      </div>
+    </div>
+    <div class="small text-body-secondary mt-2">When this is ON and <%= st.match.owner %> is live, viewers see a TV-style score bar on the stream and it updates with every ball. Everywhere else on the site the news headlines bar is shown instead.</div>
+  </div>
+
+  <%- include('partials/cricket-board') %>
+
+  <% if (isOwner) { %>
+  <div class="ck-card mt-3">
+    <h2>Let a friend score</h2>
+    <p class="small text-body-secondary">Type their Khabzo username. They can score this match from their own phone while you stream.</p>
+    <div class="d-flex gap-2"><input id="scorerName" class="form-control ck-in" placeholder="username (empty = only me)" value="<%= st.match.scorer || '' %>"><button type="button" class="ck-btn" id="ckSetScorer">Save</button></div>
+  </div>
+  <% } %>
+</div>
+<script id="ckInit" type="application/json"><%- safeJson({ st, streaming }) %></script>
+<script>
+(function () {
+  var csrf = <%- safeJson(csrfToken) %>, init = JSON.parse(document.getElementById('ckInit').textContent);
+  var st = init.st, streaming = init.streaming, extra = null, wk = false, busy = false, tossWinner = null, tossChoice = 'bat';
+  var shareUrl = <%- safeJson(shareUrl) %>;
+  var $ = function (i) { return document.getElementById(i); };
+  var show = function (i, on) { $(i).classList.toggle('d-none', !on); };
+
+  function api(path, body) {
+    busy = true; setBusy(true);
+    return fetch('/cricket/m/' + st.match.id + path, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify(body || {}) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j._ok = r.ok; return j; }); })
+      .then(function (j) { busy = false; setBusy(false); if (!j._ok) { err(j.error || 'Something went wrong.'); return null; } err(''); st = j.state; streaming = j.streaming; paint(); return j; })
+      .catch(function () { busy = false; setBusy(false); err('Network problem. Try again.'); return null; });
+  }
+  function setBusy(b) { document.querySelectorAll('.ck-run, #ckUndo, #ckStart, #ckInn2').forEach(function (x) { x.disabled = b; }); }
+  function err(t) { var e = $('ckErr'); e.textContent = t; e.classList.toggle('d-none', !t); if (t) e.scrollIntoView({ block: 'nearest' }); }
+
+  function fill(sel, list, value, blank) {
+    sel.replaceChildren();
+    if (blank) { var o = CK.el('option', '', blank); o.value = ''; sel.appendChild(o); }
+    list.forEach(function (p) { var o = CK.el('option', '', p.name); o.value = p.id; sel.appendChild(o); });
+    sel.value = value ? String(value) : '';
+  }
+
+  function paint() {
+    var m = st.match, nx = st.next;
+    CK.render(st);
+    $('ckWa').href = 'https://wa.me/?text=' + encodeURIComponent('🏏 ' + st.teams.a.name + ' vs ' + st.teams.b.name + ' - live scorecard\n' + shareUrl);
+    var upcoming = m.status === 'upcoming', live = m.status === 'live', over = st.cur.over;
+    show('ckToss', upcoming);
+    show('ckLive', live && !over);
+    show('ckInnOver', live && over && m.innings === 1);
+    show('ckDone', m.status === 'finished');
+    if (m.status === 'finished') $('ckResult').textContent = m.result || '';
+    if (upcoming) {
+      var box = $('ckTossTeams'); box.replaceChildren();
+      [st.teams.a, st.teams.b].forEach(function (t) {
+        var b = CK.el('button', 'ck-tog' + (tossWinner === t.id ? ' on' : ''), t.name); b.type = 'button';
+        b.onclick = function () { tossWinner = t.id; paint(); }; box.appendChild(b);
+      });
+    }
+    if (live && over && m.innings === 1) $('ckInnText').textContent = st.inn1.runs + '/' + st.inn1.wkts + ' in ' + st.inn1.overs + ' overs. Target for the chase: ' + (st.inn1.runs + 1) + '.';
+    if (live && !over) {
+      var out = {}; st.cur.batters.forEach(function (x) { if (x.out) out[x.id] = true; });
+      var avail = st.batters.filter(function (p) { return !out[p.id]; });
+      var prevS = $('selStriker').value, prevN = $('selNon').value, prevB = $('selBowler').value;
+      // jab server ne naya batter / bowler maanga ho ya pehli ball ho to tajweez wali values, warna scorer ki apni chuni hui
+      fill($('selStriker'), avail, nx.striker || (prevS && !out[prevS] ? prevS : ''), 'Select striker');
+      fill($('selNon'), avail, nx.nonStriker || (prevN && !out[prevN] ? prevN : ''), 'Select non-striker');
+      fill($('selBowler'), st.bowlers, nx.bowler || (nx.needBowler ? '' : prevB), 'Select bowler');
+      var hint = '';
+      if (!st.cur.batters.length) hint = 'Choose the two opening batters and the first bowler.';
+      else if (nx.needBatter) hint = 'Wicket! Select the new batter.';
+      else if (nx.needBowler) hint = 'Over complete. Select the next bowler' + (nx.lastBowler ? ' (not the same bowler twice in a row).' : '.');
+      $('ckHint').textContent = hint; show('ckHint', !!hint);
+      $('ckEndInn').style.display = m.innings === 1 ? '' : 'none';
+    }
+    $('ckStream').checked = !!m.show_on_stream;
+    $('ckStreamHint').textContent = streaming ? 'You are live right now.' + (m.show_on_stream ? ' Viewers can see the bar.' : '') : 'Not live yet. The bar appears on your stream as soon as you go live (🔴 Live button on the Feed page).';
+  }
+
+  // run button = ball record
+  $('ckRuns').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-r]'); if (!b || busy) return;
+    var body = { striker: $('selStriker').value, nonStriker: $('selNon').value, bowler: $('selBowler').value, runs: parseInt(b.getAttribute('data-r'), 10), extra: extra };
+    if (!body.striker || !body.nonStriker || !body.bowler) return err('Select striker, non-striker and bowler first.');
+    if (wk) body.wicket = { type: $('wkType').value, out: $('wkOut').value };
+    api('/ball', body).then(function (j) { if (j) { extra = null; wk = false; syncToggles(); } });
+  });
+  function syncToggles() {
+    document.querySelectorAll('#ckExtras [data-x]').forEach(function (x) { x.classList.toggle('on', x.getAttribute('data-x') === extra); });
+    $('ckWk').classList.toggle('on', wk); show('ckWkBox', wk);
+  }
+  $('ckExtras').addEventListener('click', function (e) {
+    var x = e.target.closest('[data-x]'); if (x) { var v = x.getAttribute('data-x'); extra = extra === v ? null : v; syncToggles(); }
+  });
+  $('ckWk').addEventListener('click', function () { wk = !wk; syncToggles(); });
+  ['ckUndo', 'ckUndo2', 'ckUndo3'].forEach(function (id) { $(id).addEventListener('click', function () { if (!busy) api('/undo'); }); });
+  $('ckInn2').addEventListener('click', function () { if (!busy) api('/innings2'); });
+  $('ckEndInn').addEventListener('click', function () {
+    if (!busy && confirm('End this innings now?')) api('/innings2', { force: true });
+  });
+  document.querySelectorAll('[data-choice]').forEach(function (b) {
+    b.addEventListener('click', function () { tossChoice = b.getAttribute('data-choice'); document.querySelectorAll('[data-choice]').forEach(function (x) { x.classList.toggle('on', x === b); }); });
+  });
+  $('ckStart').addEventListener('click', function () {
+    if (!tossWinner) return err('Pick who won the toss.');
+    api('/start', { toss_winner: tossWinner, toss_choice: tossChoice });
+  });
+  $('ckStream').addEventListener('change', function () { api('/stream', { show: this.checked }); });
+  var ss = $('ckSetScorer'); if (ss) ss.addEventListener('click', function () { api('/scorer', { username: $('scorerName').value }).then(function (j) { if (j) err(''); }); });
+
+  paint();
+})();
+</script>
+<%- include('partials/footer') %>

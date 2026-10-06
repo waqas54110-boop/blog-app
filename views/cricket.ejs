@@ -1,0 +1,78 @@
+<%- include('partials/header') %>
+<%- include('partials/cricket-assets') %>
+<div class="ck">
+  <div class="ck-hero">
+    <h1>Mohalla Cricket Manager</h1>
+    <p>Score gali and club cricket ball by ball. Create a tournament, add teams and players, make fixtures, and send the live scorecard link on WhatsApp. Every player gets a career profile.</p>
+    <div class="mt-3 d-flex gap-2 flex-wrap">
+      <% if (user) { %><a class="ck-btn" style="background:#fff;color:#064e3b" href="#new">Start a tournament</a><% } else { %><a class="ck-btn" style="background:#fff;color:#064e3b" href="/login">Log in to start</a><% } %>
+    </div>
+  </div>
+
+  <% if (locals.err) { %><div class="ck-msg err"><%= err %></div><% } %>
+  <% if (locals.ok) { %><div class="ck-msg"><%= ok %></div><% } %>
+
+  <% if (live.length) { %>
+    <h2 class="ck-h mt-4">Live now</h2>
+    <div class="ck-grid">
+      <% live.forEach(m => { %>
+        <a class="ck-m" href="/cricket/m/<%= m.id %>">
+          <span class="ck-chip live"><i></i>Live</span>
+          <b class="mt-2"><%= m.a_name %> vs <%= m.b_name %></b>
+          <div class="fw-semibold"><%= m.score %></div>
+          <small><%= m.t_name %><%= m.chase ? ' | ' + m.chase : '' %></small>
+        </a>
+      <% }) %>
+    </div>
+  <% } %>
+
+  <% if (user) { %>
+    <div class="row g-3 mt-2" id="new">
+      <div class="col-lg-5">
+        <form class="ck-card" action="/cricket" method="POST">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <h2>New tournament</h2>
+          <input class="form-control ck-in mb-2" name="name" maxlength="80" placeholder="e.g. Gulberg Street Cup 2026" required>
+          <div class="d-flex gap-2 mb-3">
+            <input class="form-control ck-in" name="city" maxlength="60" placeholder="City / mohalla">
+            <input class="form-control ck-in" style="max-width:110px" type="number" name="overs" min="1" max="50" value="6" title="Overs per match" aria-label="Overs per match">
+          </div>
+          <button class="ck-btn" type="submit">Create tournament</button>
+        </form>
+      </div>
+      <div class="col-lg-7">
+        <div class="ck-card">
+          <h2>My tournaments</h2>
+          <% if (!mine.length) { %><p class="text-body-secondary mb-0">You have not created any tournament yet.</p><% } %>
+          <div class="d-flex flex-column gap-2">
+            <% mine.forEach(t => { %>
+              <a class="ck-m" href="/cricket/t/<%= t.id %>"><b><%= t.name %></b><small><%= t.city || 'No city' %> | <%= t.overs %> overs</small></a>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% } %>
+
+  <div class="row g-3 mt-2">
+    <div class="col-lg-7">
+      <h2 class="ck-h mt-3">Tournaments</h2>
+      <% if (!tournaments.length) { %><p class="text-body-secondary">No tournaments yet. Be the first.</p><% } %>
+      <div class="ck-grid" style="grid-template-columns: repeat(auto-fill, minmax(220px, 1fr))">
+        <% tournaments.forEach(t => { %>
+          <a class="ck-m" href="/cricket/t/<%= t.id %>"><b><%= t.name %></b><small><%= t.city || '' %><%= t.city ? ' | ' : '' %><%= t.teams %> teams, <%= t.matches %> matches</small><small>by <%= t.username %></small></a>
+        <% }) %>
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <h2 class="ck-h mt-3">Recent results</h2>
+      <% if (!recent.length) { %><p class="text-body-secondary">No finished matches yet.</p><% } %>
+      <div class="d-flex flex-column gap-2">
+        <% recent.forEach(m => { %>
+          <a class="ck-m" href="/cricket/m/<%= m.id %>"><b><%= m.a_name %> vs <%= m.b_name %></b><small><%= m.result %></small></a>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('partials/footer') %>

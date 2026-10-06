@@ -24,6 +24,33 @@
   .ls-btn.off { background: #fff; color: #111; }
   .ls-btn.red { background: #ef4444; } .ls-btn.red:hover { background: #dc2626; }
   #lvPlay { position: relative; z-index: 4; margin: 0 auto auto; }
+
+  /* ===== Cricket score bar (TV style). Sirf tab dikhti hai jab match ka "Show on live stream" boolean ON ho ===== */
+  .sb { position: absolute; z-index: 4; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); padding: 0 .6rem; pointer-events: none; font-family: var(--kz-sans, system-ui, sans-serif); }
+  .sb.sb-host { bottom: calc(env(safe-area-inset-bottom, 0px) + 112px); }
+  .sb.d-none { display: none !important; }
+  .sb-in { max-width: 720px; margin: 0 auto; border-radius: .7rem; overflow: hidden; background: rgba(8,14,28,.9); box-shadow: 0 8px 30px rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.14); }
+  .sb-row { display: flex; align-items: stretch; }
+  .sb-tag { flex: 0 0 auto; background: #c8102e; color: #fff; font: 800 .68rem/1 var(--kz-sans, sans-serif); letter-spacing: .06em; padding: 0 .6rem; display: flex; align-items: center; gap: .35rem; }
+  .sb-tag i { width: .4rem; height: .4rem; border-radius: 50%; background: #fff; animation: sbpulse 1.4s infinite; }
+  @keyframes sbpulse { 50% { opacity: .3; } }
+  .sb-team { flex: 0 0 auto; background: #fff; color: #0b1020; font: 800 1.05rem/1 var(--kz-sans, sans-serif); padding: .55rem .7rem; display: flex; align-items: center; letter-spacing: .02em; }
+  .sb-score { flex: 1 1 auto; display: flex; align-items: baseline; gap: .5rem; padding: .35rem .8rem; color: #fff; min-width: 0; }
+  .sb-score b { font: 800 1.7rem/1 var(--kz-sans, sans-serif); font-variant-numeric: tabular-nums; }
+  .sb-score span { font-size: .85rem; opacity: .8; white-space: nowrap; }
+  .sb-score.flash { animation: sbflash 1.3s ease-out; }
+  .sb-score.wkt { animation: sbwkt 1.6s ease-out; }
+  @keyframes sbflash { 0% { background: #16a34a; } 100% { background: transparent; } }
+  @keyframes sbwkt { 0% { background: #dc2626; } 100% { background: transparent; } }
+  .sb-sub { display: flex; flex-wrap: wrap; gap: .1rem .9rem; padding: .35rem .8rem; background: rgba(255,255,255,.08); color: #e5e7eb; font-size: .76rem; }
+  .sb-sub b { color: #fff; }
+  .sb-chase { padding: .3rem .8rem; background: #fbbf24; color: #111; font-weight: 700; font-size: .78rem; }
+  .sb-balls { display: flex; gap: .25rem; align-items: center; padding: .3rem .8rem; background: rgba(0,0,0,.25); }
+  .sb-balls em { font-style: normal; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; opacity: .7; margin-right: .2rem; color: #fff; }
+  .sb-b { min-width: 1.45rem; height: 1.45rem; padding: 0 .25rem; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; font-size: .7rem; font-weight: 800; background: #374151; color: #fff; }
+  .sb-b.r4 { background: #2563eb; } .sb-b.r6 { background: #7c3aed; } .sb-b.w { background: #dc2626; } .sb-b.x { background: #f59e0b; color: #111; }
+  @media (max-width: 480px) { .sb-score b { font-size: 1.4rem; } .sb-team { font-size: .9rem; padding: .5rem .5rem; } }
+  @media (prefers-reduced-motion: reduce) { .sb-tag i, .sb-score.flash, .sb-score.wkt { animation: none; } }
 </style>
 
 <%# ---------- HOST screen ---------- %>
@@ -35,6 +62,7 @@
     <button type="button" id="lhClose" class="ls-x" aria-label="Cancel">✕</button>
   </div>
   <div id="lhMsg" class="ls-msg"></div>
+  <div id="lhScore" class="sb sb-host d-none" aria-live="polite"></div>
   <div id="lhSave" class="ls-save d-none">
     <div class="progress mb-2" style="height:6px"><div id="lhSaveBar" class="progress-bar bg-danger" style="width:0%"></div></div>
     <div id="lhSaveBtns" class="d-flex justify-content-center gap-2 flex-wrap d-none">
@@ -66,6 +94,7 @@
     <button type="button" id="lvClose" class="ls-x" aria-label="Close">✕</button>
   </div>
   <div id="lvMsg" class="ls-msg">Connecting…</div>
+  <div id="lvScore" class="sb d-none" aria-live="polite"></div>
   <button type="button" id="lvPlay" class="btn btn-light rounded-pill fw-semibold d-none">▶ Tap to play</button>
 </div>
 
@@ -101,6 +130,54 @@
     });
   }
   function fmt(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+
+  /* ---------- Cricket score bar ---------- */
+  var bars = {};   // mountId -> { stop, timer, last }
+  function barStop(mountId) {
+    var b = bars[mountId]; if (b) { b.dead = true; clearTimeout(b.timer); delete bars[mountId]; }
+    var m = $(mountId); if (m) { m.classList.add('d-none'); m.replaceChildren(); }
+  }
+  function barStart(streamId, mountId) {
+    barStop(mountId);
+    var b = bars[mountId] = { dead: false, timer: null, last: null, key: '' };
+    function mk(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function ballCls(l) { return 'sb-b' + (l === '4' ? ' r4' : l === '6' ? ' r6' : l.charAt(0) === 'W' ? ' w' : (/wd|nb|b$|lb$/.test(l) ? ' x' : '')); }
+    function paint(d) {
+      var m = $(mountId); if (!m) return;
+      if (!d || !d.show) { m.classList.add('d-none'); m.replaceChildren(); b.last = null; return; }
+      var wasHidden = m.classList.contains('d-none');
+      var inn = mk('div', 'sb-in'), r1 = mk('div', 'sb-row');
+      var tag = mk('div', 'sb-tag'); tag.appendChild(mk('i')); tag.appendChild(document.createTextNode(d.status === 'finished' ? 'FINAL' : 'LIVE')); r1.appendChild(tag);
+      r1.appendChild(mk('div', 'sb-team', d.bat.short));
+      var sc = mk('div', 'sb-score');
+      sc.appendChild(mk('b', '', d.runs + '/' + d.wkts));
+      sc.appendChild(mk('span', '', '(' + d.overs + '/' + d.maxOvers + ' ov)'));
+      sc.appendChild(mk('span', '', 'CRR ' + d.crr.toFixed(2)));
+      r1.appendChild(sc); inn.appendChild(r1);
+      var key = d.runs + '/' + d.wkts + '/' + d.overs + '/' + d.innings;
+      if (b.last && b.last.key !== key) { sc.classList.add(d.wkts > b.last.wkts ? 'wkt' : 'flash'); }
+      if (d.result) inn.appendChild(mk('div', 'sb-chase', d.result));
+      else if (d.innings === 2 && d.target && d.need != null) inn.appendChild(mk('div', 'sb-chase', d.bat.short + ' need ' + d.need + ' from ' + d.ballsLeft + ' balls' + (d.rrr != null ? '  |  RRR ' + d.rrr.toFixed(2) : '') + '  |  Target ' + d.target));
+      var sub = mk('div', 'sb-sub');
+      if (d.striker) { var s1 = mk('span'); s1.appendChild(mk('b', '', d.striker.name + '*')); s1.appendChild(document.createTextNode(' ' + d.striker.runs + '(' + d.striker.balls + ')')); sub.appendChild(s1); }
+      if (d.nonStriker) { var s2 = mk('span'); s2.appendChild(mk('b', '', d.nonStriker.name)); s2.appendChild(document.createTextNode(' ' + d.nonStriker.runs + '(' + d.nonStriker.balls + ')')); sub.appendChild(s2); }
+      if (d.bowler) { var s3 = mk('span'); s3.appendChild(mk('b', '', d.bowler.name)); s3.appendChild(document.createTextNode(' ' + d.bowler.wkts + '-' + d.bowler.runs + ' (' + d.bowler.overs + ')')); sub.appendChild(s3); }
+      if (d.first) sub.appendChild(mk('span', '', d.first.short + ' ' + d.first.runs + '/' + d.first.wkts + ' (' + d.first.overs + ')'));
+      if (sub.childNodes.length) inn.appendChild(sub);
+      if (d.thisOver && d.thisOver.length && !d.result) { var bl = mk('div', 'sb-balls'); bl.appendChild(mk('em', '', 'This over')); d.thisOver.forEach(function (l) { bl.appendChild(mk('span', ballCls(l), l)); }); inn.appendChild(bl); }
+      m.replaceChildren(inn); m.classList.remove('d-none');
+      b.last = { key: key, wkts: d.wkts };
+    }
+    function tick() {
+      if (b.dead) return;
+      var next = function () { if (!b.dead) b.timer = setTimeout(tick, 4000); };
+      if (document.hidden) return next();
+      fetch('/cricket/bar/' + streamId, { credentials: 'same-origin', cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : { show: false }; })
+        .then(function (d) { if (!b.dead) paint(d); }).catch(noop).then(next);
+    }
+    tick();
+  }
   function beacon(path, data) {
     if (!navigator.sendBeacon) return;
     data._csrf = csrf;
@@ -178,6 +255,7 @@
       var begin = function () {
         if (h.ended) return;
         h.live = true; h.t0 = Date.now();
+        barStart(h.id, 'lhScore');
         $('lhSetup').classList.add('d-none'); $('lhBar').classList.remove('d-none');
         $('lhClose').style.display = 'none';
         $('lhBadge').classList.remove('d-none'); $('lhViewers').classList.remove('d-none'); $('lhViewers').textContent = '👁 0';
@@ -291,6 +369,7 @@
     if (h.ended) return;
     h.ended = true;
     clearTimeout(h.pollT); clearInterval(h.tick);
+    barStop('lhScore');
     if (tellServer && h.id) api('POST', '/live/' + h.id + '/end').catch(noop);
     var recP = h.live ? finalizeRec(h) : Promise.resolve(null);   // stopMedia se PEHLE (tracks band hone se pehle recorder ko roko)
     stopMedia(h);
@@ -467,6 +546,7 @@
     $('lvPlay').classList.add('d-none');
     viewMsg('Connecting…');
     $('liveView').classList.remove('d-none');
+    barStart(id, 'lvScore');
 
     api('POST', '/live/' + id + '/join').then(function (j) {
       if (v.ended) { if (j._ok) api('POST', '/live/' + id + '/leave', { sess: j.sess }).catch(noop); return; }
@@ -521,6 +601,7 @@
     if (v.ended) return;
     v.ended = true;
     clearTimeout(v.pollT); clearTimeout(v.slowT);
+    barStop('lvScore');
     if (tellServer && v.sess) api('POST', '/live/' + v.id + '/leave', { sess: v.sess }).catch(noop);
     try { if (v.room) v.room.disconnect(); } catch (e) { /* ignore */ }
     try { if (v.pc) { v.pc.ontrack = v.pc.onicecandidate = v.pc.onconnectionstatechange = null; v.pc.close(); } } catch (e) { /* ignore */ }

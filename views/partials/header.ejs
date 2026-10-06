@@ -182,6 +182,7 @@
       <a href="/" class="<%= _isHome ? 'on' : '' %>">Home</a>
       <a href="/?tab=all" class="<%= _isFeed ? 'on' : '' %>">Feed</a>
       <a href="/blog" class="<%= (_isBlog && !_cat && _path === '/blog') ? 'on' : '' %>">Blog</a>
+      <a href="/cricket" class="<%= _path.indexOf('/cricket') === 0 ? 'on' : '' %>">🏏 Mohalla Cricket</a>
       <a href="/court" class="<%= _path.indexOf('/court') === 0 ? 'on' : '' %>">People's Court</a>
       <a href="/petitions" class="<%= _path.indexOf('/petitions') === 0 ? 'on' : '' %>">Petitions</a>
       <% navCategories.forEach(c => { %>
@@ -271,6 +272,7 @@
           <li><a class="dropdown-item" href="/groups">🫂 Groups</a></li>
           <li><a class="dropdown-item" href="/leaderboard">🏆 Leaderboard</a></li>
           <li><a class="dropdown-item" href="/votes">🗳️ Vote</a></li>
+          <li><a class="dropdown-item" href="/cricket">🏏 Mohalla Cricket Manager</a></li>
           <li><a class="dropdown-item" href="/court">⚖️ People's Court</a></li>
           <li><a class="dropdown-item" href="/petitions">📢 Petitions</a></li>
           <li><a class="dropdown-item" href="/hire">💼 Hire Me</a></li>
@@ -282,5 +284,7 @@
     </div>
   </div>
 </nav>
+
+<%- include('news-bar') %>
 
 <main class="container py-4">

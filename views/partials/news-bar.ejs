@@ -1,0 +1,61 @@
+<%# Headlines bar: jis category ko select karein usi ki headlines chalti hain. Live stream par iski jagah cricket score bar aati hai (live-ui.ejs). %>
+<% if (locals.newsBar && !locals.hideNewsBar) { %>
+<style>
+  .kz-nb { display: flex; align-items: stretch; margin: 0 0 18px; background: var(--kz-paper); border: 1px solid var(--kz-line); border-radius: 99px; overflow: hidden; box-shadow: 0 6px 20px rgba(0,0,0,.04); font-family: var(--kz-sans); }
+  .kz-nb-pick { position: relative; flex: 0 0 auto; display: flex; align-items: center; gap: 7px; background: var(--kz-live, #c8102e); color: #fff; padding: 0 10px 0 14px; }
+  .kz-nb-pick i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: kznb 1.6s ease-in-out infinite; }
+  @keyframes kznb { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+  .kz-nb-pick select { appearance: none; -webkit-appearance: none; background: transparent; border: 0; color: #fff; font: 700 12px var(--kz-sans); padding: 10px 18px 10px 0; max-width: 150px; cursor: pointer; text-overflow: ellipsis; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23fff' stroke-width='1.6' fill='none'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 2px center; }
+  .kz-nb-pick select option { color: #111; }
+  .kz-nb-track { flex: 1; min-width: 0; overflow: hidden; display: flex; align-items: center; -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); }
+  .kz-nb-roll { display: flex; width: max-content; animation: kznbroll var(--kz-nb-dur, 60s) linear infinite; }
+  .kz-nb-track:hover .kz-nb-roll, .kz-nb-track:focus-within .kz-nb-roll { animation-play-state: paused; }
+  .kz-nb-roll div { display: flex; flex: 0 0 auto; }
+  .kz-nb-roll a { font: 600 14px var(--kz-sans); white-space: nowrap; padding: 10px 22px; border-right: 1px solid var(--kz-line); color: var(--bs-body-color); text-decoration: none; }
+  .kz-nb-roll a:hover { color: var(--kz-accent); }
+  .kz-nb-empty { font: 400 13px var(--kz-sans); color: var(--kz-muted); padding: 10px 16px; }
+  @keyframes kznbroll { to { transform: translateX(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .kz-nb-roll, .kz-nb-pick i { animation: none; } .kz-nb-track { overflow-x: auto; } }
+</style>
+<div class="container pt-3 kz-nb-wrap">
+  <div class="kz-nb" role="region" aria-label="Latest headlines">
+    <label class="kz-nb-pick">
+      <i></i>
+      <select id="kzNbCat" aria-label="Headlines category">
+        <option value="">Latest: All</option>
+        <% newsBar.cats.forEach(c => { %><option value="<%= c %>" <%= c === newsBar.cat ? 'selected' : '' %>><%= c %></option><% }) %>
+      </select>
+    </label>
+    <div class="kz-nb-track" id="kzNbTrack">
+      <% if (newsBar.items.length) { %>
+        <div class="kz-nb-roll" style="--kz-nb-dur: <%= Math.max(30, newsBar.items.length * 8) %>s">
+          <div><% newsBar.items.forEach(t => { %><a href="/posts/<%= t.slug %>"><%= t.title %></a><% }) %></div>
+          <div aria-hidden="true"><% newsBar.items.forEach(t => { %><a href="/posts/<%= t.slug %>" tabindex="-1"><%= t.title %></a><% }) %></div>
+        </div>
+      <% } else { %><span class="kz-nb-empty">No headlines in this category yet.</span><% } %>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var sel = document.getElementById('kzNbCat'), track = document.getElementById('kzNbTrack');
+  if (!sel || !track) return;
+  function link(t, hidden) { var a = document.createElement('a'); a.href = '/posts/' + encodeURIComponent(t.slug); a.textContent = t.title; if (hidden) a.tabIndex = -1; return a; }
+  function build(items) {
+    track.replaceChildren();
+    if (!items.length) { var e = document.createElement('span'); e.className = 'kz-nb-empty'; e.textContent = 'No headlines in this category yet.'; track.appendChild(e); return; }
+    var roll = document.createElement('div'); roll.className = 'kz-nb-roll'; roll.style.setProperty('--kz-nb-dur', Math.max(30, items.length * 8) + 's');
+    [false, true].forEach(function (hidden) {
+      var d = document.createElement('div'); if (hidden) d.setAttribute('aria-hidden', 'true');
+      items.forEach(function (t) { d.appendChild(link(t, hidden)); }); roll.appendChild(d);
+    });
+    track.appendChild(roll);
+  }
+  sel.addEventListener('change', function () {
+    var v = sel.value;
+    document.cookie = 'kz_cat=' + encodeURIComponent(v || '*') + '; path=/; max-age=31536000; samesite=lax';
+    fetch('/headlines.json?cat=' + encodeURIComponent(v)).then(function (r) { return r.json(); }).then(function (j) { build(j.items || []); }).catch(function () {});
+  });
+})();
+</script>
+<% } %>
