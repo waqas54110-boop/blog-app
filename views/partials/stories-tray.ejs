@@ -1,18 +1,18 @@
 <%# Stories: feed ke upar gol icons, poori screen viewer, aur story banane ka popup. Sirf login user ke liye include hota hai %>
 <style>
-  .story-tray { border-radius: 1rem; overflow: hidden; }
-  .story-row { display: flex; gap: .95rem; overflow-x: auto; padding: .9rem 1rem .75rem; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .story-tray { border-radius: 1.25rem; overflow: hidden; }
+  .story-row { display: flex; gap: .95rem; overflow-x: auto; padding: .35rem 1.1rem .95rem; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .story-row::-webkit-scrollbar { display: none; }
   .story-tile { flex: 0 0 auto; width: 68px; background: none; border: 0; padding: 0; text-align: center; color: var(--bs-body-color); cursor: pointer; }
-  .story-ring { width: 68px; height: 68px; border-radius: 50%; padding: 3px; background: linear-gradient(135deg, #f59e0b, #db2777 55%, #7c3aed); transition: transform .15s ease; }
-  .story-tile:hover .story-ring { transform: scale(1.06); }
+  .story-ring { width: 68px; height: 68px; border-radius: 50%; padding: 3px; background: conic-gradient(from 210deg, #f59e0b, #e11d48, #0f9d78, #14b8a6, #f59e0b); transition: transform .2s ease, box-shadow .2s ease; }
+  .story-tile:hover .story-ring { transform: scale(1.07); box-shadow: 0 10px 20px -10px rgba(15,157,120,.8); }
   .story-ring.seen { background: var(--bs-border-color); }
   .story-ring .in { width: 100%; height: 100%; border-radius: 50%; background: var(--bs-body-bg); padding: 2px; }
   .story-ring .avatar { width: 100%; height: 100%; font-size: 1.4rem; }
   .story-add { position: relative; }
   .story-add .ring-plain { width: 68px; height: 68px; border-radius: 50%; padding: 3px; background: var(--bs-border-color); }
-  .story-add .plus { position: absolute; right: -1px; bottom: 16px; width: 24px; height: 24px; border-radius: 50%; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; font-weight: 700; line-height: 22px; text-align: center; border: 2px solid var(--bs-body-bg); font-size: 1rem; }
-  .story-name { display: block; margin-top: .3rem; font-size: .75rem; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .story-add .plus { position: absolute; right: -1px; bottom: 16px; width: 24px; height: 24px; border-radius: 50%; background: var(--fz-grad, linear-gradient(135deg, #0a6b4d, #14b8a6)); color: #fff; font-weight: 700; line-height: 22px; text-align: center; border: 2px solid var(--bs-body-bg); font-size: 1rem; }
+  .story-name { display: block; margin-top: .35rem; font-size: .75rem; font-weight: 600; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .story-skel { flex: 0 0 auto; width: 68px; height: 68px; border-radius: 50%; background: var(--bs-secondary-bg); opacity: .6; }
 
   /* ----- Viewer ----- */
@@ -55,7 +55,7 @@
   .sc-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: .6rem; }
   .sc-tabs { display: flex; gap: .4rem; margin-bottom: .75rem; }
   .sc-tabs button { flex: 1; border: 0; border-radius: 2rem; padding: .45rem; font-weight: 600; background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); cursor: pointer; }
-  .sc-tabs button.on { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff; }
+  .sc-tabs button.on { background: var(--fz-grad, linear-gradient(135deg, #0a6b4d, #14b8a6)); color: #fff; }
   .sc-prev { position: relative; border-radius: .9rem; overflow: hidden; aspect-ratio: 9 / 13; max-height: 52dvh; margin: 0 auto; background: #4f46e5; display: flex; align-items: center; justify-content: center; }
   .sc-prev textarea { width: 100%; height: 100%; background: transparent; border: 0; outline: 0; resize: none; color: #fff; text-align: center; font-weight: 700; font-size: 1.5rem; line-height: 1.35; padding: 38% 1.2rem 1rem; }
   .sc-prev textarea::placeholder { color: rgba(255,255,255,.7); }
@@ -64,11 +64,12 @@
   .sc-pick { position: absolute; background: rgba(255,255,255,.95); color: #1f2330; border: 0; border-radius: 2rem; padding: .6rem 1.3rem; font-weight: 600; cursor: pointer; }
   .sc-sw { display: flex; gap: .5rem; justify-content: center; margin-top: .75rem; }
   .sc-sw button { width: 30px; height: 30px; border-radius: 50%; border: 3px solid var(--bs-body-bg); box-shadow: 0 0 0 1px var(--bs-border-color); cursor: pointer; padding: 0; }
-  .sc-sw button.on { box-shadow: 0 0 0 3px #7c3aed; }
+  .sc-sw button.on { box-shadow: 0 0 0 3px var(--fz-ring, #0f9d78); }
   .sc-cap { margin-top: .75rem; }
 </style>
 
 <div class="card border-0 shadow-sm mb-3 story-tray" id="storyTray" aria-label="Stories">
+  <div class="fz-side-title px-3 pt-3 mb-0">Stories <span class="fz-sub">gone in 24 hours</span></div>
   <div class="story-row" id="storyRow"><span class="story-skel"></span><span class="story-skel"></span><span class="story-skel"></span><span class="story-skel"></span></div>
 </div>
 

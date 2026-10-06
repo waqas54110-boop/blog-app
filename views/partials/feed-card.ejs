@@ -5,14 +5,14 @@
 <% const url = shareBase + '/feed/' + f.id; %>
 <% const longText = !full && f.body.length > 420; %>
 <article class="card feed-card border-0 shadow-sm mb-3" id="p<%= f.id %>" data-id="<%= f.id %>">
-  <div class="d-flex align-items-center gap-2 p-3 pb-2">
+  <div class="fc-head d-flex align-items-center gap-2 p-3 pb-2">
     <a href="/u/<%= uname %>" class="text-decoration-none">
       <span class="avatar avatar-md"><%= f.username.charAt(0).toUpperCase() %><img src="/a/<%= uname %>" alt="" loading="lazy" onerror="this.remove()"></span>
     </a>
     <div class="flex-grow-1 lh-sm" style="min-width:0;">
       <a class="fw-semibold text-reset text-decoration-none" href="/u/<%= uname %>"><%= f.username %></a>
       <% if (f.role === 'admin') { %><span class="badge text-bg-primary">Owner</span><% } %>
-      <div class="small text-body-secondary">
+      <div class="fc-meta small text-body-secondary">
         <a class="text-reset text-decoration-none" href="/feed/<%= f.id %>" title="<%= new Date(f.created_at).toLocaleString('en-GB') %>"><time datetime="<%= new Date(f.created_at).toISOString() %>"><%= ago(f.created_at) %></time></a> ·
         <% if (f.group_slug && !locals.inGroup) { %><a class="text-reset text-decoration-none fw-semibold" href="/groups/<%= f.group_slug %>"><%= f.group_emoji %> <%= f.group_name %></a><% } else { %>🌍<% } %>
         <% if (f.is_hidden) { %><span class="badge text-bg-warning ms-1">Pending review</span><% } %>
@@ -77,7 +77,7 @@
     </a>
   <% } %>
 
-  <div class="d-flex justify-content-between px-3 py-2 small text-body-secondary">
+  <div class="fz-stats d-flex justify-content-between align-items-center px-3 py-2 small text-body-secondary">
     <span class="js-likes <%= f.likes ? '' : 'invisible' %>">❤️ <span class="js-like-count"><%= f.likes %></span></span>
     <span>
       <span class="me-2" title="Views">👁 <span class="js-view-count"><%= f.views || 0 %></span></span>
@@ -94,7 +94,7 @@
       <a href="/login" class="fa-btn">💬 Comment</a>
     <% } %>
     <div class="dropdown flex-fill d-flex">
-      <button type="button" class="fa-btn flex-fill" data-bs-toggle="dropdown" aria-expanded="false">↗ Share</button>
+      <button type="button" class="fa-btn dropdown-toggle-share flex-fill" data-bs-toggle="dropdown" aria-expanded="false">↗ Share</button>
       <ul class="dropdown-menu dropdown-menu-end shadow">
         <li><a class="dropdown-item" target="_blank" rel="noopener" href="https://wa.me/?text=<%= encodeURIComponent(url) %>">🟢 WhatsApp</a></li>
         <li><a class="dropdown-item" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=<%= encodeURIComponent(url) %>">🔵 Facebook</a></li>

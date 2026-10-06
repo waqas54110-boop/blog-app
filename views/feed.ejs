@@ -1,10 +1,33 @@
 <%- include('partials/header') %>
 <%- include('partials/feed-assets') %>
 
-<div class="feed-hero p-4 p-md-5 mb-4 shadow-sm">
-  <h1 class="fw-bold mb-1 fs-2">📸 Community Feed</h1>
-  <p class="mb-0 opacity-75">Share your photos and thoughts. Everyone can see, like and comment.</p>
-</div>
+<div class="feed-page">
+
+<section class="feed-hero p-4 p-md-5 mb-4" aria-labelledby="feedTitle">
+  <div class="fz-hero-in">
+    <% if (user) { %>
+      <span class="fz-eyebrow"><span class="live-dot"></span><span id="fzGreet" data-name="<%= user.username %>">Welcome back</span></span>
+    <% } else { %>
+      <span class="fz-eyebrow"><span class="live-dot"></span>Live community</span>
+    <% } %>
+    <h1 id="feedTitle">Community <em>Feed</em></h1>
+    <p class="fz-lead">Photos, stories and thoughts from real people. Jump in, like, comment and share your day.</p>
+    <div class="fz-cta">
+      <% if (user) { %>
+        <a href="#composer" class="fz-btn light" id="fzWrite">✍️ Share something</a>
+        <a href="/groups" class="fz-btn ghost">🫂 Browse groups</a>
+      <% } else { %>
+        <a href="/signup" class="fz-btn light">Join free →</a>
+        <a href="/login" class="fz-btn ghost">Log in</a>
+      <% } %>
+    </div>
+    <div class="fz-pills" aria-hidden="true"><span>📸 Photos</span><span>✨ Stories</span><span>🫂 Groups</span><span>💬 Messages</span></div>
+  </div>
+  <div class="fz-hero-art" aria-hidden="true">
+    <div class="fz-mini m1"><div class="r1"><i class="dot"></i><i class="ln w60" style="flex:1;margin:0"></i></div><i class="ln w85"></i><i class="ln w40"></i><div class="re">❤️ 128 &nbsp; 💬 24</div></div>
+    <div class="fz-mini m2"><div class="r1"><i class="dot"></i><i class="ln w40" style="flex:1;margin:0"></i></div><div class="ph"></div><div class="re">❤️ 56 &nbsp; 💬 9</div></div>
+  </div>
+</section>
 
 <% if (flash.posted) { %><div class="alert alert-success">Posted! 🎉</div><% } %>
 <% if (flash.deleted) { %><div class="alert alert-success">Post deleted.</div><% } %>
@@ -17,26 +40,32 @@
   <!-- Left: me / join -->
   <aside class="col-lg-3 d-none d-lg-block">
     <div class="feed-side">
-      <div class="card border-0 shadow-sm mb-3"><div class="card-body text-center">
+      <div class="card border-0 shadow-sm mb-3">
         <% if (user) { %>
-          <span class="avatar avatar-lg mb-2"><%= user.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(user.username) %>" alt="" onerror="this.remove()"></span>
-          <div class="fw-bold text-break"><%= user.username %></div>
-          <div class="mt-3 text-start">
-            <a class="side-link" href="/u/<%= encodeURIComponent(user.username) %>">👤 My profile</a>
-            <a class="side-link" href="/?user=<%= encodeURIComponent(user.username) %>">📸 My posts</a>
-            <a class="side-link" href="/groups">🫂 Groups</a>
-            <a class="side-link" href="/friends">👫 Friends</a>
-            <a class="side-link" href="/messages">💬 Messages</a>
-            <a class="side-link" href="/settings/profile">✏️ Edit profile</a>
+          <div class="fz-cover"></div>
+          <div class="card-body text-center pt-0">
+            <span class="avatar avatar-lg fz-avatar-pull mb-2"><%= user.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(user.username) %>" alt="" onerror="this.remove()"></span>
+            <div class="fw-bold text-break fs-5" style="font-family: var(--kz-serif);"><%= user.username %></div>
+            <div class="mt-3 text-start">
+              <a class="side-link" href="/u/<%= encodeURIComponent(user.username) %>">👤 My profile</a>
+              <a class="side-link" href="/?user=<%= encodeURIComponent(user.username) %>">📸 My posts</a>
+              <a class="side-link" href="/groups">🫂 Groups</a>
+              <a class="side-link" href="/friends">👫 Friends</a>
+              <a class="side-link" href="/messages">💬 Messages</a>
+              <a class="side-link" href="/settings/profile">✏️ Edit profile</a>
+            </div>
           </div>
         <% } else { %>
-          <div class="fs-1">👋</div>
-          <div class="fw-bold mb-1">Join the community</div>
-          <p class="small text-body-secondary">Create a free account to post photos, like and comment.</p>
-          <a href="/signup" class="btn btn-primary w-100 mb-2">Sign Up</a>
-          <a href="/login" class="btn btn-outline-primary w-100">Login</a>
+          <div class="fz-cover"></div>
+          <div class="card-body text-center pt-3">
+            <div class="fs-1">👋</div>
+            <div class="fw-bold mb-1 fs-5" style="font-family: var(--kz-serif);">Join the community</div>
+            <p class="small text-body-secondary">Create a free account to post photos, like and comment.</p>
+            <a href="/signup" class="btn btn-primary w-100 mb-2 rounded-pill fw-semibold">Sign Up</a>
+            <a href="/login" class="btn btn-outline-primary w-100 rounded-pill fw-semibold">Login</a>
+          </div>
         <% } %>
-      </div></div>
+      </div>
     </div>
   </aside>
 
@@ -47,10 +76,10 @@
       <%- include('partials/stories-tray') %>
       <%- include('partials/composer') %>
     <% } else { %>
-      <div class="card border-0 shadow-sm mb-3"><div class="card-body d-flex align-items-center gap-3">
+      <div class="card border-0 shadow-sm mb-3 fz-teaser"><div class="card-body d-flex align-items-center gap-3">
         <div class="fs-2">📷</div>
         <div class="flex-grow-1"><div class="fw-semibold">Want to share a photo?</div><div class="small text-body-secondary">Log in to post, like and comment.</div></div>
-        <a href="/login" class="btn btn-primary btn-sm">Login</a>
+        <a href="/login" class="btn btn-primary btn-sm rounded-pill px-3 fw-semibold">Login</a>
       </div></div>
     <% } %>
 
@@ -70,8 +99,8 @@
     <div id="feedList"><%- include('partials/feed-cards') %></div>
 
     <% if (posts.length === 0) { %>
-      <div class="card border-0 shadow-sm"><div class="card-body text-center text-body-secondary py-5">
-        <div class="fs-1 mb-2">🌱</div>
+      <div class="card border-0 fz-empty"><div class="card-body text-center text-body-secondary py-5">
+        <div class="em mb-2">🌱</div>
         <% if (tab === 'following') { %>
           Nothing here yet. Follow people (or add friends) to see their posts.
         <% } else if (tab === 'groups') { %>
@@ -84,7 +113,7 @@
 
     <% if (nextBefore) { %>
       <div class="text-center my-3">
-        <button type="button" id="moreBtn" class="btn btn-outline-primary rounded-pill px-4"
+        <button type="button" id="moreBtn" class="btn btn-outline-primary rounded-pill px-5 fz-more"
                 data-next="<%= nextBefore %>" data-tab="<%= tab %>" data-user="<%= author ? author.username : '' %>">Load more</button>
       </div>
     <% } %>
@@ -95,14 +124,14 @@
     <div class="feed-side">
       <% if (latestPosts.length) { %>
         <div class="card border-0 shadow-sm mb-3"><div class="card-body">
-          <div class="fw-bold mb-2">📝 Latest from the blog</div>
+          <div class="fz-side-title">Latest from the blog</div>
           <% latestPosts.forEach(function (p) { %><a class="side-link small" href="/posts/<%= p.slug %>"><%= p.title %></a><% }) %>
           <a class="side-link small fw-semibold" href="/blog">All blog posts →</a>
         </div></div>
       <% } %>
       <% if (popularGroups && popularGroups.length) { %>
         <div class="card border-0 shadow-sm mb-3"><div class="card-body">
-          <div class="fw-bold mb-2">🫂 Groups</div>
+          <div class="fz-side-title">Groups</div>
           <% popularGroups.forEach(function (g) { %>
             <a class="side-link d-flex align-items-center gap-2" href="/groups/<%= g.slug %>">
               <span class="fs-5"><%= g.emoji %></span>
@@ -114,7 +143,7 @@
       <% } %>
       <% if (people.length) { %>
         <div class="card border-0 shadow-sm mb-3"><div class="card-body">
-          <div class="fw-bold mb-2">👥 People you may know</div>
+          <div class="fz-side-title">People you may know</div>
           <% people.forEach(function (p) { %>
             <a class="side-link d-flex align-items-center gap-2" href="/u/<%= encodeURIComponent(p.username) %>">
               <span class="avatar avatar-sm"><%= p.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(p.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
@@ -128,8 +157,39 @@
 
 </div>
 
+<% if (user) { %>
+  <a href="#composer" class="fz-fab d-lg-none" id="fzFab" aria-label="Write a post">✍️</a>
+<% } %>
+
+</div><%# /.feed-page %>
+
 <%- include('partials/report-modal') %>
 <%- include('partials/feed-script') %>
 <%- include('partials/load-more', { moreBase: '/' }) %>
+
+<script>
+(function () {
+  // Time-of-day greeting in the hero
+  var g = document.getElementById('fzGreet');
+  if (g) {
+    var h = new Date().getHours();
+    var hi = h < 5 ? 'Still up' : h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening';
+    g.textContent = hi + ', ' + g.getAttribute('data-name') + ' 👋';
+  }
+  // "Share something" / floating button: jump to the composer and focus it
+  function goWrite(e) {
+    var c = document.getElementById('composer'); if (!c) return;
+    e.preventDefault();
+    c.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    var ta = c.querySelector('textarea'); if (ta) setTimeout(function () { ta.focus({ preventScroll: true }); }, 350);
+  }
+  ['fzWrite', 'fzFab'].forEach(function (id) { var a = document.getElementById(id); if (a) a.addEventListener('click', goWrite); });
+  // Hide the floating button while the composer is on screen
+  var fab = document.getElementById('fzFab'), comp = document.getElementById('composer');
+  if (fab && comp && 'IntersectionObserver' in window) {
+    new IntersectionObserver(function (en) { fab.classList.toggle('hide', en[0].isIntersecting); }, { threshold: 0.2 }).observe(comp);
+  }
+})();
+</script>
 
 <%- include('partials/footer') %>
