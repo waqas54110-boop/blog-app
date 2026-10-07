@@ -23,6 +23,7 @@
     </div>
   </div>
 
+  <%- include('partials/cricket-commentary') %>
   <%- include('partials/cricket-board') %>
   <noscript><p><%= summary %></p></noscript>
   <p class="small text-body-secondary mt-3 mb-0">Scored by <%= st.match.scorer || st.match.owner %>. This page refreshes by itself.</p>

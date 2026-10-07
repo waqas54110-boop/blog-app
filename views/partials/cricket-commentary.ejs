@@ -1,0 +1,204 @@
+<%# Voice commentary: speaks every new ball by itself (browser text-to-speech, no API key, no file download).
+    Needs window.CK.render(st) from cricket-board.ejs: the board calls CKC.feed(st) after every render. %>
+<style>
+  .ckc-sw { position: relative; width: 52px; height: 30px; flex: 0 0 auto; }
+  .ckc-sw input { position: absolute; inset: 0; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; z-index: 2; }
+  .ckc-sw span { position: absolute; inset: 0; border-radius: 99px; background: var(--bs-secondary-bg); border: 1px solid var(--kz-line); transition: background .2s; }
+  .ckc-sw span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .2s; }
+  .ckc-sw input:checked + span { background: var(--ck-green, #0a6b4d); }
+  .ckc-sw input:checked + span::after { transform: translateX(22px); }
+  .ckc-sw input:focus-visible + span { outline: 3px solid rgba(10,107,77,.4); }
+  #ckcLine { min-height: 1.4em; }
+  #ckcLine.pop { animation: ckcpop .5s ease-out; }
+  @keyframes ckcpop { from { background: rgba(245,158,11,.35); } to { background: transparent; } }
+  @media (prefers-reduced-motion: reduce) { #ckcLine.pop { animation: none; } }
+</style>
+<div class="ck-card mb-3" id="ckcBox" hidden>
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <label class="ckc-sw mb-0"><input type="checkbox" id="ckcOn" aria-label="Voice commentary"><span></span></label>
+    <div>
+      <b>🎙 Voice commentary</b>
+      <div class="small text-body-secondary">Every ball is announced automatically in a different style: funny for sixes and wickets. Switch it on once (the browser needs one tap to allow sound).</div>
+    </div>
+  </div>
+  <div class="row g-2 mt-1" id="ckcOpts">
+    <div class="col-6 col-md-3"><label class="small text-body-secondary" for="ckcStyle">Style</label>
+      <select id="ckcStyle" class="form-select ck-in"><option value="funny">Funny</option><option value="normal">Normal</option></select></div>
+    <div class="col-6 col-md-6"><label class="small text-body-secondary" for="ckcVoice">Voice</label>
+      <select id="ckcVoice" class="form-select ck-in"></select></div>
+    <div class="col-12 col-md-3 d-flex align-items-end"><button type="button" class="ck-btn alt w-100" id="ckcTest">Test voice</button></div>
+  </div>
+  <div id="ckcLine" class="small mt-2 fw-semibold" aria-live="polite"></div>
+</div>
+<script>
+(function () {
+  var synth = window.speechSynthesis, ok = !!synth && typeof window.SpeechSynthesisUtterance !== 'undefined';
+  var KEY = 'ckc_v1', S = { on: false, style: 'funny', voice: '' };
+  try { var x = JSON.parse(localStorage.getItem(KEY) || '{}'); if (x.style === 'normal' || x.style === 'funny') S.style = x.style; if (x.voice) S.voice = String(x.voice); } catch (e) { /* ignore */ }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify({ style: S.style, voice: S.voice })); } catch (e) { /* ignore */ } }
+  var $ = function (i) { return document.getElementById(i); };
+  var box = $('ckcBox');
+  if (box && ok) box.hidden = false;
+
+  var voices = [];
+  function loadVoices() {
+    if (!ok) return;
+    voices = (synth.getVoices() || []).slice().sort(function (a, b) { return (/^en/i.test(b.lang) ? 1 : 0) - (/^en/i.test(a.lang) ? 1 : 0) || a.name.localeCompare(b.name); });
+    var sel = $('ckcVoice'); if (!sel) return;
+    sel.replaceChildren();
+    var auto = document.createElement('option'); auto.value = ''; auto.textContent = 'Automatic (best English voice)'; sel.appendChild(auto);
+    voices.forEach(function (v) { var o = document.createElement('option'); o.value = v.name; o.textContent = v.name + ' (' + v.lang + ')'; sel.appendChild(o); });
+    sel.value = S.voice && voices.some(function (v) { return v.name === S.voice; }) ? S.voice : '';
+  }
+  if (ok) { loadVoices(); if (synth.addEventListener) synth.addEventListener('voiceschanged', loadVoices); else synth.onvoiceschanged = loadVoices; }
+  function pickVoice() {
+    var v = voices.filter(function (x) { return x.name === S.voice; })[0];
+    return v || voices.filter(function (x) { return /^en[-_](GB|IN|AU|US)/i.test(x.lang); })[0] || voices.filter(function (x) { return /^en/i.test(x.lang); })[0] || null;
+  }
+
+  // ---------- phrase pools ({b} = batter, {w} = bowler, {o} = batter who is out) ----------
+  var P = {
+    funny: {
+      dot: ['Dot ball. {b} stares at the pitch like it owes him money.', 'Nothing doing. {w} keeps it tight.', 'Dot ball! Even the crows are bored.', 'No run. {b} is thinking very hard. Too hard, maybe.', 'Beaten! {b} swung at the air and the air won.'],
+      one: ['Just a single. Slow and steady, like a rickshaw in traffic.', 'One run. The scoreboard says thank you.', 'A quick single from {b}. Run, run, run!', 'Single taken. Nobody fell over, so that is a success.'],
+      two: ['Two runs! They are running like the bus is leaving.', 'Two more. {b} is getting a free workout.', 'Pushed into the gap, and they come back for two.'],
+      three: ['Three runs! That is a lot of running for one ball.', 'They run three! Someone get these players some water.'],
+      four: ['FOUR! That raced away like a rickshaw with no brakes!', 'Crack! Four runs. The fielder did not even bother chasing.', 'Four! {b} finds the gap like a cat finds the biryani.', 'Boundary! {w} is not happy about that one.'],
+      five: ['Five runs! Overthrows, chaos, and pure comedy.'],
+      six: ['SIX! {b} just sent that into orbit! NASA called, they want their ball back!', 'Maximum! {b} hit that so hard, the ball needs a passport!', 'Out of the street and into the neighbour\'s garden! Six runs!', 'Boom! Six! {w}, my friend, that was a mistake. A big one!', 'SIX! Somebody go find that ball. Check the next street!', 'What a hit! The ball is gone, and so is {w}\'s confidence!'],
+      wide: ['Wide! {w} is bowling to the next pitch.', 'Wide ball. The umpire does not even need to look.', 'Wide! That one went on a holiday.'],
+      noball: ['No ball! {w} stepped over the line. Free run!', 'No ball! {w} forgot where the crease is.'],
+      bye: ['Byes! The keeper had a bad day.', 'Bye! Nobody touched it, still they ran.'],
+      legbye: ['Leg byes. It hit the pad, and the pad says thank you.', 'Leg bye taken. Free runs are the best runs.'],
+      bowled: ['Bowled him! {o} is out, the stumps are doing cartwheels!', 'Clean bowled! {o} did not even see it. Walk back, my friend!', 'Timber! The stumps are all over the place!'],
+      caught: ['Caught! {o} is gone. Straight into safe hands. Pack your bag!', 'Out! A catch, and {o} is on the way home.', 'Caught! {o} gifted that one. Thank you very much!'],
+      lbw: ['Leg before! {o} is trapped, and the finger goes up!', 'LBW! {o} was in front of the stumps like a parked car!'],
+      runout: ['Run out! Total confusion between the wickets, {o} has to walk back!', 'Run out! Two batters, one end, zero communication!'],
+      stumped: ['Stumped! {o} is out of the crease and the keeper says: not today!'],
+      hitwicket: ['Hit wicket! {o} knocked his own stumps. You cannot make this up!'],
+      fifty: ['Fifty for {b}! Somebody get the man a chai!', 'That is a half century for {b}! The crowd goes wild, all five of them!'],
+      hundred: ['A HUNDRED for {b}! Legend! Somebody call the newspaper!'],
+    },
+    normal: {
+      dot: ['Dot ball.', 'No run.', 'Good ball from {w}, no run.', 'Defended by {b}.'],
+      one: ['A single.', 'One run.', 'Pushed for a single by {b}.'],
+      two: ['Two runs.', 'They come back for two.'],
+      three: ['Three runs.', 'Good running, they get three.'],
+      four: ['Four runs! Well played, {b}.', 'That is a boundary.', 'Four! Beautiful timing from {b}.'],
+      five: ['Five runs on that ball.'],
+      six: ['Six! A massive hit from {b}.', 'That is a big six!', 'Six runs! {b} clears the boundary.'],
+      wide: ['Wide ball. One extra run.', 'That is a wide from {w}.'],
+      noball: ['No ball. One extra run.', 'No ball from {w}.'],
+      bye: ['Byes.', 'They take byes.'],
+      legbye: ['Leg byes.', 'Leg bye taken.'],
+      bowled: ['Bowled! {o} is out.', '{w} bowls {o}. A wicket!'],
+      caught: ['Caught! {o} is out.', 'A catch is taken. {o} has to go.'],
+      lbw: ['LBW! {o} is out.', 'Leg before wicket. {o} walks back.'],
+      runout: ['Run out! {o} is gone.', 'A run out. {o} has to leave.'],
+      stumped: ['Stumped! {o} is out.'],
+      hitwicket: ['Hit wicket! {o} is out.'],
+      fifty: ['That is fifty for {b}.', 'Half century for {b}. Well played.'],
+      hundred: ['A hundred for {b}! Excellent innings.'],
+    }
+  };
+  var lastIdx = {};
+  function pick(style, key) {
+    var arr = P[style][key] || P.normal[key] || ['']; if (arr.length < 2) return arr[0];
+    var i, k = style + key; do { i = Math.floor(Math.random() * arr.length); } while (i === lastIdx[k]);
+    lastIdx[k] = i; return arr[i];
+  }
+  var first = function (n) { return String(n || '').trim().split(/\s+/)[0] || ''; };
+  function nm(list, id) { for (var i = 0; i < (list || []).length; i++) if (list[i].id === id) return list[i].name; return ''; }
+
+  // What happened on this ball -> a sentence + how it should sound (rate / pitch)
+  function describe(st, lb) {
+    var style = S.style, c = st.cur;
+    var bat = first(nm(st.batters, lb.striker_id)) || 'the batter', bowl = first(nm(st.bowlers, lb.bowler_id)) || 'the bowler';
+    var out = first(nm(st.batters, lb.out_id)) || bat;
+    var key, mood = 'calm', ex = lb.extra_type, runs = lb.runs_bat + lb.extra_runs;
+    if (lb.is_wicket && lb.wicket_type !== 'retired') { key = P[style][lb.wicket_type] ? lb.wicket_type : 'caught'; mood = 'wicket'; }
+    else if (ex === 'wd') { key = 'wide'; mood = 'extra'; }
+    else if (ex === 'nb') { key = lb.runs_bat >= 6 ? 'six' : lb.runs_bat === 4 ? 'four' : 'noball'; mood = key === 'noball' ? 'extra' : 'big'; }
+    else if (ex === 'b') { key = 'bye'; mood = 'extra'; }
+    else if (ex === 'lb') { key = 'legbye'; mood = 'extra'; }
+    else if (lb.runs_bat === 6) { key = 'six'; mood = 'six'; }
+    else if (lb.runs_bat === 4) { key = 'four'; mood = 'big'; }
+    else { key = ['dot', 'one', 'two', 'three', 'four', 'five'][lb.runs_bat] || 'dot'; if (lb.runs_bat === 5) key = 'five'; }
+    if (key === 'six') mood = mood === 'big' ? 'six' : mood;
+    var text = pick(style, key).replace(/\{b\}/g, bat).replace(/\{w\}/g, bowl).replace(/\{o\}/g, out);
+    if (ex === 'wd' && lb.extra_runs > 1) text += ' Plus ' + (lb.extra_runs - 1) + ' more.';
+    if (ex === 'nb' && key === 'noball' && lb.runs_bat > 0) text += ' And ' + lb.runs_bat + ' off the bat.';
+    // batter milestone
+    var me = (c.batters || []).filter(function (x) { return x.id === lb.striker_id; })[0];
+    if (me && !lb.is_wicket) {
+      if (me.runs >= 100 && me.runs - lb.runs_bat < 100) { text += ' ' + pick(style, 'hundred').replace(/\{b\}/g, bat); mood = 'six'; }
+      else if (me.runs >= 50 && me.runs - lb.runs_bat < 50) { text += ' ' + pick(style, 'fifty').replace(/\{b\}/g, bat); mood = 'big'; }
+    }
+    // over end + score
+    var legal = !(ex === 'wd' || ex === 'nb');
+    var batName = st.batTeam === st.teams.a.id ? st.teams.a.name : st.teams.b.name;
+    if (legal && c.legal > 0 && c.legal % 6 === 0 && !c.over) text += ' End of the over. ' + batName + ' ' + c.runs + ' for ' + c.wkts + '.';
+    else if (lb.is_wicket) text += ' ' + batName + ' ' + c.runs + ' for ' + c.wkts + '.';
+    if (st.match.innings === 2 && c.need > 0 && c.ballsLeft > 0 && c.ballsLeft <= 12 && !c.over) text += ' ' + c.need + ' needed from ' + c.ballsLeft + ' ball' + (c.ballsLeft === 1 ? '' : 's') + '.';
+    return { text: text, mood: mood };
+  }
+
+  function speak(text, mood) {
+    if (!ok || !S.on || !text) return;
+    var r = function (min, max) { return min + Math.random() * (max - min); };
+    var rate = 1, pitch = 1, funny = S.style === 'funny';
+    if (mood === 'six') { rate = funny ? r(1.08, 1.2) : r(1, 1.08); pitch = funny ? r(1.25, 1.5) : r(1.05, 1.15); }
+    else if (mood === 'big') { rate = r(1.02, 1.12); pitch = funny ? r(1.15, 1.35) : r(1.05, 1.12); }
+    else if (mood === 'wicket') { rate = r(0.88, 0.98); pitch = funny ? r(0.7, 0.9) : r(0.85, 0.95); }
+    else if (mood === 'extra') { rate = r(0.98, 1.08); pitch = funny ? r(1.0, 1.25) : 1; }
+    else { rate = r(0.94, 1.04); pitch = funny ? r(0.92, 1.12) : r(0.97, 1.03); }
+    try {
+      synth.cancel();
+      var u = new SpeechSynthesisUtterance(text), v = pickVoice();
+      if (v) { u.voice = v; u.lang = v.lang; } else u.lang = 'en-US';
+      u.rate = rate; u.pitch = pitch; u.volume = 1;
+      synth.speak(u);
+    } catch (e) { /* ignore */ }
+  }
+  function show(text) {
+    var l = $('ckcLine'); if (!l) return;
+    l.textContent = '🎙 ' + text; l.classList.remove('pop'); void l.offsetWidth; l.classList.add('pop');
+  }
+  function say(text, mood) { show(text); speak(text, mood); }
+
+  // ---------- follow the match state ----------
+  var seen = null; // { id, status, inn } of the last state we looked at
+  function feed(st) {
+    if (!st || !st.match) return;
+    var lb = st.cur && st.cur.lastBall, m = st.match;
+    if (!seen || seen.match !== m.id) { seen = { match: m.id, id: lb ? lb.id : 0, status: m.status, inn: m.innings }; return; } // first look: stay silent
+    var lines = [], mood = 'calm';
+    if (lb && lb.id < seen.id) seen.id = lb.id; // undo: forget silently
+    if (S.on) {
+      if (lb && lb.id > seen.id && lb.innings === m.innings) { var d = describe(st, lb); lines.push(d.text); mood = d.mood; }
+      if (m.innings === 2 && seen.inn === 1 && m.status === 'live') { lines.push('That is the end of the first innings. The target is ' + m.target + '.'); }
+      if (seen.status === 'upcoming' && m.status === 'live') lines.push('The match is underway. Play!');
+      if (seen.status !== 'finished' && m.status === 'finished' && m.result) { lines.push(m.result + '!'); mood = 'big'; }
+    }
+    if (lb && lb.id > seen.id) seen.id = lb.id;
+    seen.status = m.status; seen.inn = m.innings;
+    if (lines.length) say(lines.join(' '), mood);
+  }
+
+  // ---------- controls ----------
+  var on = $('ckcOn');
+  if (on) on.addEventListener('change', function () {
+    S.on = !!on.checked;
+    if (S.on) { loadVoices(); say(S.style === 'funny' ? 'Commentary is on. Let the fun begin!' : 'Commentary is on.', 'big'); }
+    else { try { synth.cancel(); } catch (e) { /* ignore */ } }
+  });
+  var st1 = $('ckcStyle'); if (st1) { st1.value = S.style; st1.addEventListener('change', function () { S.style = st1.value; save(); }); }
+  var sv = $('ckcVoice'); if (sv) sv.addEventListener('change', function () { S.voice = sv.value; save(); });
+  var tb = $('ckcTest'); if (tb) tb.addEventListener('click', function () {
+    var was = S.on; S.on = true;
+    say(S.style === 'funny' ? 'SIX! That one went into orbit! Somebody call NASA!' : 'Six! A massive hit.', 'six');
+    S.on = was;
+  });
+  window.CKC = { feed: feed };
+})();
+</script>

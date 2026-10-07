@@ -103,6 +103,7 @@
     <div class="small text-body-secondary mt-2">When this is ON and <%= st.match.owner %> (or the assigned scorer) is live, viewers see a TV-style score bar with the players' photos on the stream, and it updates with every ball. Going live from this page turns it ON for you. The video also appears on the public scorecard page.</div>
   </div>
 
+  <%- include('partials/cricket-commentary') %>
   <%- include('partials/cricket-board') %>
 
   <% if (isOwner) { %>

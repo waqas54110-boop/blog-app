@@ -111,6 +111,7 @@
     var key = m.status + ':' + m.innings + ':' + c.runs + '/' + c.wkts + ':' + c.legal;
     if (last && last !== key) { var s = document.getElementById('ckScore'); if (s) { s.classList.add('ck-flash'); } }
     last = key;
+    if (window.CKC) { try { window.CKC.feed(st); } catch (e) { /* ignore */ } }
   }
   window.CK = { render: render, el: el, f1: f1, ballCls: ballCls };
 })();
