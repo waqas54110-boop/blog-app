@@ -1,0 +1,82 @@
+<%- include('partials/header') %>
+<%- include('partials/creator-assets') %>
+<% const mine = user && (user.id === p.user_id); const plat = p.platform === 'tiktok' ? 'TikTok' : 'YouTube'; %>
+<div class="cr">
+  <a href="/creators" class="small text-decoration-none">&larr; All creators</a>
+  <div class="row g-4 mt-1">
+    <div class="col-12 col-lg-7">
+      <% if (p.yt_video_id) { %>
+        <div class="cr-embed"><iframe src="https://www.youtube-nocookie.com/embed/<%= p.yt_video_id %>" title="<%= p.title %>" loading="lazy" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+      <% } else { %>
+        <div class="cr-media" style="border-radius:14px;background:linear-gradient(135deg,#d6283a,#2a0f3d);min-height:180px;"><span class="cr-big"><%= plat %> <%= p.kind === 'channel' ? 'channel' : 'video' %></span></div>
+      <% } %>
+    </div>
+    <div class="col-12 col-lg-5">
+      <span class="badge text-bg-dark"><%= plat %></span> <span class="badge text-bg-warning"><%= p.niche %></span>
+      <% if (p.wk > 0) { %><span class="badge text-bg-danger">&#127942; <%= p.wk %> vote<%= p.wk === 1 ? '' : 's' %> this week</span><% } %>
+      <h1 class="h3 fw-bold mt-2" style="font-family:var(--kz-serif);"><%= p.title %></h1>
+      <div class="text-body-secondary small mb-2">by <a href="/u/<%= encodeURIComponent(p.username) %>"><%= p.username %></a></div>
+      <p style="white-space:pre-line;"><%= p.description %></p>
+
+      <% if (locals.msg) { %><div class="alert alert-success py-2"><%= msg %></div><% } %>
+      <% if (locals.error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
+
+      <div class="d-flex flex-wrap gap-2 mb-2">
+        <a class="btn btn-danger" href="/creators/<%= p.id %>/go" target="_blank" rel="noopener nofollow">
+          <%= p.platform === 'youtube' && p.kind === 'channel' ? 'Visit channel / Subscribe' : 'Watch on ' + plat %>
+        </a>
+        <form action="/creators/<%= p.id %>/like" method="POST" class="d-inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn <%= liked ? 'btn-dark' : 'btn-outline-dark' %>">&#10084; <%= liked ? 'Liked' : 'Like' %> &middot; <%= p.like_count %></button>
+        </form>
+        <% if (!mine) { %>
+        <form action="/creators/<%= p.id %>/vote" method="POST" class="d-inline">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn <%= myVote === p.id ? 'btn-warning' : 'btn-outline-warning' %>" <%= myVote ? 'title="You already voted this week"' : '' %>>&#127942; <%= myVote === p.id ? 'Your vote this week' : 'Vote Creator of the Week' %></button>
+        </form>
+        <% } %>
+      </div>
+      <div class="small text-body-secondary">Subscribing is your own free choice. Khabzo gives no points or rewards for it.</div>
+      <% if (mine || isAdmin) { %>
+        <form action="/creators/<%= p.id %>/delete" method="POST" class="mt-3" onsubmit="return confirm('Delete this from the showcase?');">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-link btn-sm text-danger p-0">Delete this link</button>
+          <% if (mine) { %><span class="small text-body-secondary ms-2"><%= p.clicks %> visit<%= p.clicks === 1 ? '' : 's' %> from Khabzo</span><% } %>
+        </form>
+      <% } %>
+    </div>
+  </div>
+
+  <hr class="my-4">
+  <h2 class="h5 fw-bold" id="talk">Comments and feedback (<%= comments.length %>)</h2>
+  <% if (comments.length === 0) { %><div class="text-body-secondary">Nothing yet. Be the first to say something useful.</div><% } %>
+  <% comments.forEach(c => { %>
+    <div class="cr-msg <%= c.kind === 'feedback' ? 'fb' : '' %>">
+      <div><b><a href="/u/<%= encodeURIComponent(c.username) %>"><%= c.username %></a></b>
+        <% if (c.kind === 'feedback') { %><span class="badge text-bg-warning">Feedback</span><% } %>
+        <small>&middot; <%= new Date(c.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></small></div>
+      <div style="white-space:pre-line;"><%= c.body %></div>
+      <% if (user && (isAdmin || user.id === c.user_id || mine)) { %>
+        <form action="/creators/comments/<%= c.id %>/delete" method="POST" class="mt-1" onsubmit="return confirm('Delete this?');">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button class="btn btn-link btn-sm text-danger p-0">Delete</button>
+        </form>
+      <% } %>
+    </div>
+  <% }) %>
+
+  <% if (user) { %>
+    <form action="/creators/<%= p.id %>/comments" method="POST" class="mt-3">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Type">
+        <input type="radio" class="btn-check" name="kind" id="k1" value="comment" checked><label class="btn btn-outline-secondary" for="k1">Comment</label>
+        <input type="radio" class="btn-check" name="kind" id="k2" value="feedback"><label class="btn btn-outline-secondary" for="k2">Honest feedback</label>
+      </div>
+      <textarea class="form-control" name="body" rows="3" maxlength="800" required placeholder="Comment, or feedback: what works well and what could be better? (feedback needs 30+ characters)"></textarea>
+      <button class="btn btn-dark btn-sm mt-2">Post</button>
+    </form>
+  <% } else { %>
+    <div class="mt-3"><a href="/login" class="btn btn-outline-dark btn-sm">Log in to comment, like or vote</a></div>
+  <% } %>
+</div>
+<%- include('partials/footer') %>

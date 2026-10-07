@@ -1,0 +1,48 @@
+<%- include('partials/header') %>
+<%- include('partials/creator-assets') %>
+<div class="cr">
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-8">
+    <div class="card border-0 shadow-sm"><div class="card-body p-3 p-md-4">
+      <h1 class="h3 fw-bold mb-1" style="font-family:var(--kz-serif);">Share your channel</h1>
+      <p class="text-body-secondary">Paste your YouTube or TikTok link. People on Khabzo can like it, comment, give feedback and vote for Creator of the Week. Nobody gets points or rewards for subscribing: viewers visit only if they really like your content.</p>
+      <% if (error) { %><div class="alert alert-danger py-2" role="alert"><%= error %></div><% } %>
+      <form action="/creators" method="POST" id="crForm">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="link">Link</label>
+          <input class="form-control" id="link" name="link" maxlength="300" required value="<%= f.link || '' %>" placeholder="https://www.youtube.com/@yourchannel  or  https://www.tiktok.com/@yourname">
+          <div class="form-text">Channel / profile links or single video links. Only YouTube and TikTok are accepted.</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="title">Title</label>
+          <input class="form-control" id="title" name="title" maxlength="100" minlength="5" required value="<%= f.title || '' %>" placeholder="Street Cricket Highlights (Lahore)">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold" for="niche">Niche</label>
+          <select class="form-select" id="niche" name="niche" required>
+            <option value="">Choose a niche</option>
+            <% niches.forEach(n => { %><option value="<%= n %>" <%= f.niche === n ? 'selected' : '' %>><%= n %></option><% }) %>
+          </select>
+        </div>
+        <div class="mb-4">
+          <label class="form-label fw-semibold" for="description">What is your content about?</label>
+          <textarea class="form-control" id="description" name="description" rows="5" maxlength="600" minlength="30" required placeholder="What do you post, how often, and who is it for? Do not paste links here."><%= f.description || '' %></textarea>
+          <div class="form-text"><span id="cnt">0</span> / 600. Links, ads and "sub for sub" requests are removed by the spam filter.</div>
+        </div>
+        <button class="btn btn-danger btn-lg" id="crBtn">Publish</button>
+        <a href="/creators" class="btn btn-outline-secondary ms-1">Cancel</a>
+      </form>
+    </div></div>
+  </div>
+</div>
+</div>
+<script>
+(function () {
+  var d = document.getElementById('description'), c = document.getElementById('cnt');
+  var u = function () { c.textContent = d.value.length; }; d.addEventListener('input', u); u();
+  document.getElementById('crForm').addEventListener('submit', function () { var b = document.getElementById('crBtn'); b.disabled = true; b.textContent = 'Publishing...'; });
+  window.addEventListener('pageshow', function (e) { if (e.persisted) { var b = document.getElementById('crBtn'); b.disabled = false; b.textContent = 'Publish'; } });
+})();
+</script>
+<%- include('partials/footer') %>

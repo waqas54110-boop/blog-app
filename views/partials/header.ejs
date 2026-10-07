@@ -185,6 +185,8 @@
       <a href="/cricket" class="<%= _path.indexOf('/cricket') === 0 ? 'on' : '' %>">🏏 Street Cricket</a>
       <a href="/court" class="<%= _path.indexOf('/court') === 0 ? 'on' : '' %>">People's Court</a>
       <a href="/petitions" class="<%= _path.indexOf('/petitions') === 0 ? 'on' : '' %>">Petitions</a>
+      <a href="/creators" class="<%= _path.indexOf('/creators') === 0 ? 'on' : '' %>">Creators</a>
+      <a href="/trends" class="<%= _path.indexOf('/trends') === 0 ? 'on' : '' %>">Trend Radar</a>
       <% navCategories.forEach(c => { %>
         <a href="/blog?category=<%= encodeURIComponent(c) %>" class="<%= _cat === c ? 'on' : '' %>"><%= c %></a>
       <% }) %>
@@ -275,6 +277,8 @@
           <li><a class="dropdown-item" href="/cricket">🏏 Street Cricket Manager</a></li>
           <li><a class="dropdown-item" href="/court">⚖️ People's Court</a></li>
           <li><a class="dropdown-item" href="/petitions">📢 Petitions</a></li>
+          <li><a class="dropdown-item" href="/creators">🎬 Creator Showcase</a></li>
+          <li><a class="dropdown-item" href="/trends">📈 Trend Radar</a></li>
           <li><a class="dropdown-item" href="/hire">💼 Hire Me</a></li>
           <li><hr class="dropdown-divider"></li>
           <li><a class="dropdown-item" href="/about">About</a></li>

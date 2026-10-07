@@ -1,0 +1,17 @@
+<%# Ek creator ka card (list page). p = creator_posts row %>
+<%
+  const hue = (p.title.split('').reduce((a, ch) => a + ch.charCodeAt(0), 0) * 37) % 360;
+  const thumb = p.yt_video_id ? 'https://i.ytimg.com/vi/' + p.yt_video_id + '/hqdefault.jpg' : null;
+%>
+<a class="cr-card" href="/creators/<%= p.id %>">
+  <div class="cr-media" style="<%= thumb ? '' : 'background: linear-gradient(135deg, hsl(' + hue + ' 55% 32%), hsl(' + ((hue + 50) % 360) + ' 55% 22%));' %>">
+    <% if (thumb) { %><img src="<%= thumb %>" alt="" loading="lazy" referrerpolicy="no-referrer"><% } else { %><span class="cr-big"><%= p.platform === 'tiktok' ? 'TikTok' : 'YouTube' %> <%= p.kind === 'channel' ? 'channel' : 'video' %></span><% } %>
+    <span class="cr-plat"><%= p.platform === 'tiktok' ? 'TikTok' : 'YouTube' %></span>
+    <span class="cr-niche"><%= p.niche %></span>
+  </div>
+  <div class="cr-body">
+    <h3 class="cr-title"><%= p.title %></h3>
+    <div class="cr-by">by <%= p.username %></div>
+    <div class="cr-nums"><span>&#10084; <%= p.like_count %></span><span>&#128172; <%= p.comment_count %></span><% if (typeof p.wk !== 'undefined' && p.wk > 0) { %><span>&#127942; <%= p.wk %> this week</span><% } %></div>
+  </div>
+</a>

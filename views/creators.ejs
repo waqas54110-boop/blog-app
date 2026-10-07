@@ -1,0 +1,84 @@
+<%- include('partials/header') %>
+<%- include('partials/creator-assets') %>
+<%
+  const qs = (over) => {
+    const m = Object.assign({ niche: f.niche, platform: f.platform, sort: f.sort === 'new' ? '' : f.sort, page: '' }, over);
+    const s = Object.keys(m).filter((k) => m[k]).map((k) => encodeURIComponent(k) + '=' + encodeURIComponent(m[k])).join('&');
+    return '/creators' + (s ? '?' + s : '');
+  };
+  const filtered = !!(f.niche || f.platform);
+%>
+<div class="cr">
+  <div class="cr-hero">
+    <h1>Creator Showcase</h1>
+    <p>Share your YouTube or TikTok channel, get honest feedback from real people and compete for Creator of the Week. No fake subscribers, no tricks: just real viewers who choose what they like.</p>
+    <a class="cr-btn" href="/creators/new">Share my channel</a>
+    <a class="cr-btn ms-1" href="/trends" style="background:rgba(255,255,255,.18);color:#fff;">Trend Radar: what to post next</a>
+    <div class="cr-stats">
+      <div><b><%= stats.creators %></b>creators</div>
+      <div><b><%= stats.comments %></b>comments and feedback</div>
+    </div>
+  </div>
+
+  <% if (locals.msg) { %><div class="alert alert-info py-2 mt-3"><%= msg %></div><% } %>
+
+  <div class="row g-3 mt-1">
+    <div class="col-12 col-md-6">
+      <div class="cr-board h-100">
+        <div class="fw-bold mb-1">&#127942; Creator of the Week: live votes</div>
+        <% if (board.length === 0) { %>
+          <div class="text-body-secondary small">No votes yet this week. Open a creator and vote for your favourite. One vote per week. A new week starts on Monday.</div>
+        <% } else { %>
+          <ol><% board.forEach(b => { %><li><a href="/creators/<%= b.id %>"><%= b.title %></a> <small class="text-body-secondary">by <%= b.username %></small> <b>&middot; <%= b.votes %></b></li><% }) %></ol>
+        <% } %>
+      </div>
+    </div>
+    <div class="col-12 col-md-6">
+      <div class="cr-board h-100">
+        <div class="fw-bold mb-1">&#128081; Last week's winner</div>
+        <% if (lastWinner) { %>
+          <div><span class="cr-crown">Creator of the Week</span></div>
+          <div class="mt-2 fs-5 fw-semibold"><a href="/creators/<%= lastWinner.id %>"><%= lastWinner.title %></a></div>
+          <div class="small text-body-secondary">by <%= lastWinner.username %> &middot; <%= lastWinner.votes %> vote<%= lastWinner.votes === 1 ? '' : 's' %></div>
+        <% } else { %>
+          <div class="text-body-secondary small">The first winner will be announced after the first full week of voting.</div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap gap-2 align-items-center mt-3 mb-2">
+    <a class="cr-chip <%= f.sort === 'new' ? 'on' : '' %>" href="<%= qs({ sort: '' }) %>">Newest</a>
+    <a class="cr-chip <%= f.sort === 'week' ? 'on' : '' %>" href="<%= qs({ sort: 'week' }) %>">Top this week</a>
+    <a class="cr-chip <%= f.sort === 'top' ? 'on' : '' %>" href="<%= qs({ sort: 'top' }) %>">Most liked</a>
+    <span class="cr-chip" style="border:0;">Platform:</span>
+    <a class="cr-chip <%= !f.platform ? 'on' : '' %>" href="<%= qs({ platform: '' }) %>">All</a>
+    <a class="cr-chip <%= f.platform === 'youtube' ? 'on' : '' %>" href="<%= qs({ platform: 'youtube' }) %>">YouTube</a>
+    <a class="cr-chip <%= f.platform === 'tiktok' ? 'on' : '' %>" href="<%= qs({ platform: 'tiktok' }) %>">TikTok</a>
+  </div>
+  <div class="cr-scroll" aria-label="Niches">
+    <a class="cr-chip <%= !f.niche ? 'on' : '' %>" href="<%= qs({ niche: '' }) %>">All niches</a>
+    <% niches.forEach(n => { %><a class="cr-chip <%= f.niche === n ? 'on' : '' %>" href="<%= qs({ niche: n }) %>"><%= n %></a><% }) %>
+  </div>
+
+  <% if (filtered) { %><div class="small text-body-secondary mt-3"><%= total %> found <a href="/creators" class="ms-1">Clear filters</a></div><% } %>
+
+  <% if (posts.length === 0) { %>
+    <div class="card border-0 shadow-sm mt-4"><div class="card-body text-center py-5">
+      <div class="fs-5 fw-semibold mb-1">Nobody has shared a channel here yet.</div>
+      <div class="text-body-secondary mb-3">Be the first creator on the showcase.</div>
+      <a class="btn btn-danger" href="/creators/new">Share my channel</a>
+    </div></div>
+  <% } else { %>
+    <div class="cr-grid"><% posts.forEach(p => { %><%- include('partials/creator-card', { p }) %><% }) %></div>
+  <% } %>
+
+  <% if (pages > 1) { %>
+    <nav class="d-flex justify-content-center gap-2 mt-4" aria-label="Pages">
+      <% if (page > 1) { %><a class="cr-chip" href="<%= qs({ page: page - 1 }) %>">&larr; Previous</a><% } %>
+      <span class="cr-chip on">Page <%= page %> of <%= pages %></span>
+      <% if (page < pages) { %><a class="cr-chip" href="<%= qs({ page: page + 1 }) %>">Next &rarr;</a><% } %>
+    </nav>
+  <% } %>
+</div>
+<%- include('partials/footer') %>

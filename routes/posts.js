@@ -450,7 +450,7 @@ router.get('/sitemap.xml', async (req, res) => {
     const staticXml = [
       url('/', newest), url('/blog', newest), url('/community', newest), url('/groups', null), url('/votes', null),
       url('/predictions', null), url('/leaderboard', null), url('/about', null), url('/hire', null),
-    url('/court', null), url('/petitions', null), url('/cricket', null),
+    url('/court', null), url('/petitions', null), url('/cricket', null), url('/creators', null), url('/trends', null),
     ].join('');
     const postsXml = result.rows.map((p) => url('/posts/' + p.slug, p.lastmod, img(p.cover_url))).join('');
     const catXml = catRows.map((c) => url(homeUrl({ category: c.name }), c.lastmod)).join('');

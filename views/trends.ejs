@@ -1,0 +1,150 @@
+<%- include('partials/header') %>
+<%- include('partials/creator-assets') %>
+<%
+  const fmt = (n) => (n || 0).toLocaleString('en-US');
+  const dur = (s) => !s ? '' : (s >= 90 ? Math.round(s / 60) + ' min' : s + ' sec');
+%>
+<div class="cr">
+  <div class="cr-hero" style="background: radial-gradient(600px 240px at 90% 0%, rgba(255,255,255,.2), transparent 70%), linear-gradient(120deg, #0b5ed7, #3a1c8f 70%, #1b0f3d);">
+    <h1>Trend Radar</h1>
+    <p>What is trending in Pakistan right now, and what should you post about? Pick your niche and get 10 video ideas, title and hashtag suggestions, and the best time to post.</p>
+    <form action="/trends" method="GET" class="row g-2 align-items-end" style="max-width:760px;">
+      <div class="col-12 col-md-4">
+        <label class="form-label small mb-1" for="niche">Niche</label>
+        <select class="form-select" id="niche" name="niche" required>
+          <option value="">Choose a niche</option>
+          <% Object.keys(niches).forEach(k => { %><option value="<%= k %>" <%= f.niche === k ? 'selected' : '' %>><%= niches[k].label %></option><% }) %>
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small mb-1" for="platform">Platform</label>
+        <select class="form-select" id="platform" name="platform">
+          <option value="youtube" <%= f.platform === 'youtube' ? 'selected' : '' %>>YouTube</option>
+          <option value="tiktok" <%= f.platform === 'tiktok' ? 'selected' : '' %>>TikTok</option>
+        </select>
+      </div>
+      <div class="col-6 col-md-3">
+        <label class="form-label small mb-1" for="keyword">Keyword <span class="opacity-75">(optional)</span></label>
+        <input class="form-control" id="keyword" name="keyword" maxlength="40" value="<%= f.keyword %>" placeholder="e.g. PSL">
+      </div>
+      <div class="col-12 col-md-2 d-grid"><button class="btn btn-warning fw-bold">Show report</button></div>
+    </form>
+  </div>
+
+  <% if (!report) { %>
+    <div class="card border-0 shadow-sm mt-4"><div class="card-body">
+      <div class="fw-semibold mb-1">How it works</div>
+      <ul class="mb-2">
+        <li>YouTube: the videos that are growing fastest in Pakistan right now, from YouTube's own trending data.</li>
+        <li>Google: what Pakistan is searching for today.</li>
+        <li>TikTok has no public trending data, so for TikTok we use the Google and YouTube trends plus hashtag ideas.</li>
+      </ul>
+      <div class="small text-body-secondary">Use trends as inspiration, then add your own angle. Copying another creator's video is never a good idea. You need a free account to see a report.</div>
+      <% if (!hasKey) { %><div class="small text-danger mt-2">Admin note: YOUTUBE_API_KEY is not set yet, so only Google Trends data will show. See SETUP_V38.md.</div><% } %>
+    </div></div>
+  <% } else { %>
+    <% report.notes.forEach(n => { %><div class="alert alert-warning py-2 mt-3 mb-0 small"><%= n %></div><% }) %>
+    <div class="small text-body-secondary mt-3">
+      Report for <b><%= report.nicheLabel %></b> on <b><%= report.platform === 'tiktok' ? 'TikTok' : 'YouTube' %></b><% if (report.keyword) { %> (keyword: <%= report.keyword %>)<% } %>.
+      Updated <%= new Date(report.generatedAt).toLocaleString('en-GB', { timeZone: 'Asia/Karachi', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %> PKT. Refreshes about every 3 hours.
+    </div>
+
+    <div class="row g-3 mt-1">
+      <div class="col-12 col-lg-6">
+        <div class="cr-board h-100">
+          <div class="fw-bold mb-2">&#128293; Trending in Pakistan on Google</div>
+          <% if (report.trending.length === 0) { %><div class="small text-body-secondary">Not available right now.</div><% } else { %>
+            <ol>
+              <% report.trending.forEach(t => { %><li><b><%= t.title %></b><% if (t.traffic) { %> <small class="text-body-secondary">&middot; <%= t.traffic %> searches</small><% } %><% if (t.news) { %><div class="small text-body-secondary"><%= t.news %></div><% } %></li><% }) %>
+            </ol>
+          <% } %>
+        </div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <div class="cr-board h-100">
+          <div class="fw-bold mb-2">&#128250; Fast-growing YouTube videos (PK)</div>
+          <% if (report.videos.length === 0) { %><div class="small text-body-secondary">Not available right now.</div><% } else { %>
+            <ol>
+              <% report.videos.forEach(v => { %><li><a href="https://www.youtube.com/watch?v=<%= v.id %>" target="_blank" rel="noopener nofollow"><%= v.title %></a>
+                <div class="small text-body-secondary"><%= v.channel %> &middot; <%= fmt(v.views) %> views &middot; ~<%= fmt(v.vph) %>/hour<%= v.durationSec ? ' · ' + dur(v.durationSec) : '' %></div></li><% }) %>
+            </ol>
+          <% } %>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="h4 fw-bold mt-4" style="font-family:var(--kz-serif);">10 video ideas for you</h2>
+    <div class="row g-2">
+      <% report.ideas.forEach((i, n) => { %>
+        <div class="col-12 col-md-6"><div class="cr-msg h-100"><b><%= n + 1 %>. <%= i.title %></b><% if (i.why) { %><div class="small text-body-secondary"><%= i.why %></div><% } %></div></div>
+      <% }) %>
+    </div>
+    <div class="small text-body-secondary mt-1">These are starting points. Change the angle so the video is clearly yours.</div>
+
+    <div class="row g-3 mt-2">
+      <div class="col-12 col-lg-6">
+        <div class="cr-board h-100">
+          <div class="fw-bold mb-2"># Hashtags</div>
+          <div class="d-flex flex-wrap gap-2"><% report.hashtags.forEach(h => { %><span class="badge text-bg-light border"><%= h %></span><% }) %></div>
+          <% if (report.topWords.length) { %>
+            <div class="fw-bold mt-3 mb-1">Words common in today's top titles</div>
+            <div class="small"><%= report.topWords.map(w => w.word).join(', ') %></div>
+          <% } %>
+        </div>
+      </div>
+      <div class="col-12 col-lg-6">
+        <div class="cr-board h-100">
+          <div class="fw-bold mb-2">&#128339; Best time to post</div>
+          <div class="small"><%= report.bestTime %></div>
+          <% if (report.lengthNote) { %><div class="small mt-2"><%= report.lengthNote %></div><% } %>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mt-2">
+      <div class="col-12 col-lg-6"><div class="cr-board h-100" style="border-color:#1f9d6b;">
+        <div class="fw-bold mb-2">&#9989; Do</div><ul class="mb-0 small"><% report.tips.do.forEach(t => { %><li><%= t %></li><% }) %></ul></div></div>
+      <div class="col-12 col-lg-6"><div class="cr-board h-100" style="border-color:#d6283a;">
+        <div class="fw-bold mb-2">&#10060; Don't</div><ul class="mb-0 small"><% report.tips.dont.forEach(t => { %><li><%= t %></li><% }) %></ul></div></div>
+    </div>
+
+    <% if (aiEnabled) { %>
+      <div class="cr-board mt-3" id="aiBox">
+        <div class="fw-bold mb-2">&#10024; AI write-up</div>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <select class="form-select form-select-sm" id="aiLang" style="max-width:180px;">
+            <option value="english">English</option><option value="roman">Roman Urdu</option><option value="urdu">اردو (Urdu)</option>
+          </select>
+          <button class="btn btn-dark btn-sm" id="aiBtn" type="button">Write this report for me</button>
+        </div>
+        <div class="small text-danger mt-2" id="aiErr" role="alert"></div>
+        <div id="aiOut" class="mt-2"></div>
+      </div>
+    <% } %>
+
+    <div class="card border-0 shadow-sm mt-4"><div class="card-body d-flex flex-wrap gap-2 align-items-center justify-content-between">
+      <div><b>Made a video from these ideas?</b> <span class="text-body-secondary">Share your channel with real viewers on Khabzo and ask for honest feedback.</span></div>
+      <a class="btn btn-danger" href="/creators/new">Share my channel</a>
+    </div></div>
+  <% } %>
+</div>
+<% if (report && aiEnabled) { %>
+<script>
+(function () {
+  var csrf = <%- JSON.stringify(csrfToken) %>, btn = document.getElementById('aiBtn'), out = document.getElementById('aiOut'), err = document.getElementById('aiErr'), lang = document.getElementById('aiLang');
+  var body = 'niche=' + encodeURIComponent(<%- JSON.stringify(f.niche) %>) + '&platform=' + encodeURIComponent(<%- JSON.stringify(f.platform) %>) + '&keyword=' + encodeURIComponent(<%- JSON.stringify(f.keyword) %>);
+  btn.addEventListener('click', function () {
+    btn.disabled = true; btn.textContent = 'Writing...'; err.textContent = ''; out.innerHTML = '';
+    fetch('/trends/ai', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-csrf-token': csrf }, body: body + '&lang=' + encodeURIComponent(lang.value) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        btn.disabled = false; btn.textContent = 'Write this report for me';
+        if (!x.ok) { err.textContent = (x.j && x.j.error) || 'Something went wrong. Please try again.'; return; }
+        out.setAttribute('dir', x.j.rtl ? 'rtl' : 'ltr'); out.innerHTML = x.j.html;
+      })
+      .catch(function () { btn.disabled = false; btn.textContent = 'Write this report for me'; err.textContent = 'Network problem. Please try again.'; });
+  });
+})();
+</script>
+<% } %>
+<%- include('partials/footer') %>
