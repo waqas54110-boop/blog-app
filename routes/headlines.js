@@ -1,4 +1,4 @@
-// /headlines.json?cat=Cricket : bar ki category badalne par naye headlines (bina page reload)
+// /headlines.json?cat=Cricket : new headlines when the bar's category changes (no page reload)
 const express = require('express');
 const H = require('../lib/headlines');
 const router = express.Router();

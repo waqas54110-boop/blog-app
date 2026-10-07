@@ -5,9 +5,18 @@
   const tile = (label, val) => `<div class="ck-card text-center" style="padding:12px"><div class="fw-bold" style="font:800 28px var(--kz-serif)">${val}</div><div class="small text-body-secondary">${label}</div></div>`;
 %>
 <div class="ck">
-  <div class="ck-hero">
-    <h1><%= p.name %></h1>
-    <p><%= p.teams || 'No team yet' %> | roster of <%= p.owner %> | <%= s.matches %> match<%= s.matches === 1 ? '' : 'es' %></p>
+  <div class="ck-hero d-flex align-items-center gap-3 flex-wrap">
+    <%- include('partials/cricket-avatar', { name: p.name, photo: p.photo_image_id, size: 'lg' }) %>
+    <div>
+      <h1><%= p.name %></h1>
+      <p><%= p.teams || 'No team yet' %> | roster of <%= p.owner %> | <%= s.matches %> match<%= s.matches === 1 ? '' : 'es' %></p>
+      <% if (locals.manage) { %>
+        <div class="mt-2 d-flex gap-2 flex-wrap">
+          <button type="button" class="ck-btn alt py-1" data-ck-photo="<%= p.id %>">📷 <%= p.photo_image_id ? 'Change photo' : 'Add photo' %></button>
+          <% if (p.photo_image_id) { %><button type="button" class="ck-btn alt py-1" data-ck-photo-remove="<%= p.id %>">Remove photo</button><% } %>
+        </div>
+      <% } %>
+    </div>
   </div>
   <h2 class="ck-h mt-4">Batting</h2>
   <div class="ck-grid" style="grid-template-columns: repeat(auto-fill, minmax(130px, 1fr))">

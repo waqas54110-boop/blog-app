@@ -1,10 +1,17 @@
-<%# Scoreboard (public match page + scorer page): <div id="ckBoard"></div> + window.CK.render(st). Saara dynamic text textContent se (XSS safe). %>
+<%# Scoreboard (public match page + scorer page): <div id="ckBoard"></div> + window.CK.render(st). All dynamic text goes through textContent (XSS safe). %>
 <div id="ckBoard"></div>
 <script>
 (function () {
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function f1(n) { return (Math.round(n * 10) / 10).toFixed(1); }
   function ballCls(l) { return 'ck-ball' + (l === '4' ? ' r4' : l === '6' ? ' r6' : l.charAt(0) === 'W' ? ' w' : (/wd|nb|b$|lb$/.test(l) ? ' x' : '')); }
+  // Small round player photo (or first letter) - built with DOM calls only, so names / URLs can never inject HTML
+  function avatar(name, photo) {
+    var a = el('span', 'ck-av sm');
+    if (photo && /^\/img\/\d+$/.test(photo)) { var im = el('img'); im.src = photo; im.alt = ''; im.loading = 'lazy'; a.appendChild(im); }
+    else a.textContent = String(name || '?').trim().charAt(0).toUpperCase();
+    return a;
+  }
   var OUT = { bowled: 'bowled', caught: 'caught', lbw: 'lbw', runout: 'run out', stumped: 'stumped', hitwicket: 'hit wicket' };
 
   function battingTable(sum, strikerId, nonId, live) {
@@ -13,8 +20,11 @@
     h.appendChild(hr); t.appendChild(h);
     var b = el('tbody');
     sum.batters.forEach(function (x) {
-      var tr = el('tr', live && (x.id === strikerId) ? 'on' : ''), td = el('td', '', x.name + (live && x.id === strikerId ? ' *' : ''));
-      td.appendChild(el('small', '', x.out ? (OUT[x.out] || x.out) : 'not out'));
+      var tr = el('tr', live && (x.id === strikerId) ? 'on' : ''), td = el('td');
+      var who = el('span', 'ck-nm'); who.appendChild(avatar(x.name, x.photo));
+      var nmWrap = el('span'); nmWrap.appendChild(document.createTextNode(x.name + (live && x.id === strikerId ? ' *' : '')));
+      nmWrap.appendChild(el('small', '', x.out ? (OUT[x.out] || x.out) : 'not out'));
+      who.appendChild(nmWrap); td.appendChild(who);
       tr.appendChild(td);
       [x.runs, x.balls, x.fours, x.sixes, f1(x.sr)].forEach(function (v) { tr.appendChild(el('td', '', v)); });
       b.appendChild(tr);
@@ -28,7 +38,7 @@
     h.appendChild(hr); t.appendChild(h);
     var b = el('tbody');
     sum.bowlers.forEach(function (x) {
-      var tr = el('tr'); tr.appendChild(el('td', '', x.name));
+      var tr = el('tr'), bt = el('td'), bw = el('span', 'ck-nm'); bw.appendChild(avatar(x.name, x.photo)); bw.appendChild(document.createTextNode(x.name)); bt.appendChild(bw); tr.appendChild(bt);
       [x.overs, x.runs, x.wkts, f1(x.econ)].forEach(function (v) { tr.appendChild(el('td', '', v)); });
       b.appendChild(tr);
     });
@@ -97,7 +107,7 @@
     }
     root.replaceChildren(out);
 
-    // runs / wicket badalne par halka flash
+    // light flash when the runs / wickets change
     var key = m.status + ':' + m.innings + ':' + c.runs + '/' + c.wkts + ':' + c.legal;
     if (last && last !== key) { var s = document.getElementById('ckScore'); if (s) { s.classList.add('ck-flash'); } }
     last = key;

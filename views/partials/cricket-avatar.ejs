@@ -1,0 +1,2 @@
+<%# Round player photo, or the first letter of the name when there is no photo. Locals: name, photo (id or null), size ('' | 'sm' | 'lg') %>
+<span class="ck-av <%= locals.size || '' %>" aria-hidden="true"><% if (locals.photo) { %><img src="/img/<%= photo %>" alt="" loading="lazy"><% } else { %><%= String(name || '?').trim().charAt(0).toUpperCase() %><% } %></span>

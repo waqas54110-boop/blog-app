@@ -1,46 +1,26 @@
-# V35: Mohalla Cricket Manager + live stream score bar + category headlines bar
+# V35: Street Cricket Manager + live stream score bar + category headlines bar
 
-## Deploy se PEHLE
-1. `migration_v35.sql` ko Neon SQL Editor mein ek baar run karein (dobara run karna safe hai).
-2. Code deploy karein. Koi nayi npm package ya .env setting nahi chahiye.
+## BEFORE you deploy
+1. Run `migration_v35.sql` once in the Neon SQL Editor (safe to run again).
+2. Deploy the code. No new npm package or .env setting is needed.
 
-## Mohalla Cricket Manager (/cricket)
-- Navbar mein "🏏 Mohalla Cricket" aur menu (☰) mein "Mohalla Cricket Manager".
-- Login user tournament banata hai (naam, shehar, overs) -> teams aur players add karta hai (naam comma ya nayi line se) -> fixtures
-  (ek ek karke ya "Auto-create all fixtures" = har team ek dusre se ek baar) -> har fixture par "Start scoring".
-- Scorer page (/cricket/m/ID/score, phone ke liye bana): toss -> striker / non-striker / bowler chuno -> run button (0-6) dabao.
-  Wide, No ball, Bye, Leg bye aur Wicket (bowled, caught, lbw, run out, stumped, hit wicket) ke toggle. "Undo last ball" hamesha hai.
-  Strike khud badalti hai (odd runs, over ka end), wicket ke baad naya batter aur over ke baad naya bowler maanga jata hai.
-  Innings khatam hone par "Start 2nd innings"; chase mein target, need, RRR aur natija (won by N wickets / runs / tied) khud banta hai.
-- Public live scorecard: /cricket/m/ID (login ki zaroorat nahi, har 4 second khud update). "Share on WhatsApp" button link bhej deta hai.
-- Points table (jeet = 2, tie = 1) tournament page par. Player career: /cricket/p/ID (runs, balls, SR, average, highest, 4s/6s, 50s/100s,
-  wickets, overs, economy, best figures). Career ek organizer ke saare tournaments ki balls jodta hai (player naam se pehchana jata hai).
-- Dost se score karwana ho to scorer page par "Let a friend score" mein uska username likhein.
+## Street Cricket Manager (/cricket)
+- The navbar has "Street Cricket" and the menu has "Street Cricket Manager".
+- A logged-in user creates a tournament (name, city, overs), adds teams and players (names separated by commas or new lines), makes fixtures (one by one, or "Auto-create all fixtures" = every team plays every other team once) and presses "Start scoring" on a fixture.
+- Scorer page (/cricket/m/ID/score, built for phones): toss -> choose striker / non-striker / bowler -> tap a run button (0-6). Toggles for Wide, No ball, Bye, Leg bye and Wicket (bowled, caught, lbw, run out, stumped, hit wicket). "Undo last ball" is always there. Strike changes by itself (odd runs, end of over); after a wicket a new batter is asked for, after an over a new bowler. When an innings ends press "Start 2nd innings"; in the chase the target, runs needed, RRR and the result (won by N wickets / runs / tied) are worked out for you.
+- Public live scorecard: /cricket/m/ID (no login needed, refreshes every 4 seconds). "Share on WhatsApp" sends the link.
+- Points table (win = 2, tie = 1) on the tournament page. Player career: /cricket/p/ID (runs, balls, SR, average, highest, 4s/6s, 50s/100s, wickets, overs, economy, best figures). A career adds up the balls of all tournaments of one organizer (a player is matched by name).
+- To let a friend score, type their username under "Let a friend score" on the scorer page.
 
-## Live stream par cricket score bar (boolean)
-- Scorer page par switch: **"Show score bar on my live stream"** (`cricket_matches.show_on_stream`, default OFF).
-- ON ho aur organizer isi waqt 🔴 Live ho to host ki screen aur har viewer ki live screen par TV jaisi score bar aati hai:
-  team, runs/wickets, overs, CRR, striker / non-striker, bowler, "this over" ki gendein, chase mein "need X from Y balls | RRR | Target".
-  Har ball par runs badalte hain to bar khud update hoti hai (runs par hara flash, wicket par laal flash).
-- OFF ho, ya match live na ho, ya stream na chal rahi ho to bar nazar nahi aati. Match khatam hone ke 10 minute tak natija bar mein rehta hai.
-- Stream ke ilawa kisi aur page par score bar nahi aati; wahan headlines bar hoti hai (neeche).
+## Score bar on the live stream (switch)
+- Switch on the scorer page: "Show score bar on the live stream" (`cricket_matches.show_on_stream`, default OFF).
+- When it is ON and the organizer is live, a TV-style score bar appears on the host's screen and on every viewer's live screen.
+- If the switch is OFF, the match is not live, or no stream is running, no bar is shown. For 10 minutes after the match ends the result stays in the bar.
 
-## Headlines bar (har page par, category ke hisab se)
-- Navbar ke neeche chalti hui headlines. Bar ke laal hisse mein category dropdown hai ("Latest: All", Cricket, Tech ...). Select karte hi
-  usi category ki headlines aa jati hain (bina page reload) aur choice cookie (`kz_cat`) mein yaad rehti hai.
-- Agar user ne kuch select nahi kiya to blog category page / post page par us post ki category ki headlines aati hain, warna sab ki.
-- Home page ki purani "Latest" patti hata di (ab yehi bar har page par hai). Scorer page par bar chhupi rehti hai.
+## Headlines bar (every page, by category)
+- Scrolling headlines under the navbar with a category dropdown. The choice is remembered in a cookie (`kz_cat`). The bar is hidden on the scorer page.
 
-## Nayi files
-migration_v35.sql, lib/cricket.js, lib/headlines.js, routes/cricket.js, routes/headlines.js,
-views/cricket.ejs, cricket-tournament.ejs, cricket-match.ejs, cricket-score.ejs, cricket-player.ejs,
-views/partials/{cricket-assets,cricket-board,news-bar}.ejs
-
-## Badli hui files
-app.js (routes, rate limits, JSON body, headlines middleware), views/partials/header.ejs (nav + menu + bar), views/partials/live-ui.ejs (score bar),
-views/home.ejs (purani ticker hata di), routes/posts.js (sitemap + robots)
-
-## Dhyan dein
-- /cricket pages ke liye migration_v35 na chali ho to 503 "needs migration" page aata hai, baqi site chalti rehti hai.
-- Score bar ke liye live ka migration_v27 chala hona zaroori hai (live_streams table).
-- Bohat viewers par server score ko 2 second cache karta hai, is liye 200 viewers bhi database par bojh nahi dalte.
+## Notes
+- If migration_v35 has not been run, the /cricket pages show a 503 "needs migration" page and the rest of the site keeps working.
+- The score bar needs the live migration (migration_v27) to have been run.
+- The server caches the score for 2 seconds, so even 200 viewers do not load the database.

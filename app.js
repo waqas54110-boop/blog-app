@@ -154,10 +154,11 @@ app.post('/votes/:id/share', limiter(10, 60, 'Too many requests.'));
 app.get('/votes/:id/go', limiter(1, 30, 'Too many requests.'));
 app.post('/votes/:id/comments', limiter(5, 10, 'You are commenting too fast. Please wait a few minutes.'));
 app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
-// V35: Mohalla Cricket Manager. Score bar / scorecard poll har 4 second hota hai, is liye alag bara limit
+// V35: Street Cricket Manager. The score bar / scorecard poll every 4 seconds, so these limits are higher
 app.get('/cricket/bar/:streamId', limiter(1, 60, 'Too many requests.'));
 app.get('/cricket/m/:id/state.json', limiter(1, 60, 'Too many requests.'));
 app.post('/cricket/m/:id/ball', limiter(1, 90, 'You are scoring too fast. Please wait a moment.'));
+app.post('/cricket/players/:id/photo', limiter(10, 30, 'Too many photo uploads. Please wait a few minutes.'));
 app.post('/cricket', limiter(60, 10, 'You are creating tournaments too fast. Please try again later.', { skipFailedRequests: true }));
 app.post(['/cricket/t/:id/teams', '/cricket/t/:id/fixtures', '/cricket/t/:id/fixtures/auto', '/cricket/t/:id/teams/:tid/players'], limiter(10, 60, 'Too many requests. Please wait a few minutes.'));
 // V34: People's Court + petitions
@@ -229,7 +230,10 @@ app.use('/push', express.json({ limit: '8kb' }));
 // Calls: signaling JSON (CSRF token header x-csrf-token ya body ke _csrf mein; sendBeacon body mein bhejta hai). Ye bhi csrf se pehle.
 app.use('/calls', express.json({ limit: '64kb' }));
 
-// Cricket scorer: JSON (CSRF token header x-csrf-token mein). Ye bhi csrf se pehle.
+// Cricket player photo: the browser sends a 256x256 JPEG as raw bytes (CSRF token in the x-csrf-token header). Must come before CSRF.
+app.post('/cricket/players/:id/photo', express.raw({ type: ['image/jpeg'], limit: '1mb' }));
+
+// Cricket scorer: JSON (CSRF token in the x-csrf-token header). Must come before CSRF.
 app.use('/cricket', express.json({ limit: '16kb' }));
 
 // Live: signaling JSON (CSRF token header ya body ke _csrf mein; sendBeacon body mein bhejta hai). Ye bhi csrf se pehle.

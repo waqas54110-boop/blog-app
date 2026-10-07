@@ -1,4 +1,4 @@
-<%# Mohalla Cricket Manager: shared styles %>
+<%# Street Cricket Manager: shared styles + player photo uploader %>
 <style>
   .ck { --ck-green: #0a6b4d; --ck-red: #c8102e; font-family: var(--kz-sans); }
   .ck h1, .ck h2, .ck h3 { font-family: var(--kz-serif); letter-spacing: -.01em; }
@@ -43,5 +43,69 @@
   .ck-btn.red { background: var(--ck-red); } .ck-btn.wa { background: #25d366; }
   .ck-btn:disabled { opacity: .5; cursor: not-allowed; }
   .ck-in { font: 400 15px var(--kz-sans); }
+  .ck-av { width: 30px; height: 30px; border-radius: 50%; flex: 0 0 auto; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; background: color-mix(in srgb, var(--ck-green) 14%, var(--bs-secondary-bg)); color: var(--ck-green); font: 800 12px var(--kz-sans); border: 2px solid var(--kz-line); vertical-align: middle; }
+  .ck-av img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .ck-av.lg { width: 104px; height: 104px; font-size: 38px; border: 4px solid rgba(255,255,255,.85); box-shadow: 0 6px 20px rgba(0,0,0,.25); }
+  .ck-av.sm { width: 24px; height: 24px; font-size: 10px; border-width: 1px; }
+  .ck-nm { display: inline-flex; align-items: center; gap: 8px; }
+  .ck-cam { border: 0; background: transparent; padding: 0 2px; line-height: 1; font-size: 13px; cursor: pointer; opacity: .75; }
+  .ck-cam:hover { opacity: 1; }
+  .ck-livebox { position: relative; }
+  .ck-live-ph { aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; text-align: center; color: #fff; padding: 18px; background: radial-gradient(ellipse at 50% 130%, rgba(22,163,74,.75) 0, transparent 60%), linear-gradient(160deg, #0b1020, #14264a); }
+  .ck-live-ph.d-none { display: none !important; }
+  .ck-live-ph h2 { color: #fff; margin: 10px 0 4px; font-size: clamp(18px, 4vw, 26px); }
+  .ck-live-ph p { opacity: .82; margin: 0 auto 14px; font-size: 14px; max-width: 46ch; }
+  @media (max-width: 600px) { .ck-live-ph { aspect-ratio: 4 / 3; } }
   @media (prefers-reduced-motion: reduce) { .ck-chip.live i, .ck-flash { animation: none; } }
 </style>
+<script>
+// Player photo upload: pick a picture, crop it to a centred 256x256 JPEG in the browser, send the raw bytes.
+(function () {
+  var csrf = <%- safeJson(csrfToken) %>;
+  function post(url, body, type) {
+    var h = { 'x-csrf-token': csrf, 'Content-Type': type || 'application/json' };
+    return fetch(url, { method: 'POST', credentials: 'same-origin', headers: h, body: body || '{}' })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { j._ok = r.ok; return j; }); });
+  }
+  function crop(file) {
+    return new Promise(function (res, rej) {
+      var img = new Image(), url = URL.createObjectURL(file);
+      img.onload = function () {
+        var size = Math.min(img.width, img.height), sx = (img.width - size) / 2, sy = (img.height - size) / 2;
+        var c = document.createElement('canvas'); c.width = c.height = 256;
+        var ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 256, 256);
+        ctx.drawImage(img, sx, sy, size, size, 0, 0, 256, 256);
+        URL.revokeObjectURL(url);
+        c.toBlob(function (b) { b ? res(b) : rej(new Error('Could not read this image.')); }, 'image/jpeg', 0.86);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); rej(new Error('Could not read this image.')); };
+      img.src = url;
+    });
+  }
+  var input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.hidden = true;
+  document.addEventListener('DOMContentLoaded', function () { document.body.appendChild(input); });
+  document.addEventListener('click', function (e) {
+    var cam = e.target.closest && e.target.closest('[data-ck-photo]');
+    var rm = e.target.closest && e.target.closest('[data-ck-photo-remove]');
+    if (rm) {
+      e.preventDefault();
+      if (!confirm('Remove this photo?')) return;
+      post('/cricket/players/' + rm.getAttribute('data-ck-photo-remove') + '/photo/remove').then(function (j) { j._ok ? location.reload() : alert(j.error || 'Could not remove the photo.'); });
+      return;
+    }
+    if (!cam) return;
+    e.preventDefault();
+    var id = cam.getAttribute('data-ck-photo');
+    input.value = '';
+    input.onchange = function () {
+      var f = input.files[0]; if (!f) return;
+      if (!/^image\//.test(f.type)) return alert('Please choose an image.');
+      cam.disabled = true;
+      crop(f).then(function (blob) { return post('/cricket/players/' + id + '/photo', blob, 'image/jpeg'); })
+        .then(function (j) { if (j._ok) location.reload(); else { alert(j.error || 'Upload failed. Please try again.'); cam.disabled = false; } })
+        .catch(function (err) { alert(err.message || 'Upload failed. Please try again.'); cam.disabled = false; });
+    };
+    input.click();
+  });
+})();
+</script>

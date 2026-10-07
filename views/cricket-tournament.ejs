@@ -67,15 +67,18 @@
     <div class="col-lg-5">
       <div class="ck-card">
         <h2>Teams &amp; players</h2>
+      <% if (manage && teams.length) { %><p class="small text-body-secondary">Tap 📷 next to a player to add a photo. Photos appear on the live score bar.</p><% } %>
         <% if (!teams.length) { %><p class="text-body-secondary">No teams yet.</p><% } %>
         <% teams.forEach(x => { const sq = players.filter(p => p.team_id === x.id); %>
           <div class="mb-3 pb-3 border-bottom">
             <div class="d-flex justify-content-between align-items-center"><b><%= x.name %></b><span class="small text-body-secondary"><%= sq.length %> players</span></div>
             <div class="d-flex flex-wrap gap-1 mt-2">
               <% sq.forEach(p => { %>
-                <span class="ck-chip" style="text-transform:none;letter-spacing:0;font-size:12px">
-                  <a href="/cricket/p/<%= p.id %>" class="text-decoration-none" style="color:inherit"><%= p.name %></a>
-                  <% if (manage) { %><form action="/cricket/t/<%= t.id %>/teams/<%= x.id %>/players/<%= p.id %>/remove" method="POST" class="d-inline mb-0"><%- csrf %><button type="submit" class="btn btn-link p-0 text-danger" style="line-height:1;text-decoration:none" aria-label="Remove <%= p.name %>">&times;</button></form><% } %>
+                <span class="ck-chip" style="text-transform:none;letter-spacing:0;font-size:12px;padding:4px 10px 4px 4px">
+          <%- include('partials/cricket-avatar', { name: p.name, photo: p.photo_image_id, size: 'sm' }) %>
+          <a href="/cricket/p/<%= p.id %>" class="text-decoration-none" style="color:inherit"><%= p.name %></a>
+          <% if (manage) { %><button type="button" class="ck-cam" data-ck-photo="<%= p.id %>" title="<%= p.photo_image_id ? 'Change photo' : 'Add photo' %>" aria-label="<%= p.photo_image_id ? 'Change photo of ' : 'Add photo for ' %><%= p.name %>">📷</button><% } %>
+          <% if (manage) { %><form action="/cricket/t/<%= t.id %>/teams/<%= x.id %>/players/<%= p.id %>/remove" method="POST" class="d-inline mb-0"><%- csrf %><button type="submit" class="btn btn-link p-0 text-danger" style="line-height:1;text-decoration:none" aria-label="Remove <%= p.name %>">&times;</button></form><% } %>
                 </span>
               <% }) %>
             </div>

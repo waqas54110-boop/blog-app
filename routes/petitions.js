@@ -64,7 +64,7 @@ router.get('/petitions', async (req, res, next) => {
     ]);
     res.render('petitions', {
       title: city ? `Petitions in ${city} - Raise Your Voice` : 'Raise Your Voice - Local petitions in Pakistan',
-      metaDescription: 'Start a petition for your street, mohalla or city and collect signatures. Broken roads, water, gas, schools: make it impossible to ignore.',
+      metaDescription: 'Start a petition for your street, neighbourhood or city and collect signatures. Broken roads, water, gas, schools: make it impossible to ignore.',
       petitions: r.rows, total, page, pages: Math.max(1, Math.ceil(total / PER_PAGE)),
       f: { city, cat, sort, won, q }, stats: stats.rows[0], cities: cities.rows, categories: PT.CATEGORIES, goalOf: PT.nextGoal,
       ogImage: card.isAvailable() ? baseUrl(req) + '/og/petitions.png' : null,

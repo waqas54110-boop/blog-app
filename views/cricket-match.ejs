@@ -7,16 +7,49 @@
     <% if (canScore) { %><a class="ck-btn" href="/cricket/m/<%= st.match.id %>/score">Open scorer</a><% } %>
     <a class="ck-btn alt" href="/cricket/t/<%= st.match.tournament_id %>">Tournament</a>
   </div>
+  <%# ---------- Live video (docked here by window.KZLive when the organizer is streaming this match) ---------- %>
+  <div class="ck-livebox mb-3 <%= stream ? '' : 'd-none' %>" id="ckWatch">
+    <div class="ck-live-ph" id="ckWatchPh">
+      <div>
+        <span class="ck-chip live"><i></i>Live video</span>
+        <h2>Watch the match live</h2>
+        <p id="ckWatchText"></p>
+        <% if (user) { %>
+          <button type="button" class="ck-btn red" id="ckWatchBtn" data-live-watch="<%= stream ? stream.id : '' %>" data-live-host="<%= stream ? stream.host : '' %>">▶ Watch live video</button>
+        <% } else { %>
+          <a class="ck-btn red" href="/login">Log in to watch the live video</a>
+        <% } %>
+      </div>
+    </div>
+  </div>
+
   <%- include('partials/cricket-board') %>
   <noscript><p><%= summary %></p></noscript>
   <p class="small text-body-secondary mt-3 mb-0">Scored by <%= st.match.scorer || st.match.owner %>. This page refreshes by itself.</p>
 </div>
-<script id="ckInit" type="application/json"><%- safeJson(st) %></script>
+<script id="ckInit" type="application/json"><%- safeJson({ st, stream }) %></script>
 <script>
 (function () {
-  var st = JSON.parse(document.getElementById('ckInit').textContent);
-  var id = st.match.id;
-  CK.render(st);
+  var init = JSON.parse(document.getElementById('ckInit').textContent); var st = init.st, cur = init.stream, id = st.match.id; CK.render(st);
+  // ---- live video panel ----
+  var box = document.getElementById('ckWatch'), ph = document.getElementById('ckWatchPh');
+  function watching() { return !!(window.KZLive && KZLive.status().watching); }
+  function renderStream(s) {
+    if (!box) return;
+    if (!s) { if (!watching()) box.classList.add('d-none'); return; } // keep the panel open while someone is watching (the player shows its own "ended" message)
+    box.classList.remove('d-none');
+    var btn = document.getElementById('ckWatchBtn');
+    if (btn) { btn.setAttribute('data-live-watch', s.id); btn.setAttribute('data-live-host', s.host); btn.classList.toggle('d-none', !!s.mine); }
+    document.getElementById('ckWatchText').textContent = s.mine ? 'You are streaming this match from your own screen.' : 'Streaming now by ' + s.host + '. Tap to watch with the live score bar.';
+  }
+  renderStream(cur);
+  document.addEventListener('DOMContentLoaded', function () { if (box && window.KZLive) KZLive.dock('view', box); });
+  document.addEventListener('kzlive', function (e) {
+    var d = e.detail || {};
+    if (d.role !== 'view' || !('open' in d) || !ph) return;
+    ph.classList.toggle('d-none', d.open);
+    if (!d.open) renderStream(cur);
+  });
   document.getElementById('ckCopy').addEventListener('click', function () {
     var b = this, u = <%- safeJson(shareUrl) %>;
     (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(function () { b.textContent = 'Copied'; }, function () { prompt('Copy this link', u); });
@@ -26,7 +59,7 @@
     if (document.hidden || busy || st.match.status === 'finished') return;
     busy = true;
     fetch('/cricket/m/' + id + '/state.json', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (j) { if (j) { st = j; CK.render(st); } }).catch(function () {}).then(function () { busy = false; });
+      .then(function (j) { if (j) { st = j; cur = j.stream || null; CK.render(st); renderStream(cur); } }).catch(function () {}).then(function () { busy = false; });
   }
   setInterval(poll, 4000);
   document.addEventListener('visibilitychange', poll);

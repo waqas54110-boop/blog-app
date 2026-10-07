@@ -23,6 +23,20 @@
   </div>
   <div id="ckErr" class="ck-msg err d-none" role="alert"></div>
 
+  <%# ---------- Live camera (docked here by window.KZLive so you can keep scoring while you stream) ---------- %>
+  <% if (locals.liveCanStart) { %>
+  <div class="ck-livebox mb-3" id="ckHostBox">
+    <div class="ck-live-ph" id="ckHostPh">
+      <div>
+        <span class="ck-chip live"><i></i>Live video</span>
+        <h2>Stream this match live</h2>
+        <p>Your camera goes live right here and the score bar with player photos is added automatically. Viewers watch on the public scorecard. You can keep scoring while you stream.</p>
+        <button type="button" class="ck-btn red" id="ckGoLive">🔴 Start camera</button>
+      </div>
+    </div>
+  </div>
+  <% } %>
+
   <%# ---------- Toss ---------- %>
   <div id="ckToss" class="ck-card d-none mb-3">
     <h2>Toss</h2>
@@ -80,13 +94,13 @@
   <%# ---------- Live stream bar (boolean) ---------- %>
   <div class="ck-card mb-3">
     <div class="d-flex align-items-center gap-3">
-      <label class="ck-sw mb-0"><input type="checkbox" id="ckStream" aria-label="Show score bar on my live stream"><span></span></label>
+      <label class="ck-sw mb-0"><input type="checkbox" id="ckStream" aria-label="Show score bar on the live stream"><span></span></label>
       <div>
-        <b>Show score bar on my live stream</b>
+        <b>Show score bar on the live stream</b>
         <div class="small text-body-secondary" id="ckStreamHint"></div>
       </div>
     </div>
-    <div class="small text-body-secondary mt-2">When this is ON and <%= st.match.owner %> is live, viewers see a TV-style score bar on the stream and it updates with every ball. Everywhere else on the site the news headlines bar is shown instead.</div>
+    <div class="small text-body-secondary mt-2">When this is ON and <%= st.match.owner %> (or the assigned scorer) is live, viewers see a TV-style score bar with the players' photos on the stream, and it updates with every ball. Going live from this page turns it ON for you. The video also appears on the public scorecard page.</div>
   </div>
 
   <%- include('partials/cricket-board') %>
@@ -94,7 +108,7 @@
   <% if (isOwner) { %>
   <div class="ck-card mt-3">
     <h2>Let a friend score</h2>
-    <p class="small text-body-secondary">Type their Khabzo username. They can score this match from their own phone while you stream.</p>
+    <p class="small text-body-secondary">Type their Khabzo username. They can score this match from their own phone while you stream. If they go live from their own scorer page, the score bar works for their stream too.</p>
     <div class="d-flex gap-2"><input id="scorerName" class="form-control ck-in" placeholder="username (empty = only me)" value="<%= st.match.scorer || '' %>"><button type="button" class="ck-btn" id="ckSetScorer">Save</button></div>
   </div>
   <% } %>
@@ -147,7 +161,7 @@
       var out = {}; st.cur.batters.forEach(function (x) { if (x.out) out[x.id] = true; });
       var avail = st.batters.filter(function (p) { return !out[p.id]; });
       var prevS = $('selStriker').value, prevN = $('selNon').value, prevB = $('selBowler').value;
-      // jab server ne naya batter / bowler maanga ho ya pehli ball ho to tajweez wali values, warna scorer ki apni chuni hui
+      // When the server asks for a new batter / bowler (or it is the first ball) use its suggestion, otherwise keep the scorer's own choice
       fill($('selStriker'), avail, nx.striker || (prevS && !out[prevS] ? prevS : ''), 'Select striker');
       fill($('selNon'), avail, nx.nonStriker || (prevN && !out[prevN] ? prevN : ''), 'Select non-striker');
       fill($('selBowler'), st.bowlers, nx.bowler || (nx.needBowler ? '' : prevB), 'Select bowler');
@@ -159,10 +173,10 @@
       $('ckEndInn').style.display = m.innings === 1 ? '' : 'none';
     }
     $('ckStream').checked = !!m.show_on_stream;
-    $('ckStreamHint').textContent = streaming ? 'You are live right now.' + (m.show_on_stream ? ' Viewers can see the bar.' : '') : 'Not live yet. The bar appears on your stream as soon as you go live (🔴 Live button on the Feed page).';
+    $('ckStreamHint').textContent = streaming ? 'A live stream is running now.' + (m.show_on_stream ? ' Viewers can see the bar.' : '') : 'Not live yet. Start the camera above and the bar appears on the stream by itself.';
   }
 
-  // run button = ball record
+  // a run button records the ball
   $('ckRuns').addEventListener('click', function (e) {
     var b = e.target.closest('[data-r]'); if (!b || busy) return;
     var body = { striker: $('selStriker').value, nonStriker: $('selNon').value, bowler: $('selBowler').value, runs: parseInt(b.getAttribute('data-r'), 10), extra: extra };
@@ -192,6 +206,25 @@
   });
   $('ckStream').addEventListener('change', function () { api('/stream', { show: this.checked }); });
   var ss = $('ckSetScorer'); if (ss) ss.addEventListener('click', function () { api('/scorer', { username: $('scorerName').value }).then(function (j) { if (j) err(''); }); });
+
+  // ---- live camera panel ----
+  function hostPanel(on) { var ph = $('ckHostPh'); if (ph) ph.classList.toggle('d-none', on); }
+  document.addEventListener('DOMContentLoaded', function () { var box = $('ckHostBox'); if (box && window.KZLive) KZLive.dock('host', box); });
+  var go = $('ckGoLive');
+  if (go) go.addEventListener('click', function () {
+    if (!window.KZLive) return err('Live video is not available right now. Please reload the page.');
+    KZLive.start({ body: '🏏 ' + st.teams.a.name + ' vs ' + st.teams.b.name + ' - LIVE | ' + st.match.tournament, matchId: st.match.id, returnUrl: location.pathname, facing: 'environment' });
+  });
+  document.addEventListener('kzlive', function (e) {
+    var d = e.detail || {};
+    if (d.role !== 'host') return;
+    if ('open' in d) hostPanel(d.open);
+    if (d.live === true) { // the stream just started: switch the score bar ON for this match
+      if (!st.match.show_on_stream) api('/stream', { show: true }).then(function () { if (window.KZLive) KZLive.refreshBar(); });
+      else if (window.KZLive) KZLive.refreshBar();
+    }
+    if (d.live === false) { streaming = false; paint(); }
+  });
 
   paint();
 })();

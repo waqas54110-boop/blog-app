@@ -1,4 +1,5 @@
-<%# Live broadcasting: host screen ("🔴 Live" button) + viewer screen ("Watch live" button) + WebRTC. Har page par (login ke baad) footer se judta hai. %>
+<%# Live broadcasting: host screen ("🔴 Live" button) + viewer screen ("Watch live" button) + WebRTC. Included on every page (after login) from the footer.
+     The cricket pages can "dock" both screens inline (window.KZLive) so the video sits next to the scorer / scorecard instead of covering the page. %>
 <style>
   .live-screen { position: fixed; inset: 0; z-index: 2100; background: #0b1020; color: #fff; display: flex; flex-direction: column; }
   .live-screen.d-none { display: none !important; }
@@ -25,32 +26,78 @@
   .ls-btn.red { background: #ef4444; } .ls-btn.red:hover { background: #dc2626; }
   #lvPlay { position: relative; z-index: 4; margin: 0 auto auto; }
 
-  /* ===== Cricket score bar (TV style). Sirf tab dikhti hai jab match ka "Show on live stream" boolean ON ho ===== */
-  .sb { position: absolute; z-index: 4; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); padding: 0 .6rem; pointer-events: none; font-family: var(--kz-sans, system-ui, sans-serif); }
+  /* ===== Cricket score bar (TV broadcast style, with player photos). Shown only when the match's "Show on live stream" switch is ON ===== */
+  .sb { position: absolute; z-index: 4; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); padding: 0 .6rem; pointer-events: none; font-family: var(--kz-sans, system-ui, sans-serif); container-type: inline-size; }
   .sb.sb-host { bottom: calc(env(safe-area-inset-bottom, 0px) + 112px); }
   .sb.d-none { display: none !important; }
-  .sb-in { max-width: 720px; margin: 0 auto; border-radius: .7rem; overflow: hidden; background: rgba(8,14,28,.9); box-shadow: 0 8px 30px rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.14); }
-  .sb-row { display: flex; align-items: stretch; }
-  .sb-tag { flex: 0 0 auto; background: #c8102e; color: #fff; font: 800 .68rem/1 var(--kz-sans, sans-serif); letter-spacing: .06em; padding: 0 .6rem; display: flex; align-items: center; gap: .35rem; }
-  .sb-tag i { width: .4rem; height: .4rem; border-radius: 50%; background: #fff; animation: sbpulse 1.4s infinite; }
-  @keyframes sbpulse { 50% { opacity: .3; } }
-  .sb-team { flex: 0 0 auto; background: #fff; color: #0b1020; font: 800 1.05rem/1 var(--kz-sans, sans-serif); padding: .55rem .7rem; display: flex; align-items: center; letter-spacing: .02em; }
-  .sb-score { flex: 1 1 auto; display: flex; align-items: baseline; gap: .5rem; padding: .35rem .8rem; color: #fff; min-width: 0; }
-  .sb-score b { font: 800 1.7rem/1 var(--kz-sans, sans-serif); font-variant-numeric: tabular-nums; }
-  .sb-score span { font-size: .85rem; opacity: .8; white-space: nowrap; }
-  .sb-score.flash { animation: sbflash 1.3s ease-out; }
-  .sb-score.wkt { animation: sbwkt 1.6s ease-out; }
+  .sb-in { position: relative; max-width: 780px; margin: 0 auto; border-radius: 16px; overflow: hidden; color: #fff; background: linear-gradient(180deg, rgba(16,26,52,.94), rgba(6,10,22,.97)); border: 1px solid rgba(255,255,255,.14); box-shadow: 0 16px 44px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.08); }
+  .sb-in.sb-enter { animation: sbin .55s cubic-bezier(.2,.9,.3,1) both; }
+  .sb-in::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; z-index: 2; background: linear-gradient(90deg, #16a34a, #facc15 55%, #f43f5e); }
+  @keyframes sbin { from { transform: translateY(18px); opacity: 0; } to { transform: none; opacity: 1; } }
+  .sb-head { display: flex; align-items: stretch; min-height: 56px; padding-top: 3px; position: relative; }
+  .sb-tag { flex: 0 0 auto; display: flex; align-items: center; gap: .38rem; padding: 0 1.25rem 0 .75rem; background: linear-gradient(135deg, #e11d48, #9f1239); font: 800 .7rem/1 var(--kz-sans, sans-serif); letter-spacing: .09em; clip-path: polygon(0 0, 100% 0, calc(100% - 12px) 100%, 0 100%); }
+  .sb-tag i { width: .42rem; height: .42rem; border-radius: 50%; background: #fff; animation: sbpulse 1.4s infinite; }
+  @keyframes sbpulse { 50% { opacity: .3; transform: scale(.7); } }
+  .sb-team { flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; margin-left: -12px; padding: .3rem 1rem .3rem 1.4rem; background: linear-gradient(135deg, hsl(var(--h, 150) 70% 40%), hsl(var(--h, 150) 75% 24%)); clip-path: polygon(12px 0, 100% 0, calc(100% - 12px) 100%, 0 100%); }
+  .sb-ts { font: 900 1.3rem/1 var(--kz-sans, sans-serif); letter-spacing: .03em; }
+  .sb-tn { font-size: .6rem; opacity: .85; text-transform: uppercase; letter-spacing: .07em; max-width: 9.5rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: .18rem; }
+  .sb-score { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: .1rem .7rem; padding: .3rem .9rem; }
+  .sb-runs { font: 900 2.15rem/1 var(--kz-sans, sans-serif); font-variant-numeric: tabular-nums; letter-spacing: -.01em; text-shadow: 0 2px 12px rgba(250,204,21,.28); border-radius: .4rem; padding: 0 .2rem; }
+  .sb-runs.flash { animation: sbflash 1.3s ease-out; }
+  .sb-runs.wkt { animation: sbwkt 1.6s ease-out; }
   @keyframes sbflash { 0% { background: #16a34a; } 100% { background: transparent; } }
   @keyframes sbwkt { 0% { background: #dc2626; } 100% { background: transparent; } }
-  .sb-sub { display: flex; flex-wrap: wrap; gap: .1rem .9rem; padding: .35rem .8rem; background: rgba(255,255,255,.08); color: #e5e7eb; font-size: .76rem; }
-  .sb-sub b { color: #fff; }
-  .sb-chase { padding: .3rem .8rem; background: #fbbf24; color: #111; font-weight: 700; font-size: .78rem; }
-  .sb-balls { display: flex; gap: .25rem; align-items: center; padding: .3rem .8rem; background: rgba(0,0,0,.25); }
-  .sb-balls em { font-style: normal; font-size: .66rem; letter-spacing: .06em; text-transform: uppercase; opacity: .7; margin-right: .2rem; color: #fff; }
-  .sb-b { min-width: 1.45rem; height: 1.45rem; padding: 0 .25rem; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; font-size: .7rem; font-weight: 800; background: #374151; color: #fff; }
+  .sb-ov { font-size: .85rem; opacity: .8; white-space: nowrap; }
+  .sb-crr { font-size: .72rem; font-weight: 700; padding: .16rem .55rem; border-radius: 99px; background: rgba(255,255,255,.1); white-space: nowrap; }
+  .sb-vs { flex: 0 0 auto; display: flex; flex-direction: column; justify-content: center; align-items: flex-end; padding: 0 1rem; font-size: .6rem; text-transform: uppercase; letter-spacing: .09em; opacity: .92; }
+  .sb-vs b { font: 800 1rem/1.1 var(--kz-sans, sans-serif); letter-spacing: .03em; }
+  .sb-evt { position: absolute; left: 0; right: 0; top: 3px; bottom: 0; z-index: 3; display: flex; align-items: center; justify-content: center; font: 900 1.7rem/1 var(--kz-sans, sans-serif); letter-spacing: .24em; text-transform: uppercase; background: linear-gradient(90deg, #2563eb, #1d4ed8); animation: sbevt 3.2s ease both; }
+  .sb-evt.six { background: linear-gradient(90deg, #7c3aed, #5b21b6); }
+  .sb-evt.wkt { background: linear-gradient(90deg, #e11d48, #9f1239); }
+  @keyframes sbevt { 0% { transform: translateX(-100%); } 12%, 80% { transform: none; } 100% { transform: translateX(100%); opacity: 0; } }
+  .sb-pls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: rgba(255,255,255,.08); border-top: 1px solid rgba(255,255,255,.08); }
+  .sb-pl { display: flex; align-items: center; gap: .55rem; padding: .45rem .7rem; background: rgba(8,14,30,.6); min-width: 0; }
+  .sb-pl.on { background: linear-gradient(90deg, rgba(250,204,21,.18), rgba(8,14,30,.6)); }
+  .sb-pl.bowl { background: linear-gradient(90deg, rgba(56,189,248,.16), rgba(8,14,30,.6)); }
+  .sb-ph { width: 44px; height: 44px; border-radius: 50%; flex: 0 0 auto; overflow: hidden; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #334155, #1e293b); font: 800 1.1rem/1 var(--kz-sans, sans-serif); border: 2px solid rgba(255,255,255,.35); box-shadow: 0 2px 8px rgba(0,0,0,.45); }
+  .sb-ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sb-ph.on { border-color: #facc15; box-shadow: 0 0 0 3px rgba(250,204,21,.25), 0 2px 10px rgba(0,0,0,.5); }
+  .sb-pl.bowl .sb-ph { border-color: #38bdf8; }
+  .sb-pt { min-width: 0; }
+  .sb-pn { font: 800 .76rem/1.15 var(--kz-sans, sans-serif); text-transform: uppercase; letter-spacing: .03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sb-ps { font-size: .8rem; white-space: nowrap; }
+  .sb-ps b { font-size: 1.02rem; font-variant-numeric: tabular-nums; }
+  .sb-ps span { opacity: .75; }
+  .sb-ps em { font-style: normal; font-size: .64rem; opacity: .7; margin-left: .4rem; }
+  .sb-foot { display: flex; align-items: center; flex-wrap: wrap; gap: .3rem .8rem; padding: .4rem .8rem; background: rgba(0,0,0,.38); }
+  .sb-balls { display: flex; gap: .25rem; align-items: center; }
+  .sb-balls em { font-style: normal; font-size: .62rem; letter-spacing: .08em; text-transform: uppercase; opacity: .7; margin-right: .2rem; }
+  .sb-b { min-width: 1.5rem; height: 1.5rem; padding: 0 .28rem; border-radius: 99px; display: inline-flex; align-items: center; justify-content: center; font-size: .7rem; font-weight: 800; background: #374151; color: #fff; }
   .sb-b.r4 { background: #2563eb; } .sb-b.r6 { background: #7c3aed; } .sb-b.w { background: #dc2626; } .sb-b.x { background: #f59e0b; color: #111; }
-  @media (max-width: 480px) { .sb-score b { font-size: 1.4rem; } .sb-team { font-size: .9rem; padding: .5rem .5rem; } }
-  @media (prefers-reduced-motion: reduce) { .sb-tag i, .sb-score.flash, .sb-score.wkt { animation: none; } }
+  .sb-chase { margin-left: auto; padding: .2rem .7rem; border-radius: 99px; background: linear-gradient(90deg, #fbbf24, #f59e0b); color: #111; font-weight: 800; font-size: .74rem; }
+  .sb-chase.res { background: linear-gradient(90deg, #22c55e, #16a34a); color: #fff; margin-left: 0; }
+  @container (max-width: 560px) {
+    .sb-runs { font-size: 1.7rem; } .sb-tn, .sb-vs, .sb-ps em { display: none; } .sb-ts { font-size: 1.1rem; }
+    .sb-ph { width: 32px; height: 32px; font-size: .9rem; } .sb-pl { gap: .4rem; padding: .4rem .45rem; }
+    .sb-pn { font-size: .62rem; } .sb-ps { font-size: .7rem; } .sb-ps b { font-size: .9rem; } .sb-evt { font-size: 1.2rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { .sb-tag i, .sb-runs.flash, .sb-runs.wkt, .sb-in.sb-enter, .sb-evt { animation: none; } }
+
+  /* ===== Docked (inline) mode: the camera / viewer panel lives inside a cricket page instead of covering the whole screen ===== */
+  .live-screen.live-inline { position: relative; inset: auto; z-index: 1; width: 100%; height: auto; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .live-screen.live-inline:fullscreen { aspect-ratio: auto; border-radius: 0; height: 100%; }
+  @media (max-width: 600px) { .live-screen.live-inline { aspect-ratio: 4 / 3; } }
+  .live-inline .ls-top { padding: .6rem .7rem 0; }
+  .live-inline .ls-setup { padding: .6rem .7rem; }
+  .live-inline #lhCaption, .live-inline .ls-note { display: none; }
+  .live-inline .ls-bar { padding: .5rem .7rem; gap: .7rem; }
+  .live-inline .ls-btn { width: 44px; height: 44px; font-size: 1.15rem; }
+  .live-inline .sb { bottom: 10px; }
+  .live-inline .sb.sb-host { bottom: 66px; }
+  #liveHost.live-inline .sb-pls, #liveHost.live-inline .sb-foot { display: none; } /* host preview stays clear: compact score line only */
+  .ls-fs { display: none; }
+  .live-inline .ls-fs { display: inline-flex; align-items: center; justify-content: center; margin-left: auto; }
+  .live-inline .ls-fs + .ls-x { margin-left: .4rem; }
 </style>
 
 <%# ---------- HOST screen ---------- %>
@@ -91,6 +138,7 @@
     <span class="live-badge"><span class="live-dot"></span> LIVE</span>
     <span id="lvHost" class="ls-pill"></span>
     <span id="lvViewers" class="ls-pill">👁 0</span>
+    <button type="button" id="lvFs" class="ls-x ls-fs" aria-label="Full screen" title="Full screen">⛶</button>
     <button type="button" id="lvClose" class="ls-x" aria-label="Close">✕</button>
   </div>
   <div id="lvMsg" class="ls-msg">Connecting…</div>
@@ -105,7 +153,9 @@
   var noop = function () {};
   var host = null;   // chalta hua live (mera)
   var view = null;   // jo live main dekh raha hoon
-  var saving = false; // live khatam hone ke baad recording upload ho rahi hai
+  var saving = false; // the recording is uploading after the live ended
+  // Tell the page what is happening (the cricket pages listen to this: panel open / closed, live started / ended)
+  function emit(detail) { try { document.dispatchEvent(new CustomEvent('kzlive', { detail: detail })); } catch (e) { /* ignore */ } }
 
   // LiveKit (media server) ki library: sirf tab load hoti hai jab live "sfu" mode mein ho
   var lkP = null;
@@ -131,53 +181,92 @@
   }
   function fmt(s) { return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
 
-  /* ---------- Cricket score bar ---------- */
-  var bars = {};   // mountId -> { stop, timer, last }
+  /* ---------- Cricket score bar (broadcast style with player photos) ---------- */
+  var bars = {}; // mountId -> { dead, timer, last, sig, tick }
   function barStop(mountId) {
     var b = bars[mountId]; if (b) { b.dead = true; clearTimeout(b.timer); delete bars[mountId]; }
     var m = $(mountId); if (m) { m.classList.add('d-none'); m.replaceChildren(); }
   }
   function barStart(streamId, mountId) {
     barStop(mountId);
-    var b = bars[mountId] = { dead: false, timer: null, last: null, key: '' };
+    var b = bars[mountId] = { dead: false, timer: null, last: null, sig: '', tick: null };
     function mk(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
     function ballCls(l) { return 'sb-b' + (l === '4' ? ' r4' : l === '6' ? ' r6' : l.charAt(0) === 'W' ? ' w' : (/wd|nb|b$|lb$/.test(l) ? ' x' : '')); }
+    function hue(str) { var h = 7; str = String(str || ''); for (var i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360; return h; }
+    // Photos are always same-site /img/ID urls; anything else is ignored
+    function face(p, cls) {
+      var f = mk('span', 'sb-ph' + (cls ? ' ' + cls : '')), u = /^\/img\/\d+$/.test(p.photo || '') ? p.photo : '';
+      if (u) { var im = mk('img'); im.src = u; im.alt = ''; im.decoding = 'async'; f.appendChild(im); }
+      else f.textContent = String(p.name || '?').trim().charAt(0).toUpperCase();
+      return f;
+    }
+    function card(p, kind) { // kind: 'strike' | 'bat' | 'bowl'
+      var c = mk('div', 'sb-pl' + (kind === 'strike' ? ' on' : kind === 'bowl' ? ' bowl' : ''));
+      c.appendChild(face(p, kind === 'strike' ? 'on' : ''));
+      var t = mk('div', 'sb-pt'), st = mk('div', 'sb-ps');
+      t.appendChild(mk('div', 'sb-pn', p.name || ''));
+      if (kind === 'bowl') { st.appendChild(mk('b', '', p.wkts + '-' + p.runs)); st.appendChild(mk('span', '', ' (' + p.overs + ')')); }
+      else {
+        st.appendChild(mk('b', '', String(p.runs))); st.appendChild(mk('span', '', ' (' + p.balls + ')'));
+        var x = (p.fours ? p.fours + '\u00d74' : '') + (p.fours && p.sixes ? ' ' : '') + (p.sixes ? p.sixes + '\u00d76' : '');
+        if (x) st.appendChild(mk('em', '', x));
+      }
+      t.appendChild(st); c.appendChild(t); return c;
+    }
     function paint(d) {
       var m = $(mountId); if (!m) return;
-      if (!d || !d.show) { m.classList.add('d-none'); m.replaceChildren(); b.last = null; return; }
-      var wasHidden = m.classList.contains('d-none');
-      var inn = mk('div', 'sb-in'), r1 = mk('div', 'sb-row');
-      var tag = mk('div', 'sb-tag'); tag.appendChild(mk('i')); tag.appendChild(document.createTextNode(d.status === 'finished' ? 'FINAL' : 'LIVE')); r1.appendChild(tag);
-      r1.appendChild(mk('div', 'sb-team', d.bat.short));
-      var sc = mk('div', 'sb-score');
-      sc.appendChild(mk('b', '', d.runs + '/' + d.wkts));
-      sc.appendChild(mk('span', '', '(' + d.overs + '/' + d.maxOvers + ' ov)'));
-      sc.appendChild(mk('span', '', 'CRR ' + d.crr.toFixed(2)));
-      r1.appendChild(sc); inn.appendChild(r1);
-      var key = d.runs + '/' + d.wkts + '/' + d.overs + '/' + d.innings;
-      if (b.last && b.last.key !== key) { sc.classList.add(d.wkts > b.last.wkts ? 'wkt' : 'flash'); }
-      if (d.result) inn.appendChild(mk('div', 'sb-chase', d.result));
-      else if (d.innings === 2 && d.target && d.need != null) inn.appendChild(mk('div', 'sb-chase', d.bat.short + ' need ' + d.need + ' from ' + d.ballsLeft + ' balls' + (d.rrr != null ? '  |  RRR ' + d.rrr.toFixed(2) : '') + '  |  Target ' + d.target));
-      var sub = mk('div', 'sb-sub');
-      if (d.striker) { var s1 = mk('span'); s1.appendChild(mk('b', '', d.striker.name + '*')); s1.appendChild(document.createTextNode(' ' + d.striker.runs + '(' + d.striker.balls + ')')); sub.appendChild(s1); }
-      if (d.nonStriker) { var s2 = mk('span'); s2.appendChild(mk('b', '', d.nonStriker.name)); s2.appendChild(document.createTextNode(' ' + d.nonStriker.runs + '(' + d.nonStriker.balls + ')')); sub.appendChild(s2); }
-      if (d.bowler) { var s3 = mk('span'); s3.appendChild(mk('b', '', d.bowler.name)); s3.appendChild(document.createTextNode(' ' + d.bowler.wkts + '-' + d.bowler.runs + ' (' + d.bowler.overs + ')')); sub.appendChild(s3); }
-      if (d.first) sub.appendChild(mk('span', '', d.first.short + ' ' + d.first.runs + '/' + d.first.wkts + ' (' + d.first.overs + ')'));
-      if (sub.childNodes.length) inn.appendChild(sub);
-      if (d.thisOver && d.thisOver.length && !d.result) { var bl = mk('div', 'sb-balls'); bl.appendChild(mk('em', '', 'This over')); d.thisOver.forEach(function (l) { bl.appendChild(mk('span', ballCls(l), l)); }); inn.appendChild(bl); }
+      if (!d || !d.show) { m.classList.add('d-none'); m.replaceChildren(); b.last = null; b.sig = ''; return; }
+      var sig = JSON.stringify(d), wasHidden = m.classList.contains('d-none');
+      if (sig === b.sig && !wasHidden) return; // nothing changed: do not rebuild (keeps photos from flickering)
+      b.sig = sig;
+      var key = d.runs + '/' + d.wkts + '/' + d.overs + '/' + d.innings, changed = !!(b.last && b.last.key !== key && b.last.inn === d.innings);
+      var inn = mk('div', 'sb-in' + (wasHidden ? ' sb-enter' : '')), head = mk('div', 'sb-head');
+      var tag = mk('div', 'sb-tag'); tag.appendChild(mk('i')); tag.appendChild(document.createTextNode(d.status === 'finished' ? 'FINAL' : 'LIVE')); head.appendChild(tag);
+      var team = mk('div', 'sb-team'); team.style.setProperty('--h', hue(d.bat.name));
+      team.appendChild(mk('span', 'sb-ts', d.bat.short)); team.appendChild(mk('span', 'sb-tn', d.bat.name)); head.appendChild(team);
+      var sc = mk('div', 'sb-score'), runs = mk('b', 'sb-runs', d.runs + '/' + d.wkts);
+      if (changed) runs.classList.add(d.wkts > b.last.wkts ? 'wkt' : 'flash');
+      sc.appendChild(runs); sc.appendChild(mk('span', 'sb-ov', '(' + d.overs + ' / ' + d.maxOvers + ' ov)')); sc.appendChild(mk('span', 'sb-crr', 'CRR ' + d.crr.toFixed(2))); head.appendChild(sc);
+      var vs = mk('div', 'sb-vs'); vs.appendChild(mk('span', '', 'vs')); vs.appendChild(mk('b', '', d.bowl.short)); head.appendChild(vs);
+      if (changed && d.status !== 'finished') { // quick TV-style takeover for a boundary or a wicket
+        var gain = d.runs - b.last.runs, evt = d.wkts > b.last.wkts ? ['wkt', 'WICKET!'] : gain === 6 ? ['six', 'SIX!'] : gain === 4 ? ['four', 'FOUR!'] : null;
+        if (evt) head.appendChild(mk('div', 'sb-evt ' + evt[0], evt[1]));
+      }
+      inn.appendChild(head);
+      if (d.striker || d.nonStriker || d.bowler) {
+        var pls = mk('div', 'sb-pls');
+        if (d.striker) pls.appendChild(card(d.striker, 'strike'));
+        if (d.nonStriker) pls.appendChild(card(d.nonStriker, 'bat'));
+        if (d.bowler) pls.appendChild(card(d.bowler, 'bowl'));
+        inn.appendChild(pls);
+      }
+      var foot = mk('div', 'sb-foot');
+      if (d.thisOver && d.thisOver.length && !d.result) {
+        var bl = mk('div', 'sb-balls'); bl.appendChild(mk('em', '', 'This over'));
+        d.thisOver.forEach(function (l) { bl.appendChild(mk('span', ballCls(l), l)); });
+        foot.appendChild(bl);
+      }
+      if (d.result) foot.appendChild(mk('div', 'sb-chase res', '\ud83c\udfc6 ' + d.result));
+      else if (d.innings === 2 && d.target && d.need != null) {
+        var txt = d.bat.short + ' need ' + d.need + ' from ' + d.ballsLeft + ' balls' + (d.rrr != null ? ' | RRR ' + d.rrr.toFixed(2) : '') + ' | Target ' + d.target;
+        foot.appendChild(mk('div', 'sb-chase', txt));
+      } else if (d.first) foot.appendChild(mk('div', 'sb-chase', d.first.short + ' ' + d.first.runs + '/' + d.first.wkts + ' (' + d.first.overs + ')'));
+      if (foot.childNodes.length) inn.appendChild(foot);
       m.replaceChildren(inn); m.classList.remove('d-none');
-      b.last = { key: key, wkts: d.wkts };
+      b.last = { key: key, runs: d.runs, wkts: d.wkts, inn: d.innings };
     }
     function tick() {
       if (b.dead) return;
+      clearTimeout(b.timer);
       var next = function () { if (!b.dead) b.timer = setTimeout(tick, 4000); };
       if (document.hidden) return next();
       fetch('/cricket/bar/' + streamId, { credentials: 'same-origin', cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : { show: false }; })
         .then(function (d) { if (!b.dead) paint(d); }).catch(noop).then(next);
     }
-    tick();
+    b.tick = tick; tick();
   }
+
   function beacon(path, data) {
     if (!navigator.sendBeacon) return;
     data._csrf = csrf;
@@ -210,7 +299,7 @@
     if (host || view) return;
     if (!supported(true)) return;
     var h = host = { id: 0, postId: 0, stream: null, peers: {}, dead: {}, ice: [], lastSig: 0, ended: false, live: false,
-      fails: 0, pollT: null, tick: null, t0: 0, facing: 'user', wl: null, bitrate: 600000, groupId: opts.groupId || '',
+      fails: 0, pollT: null, tick: null, t0: 0, facing: opts.facing === 'environment' ? 'environment' : 'user', matchId: opts.matchId || 0, returnUrl: opts.returnUrl || '', wl: null, bitrate: 600000, groupId: opts.groupId || '',
       mode: 'p2p', room: null, rec: null };
     $('lhCaption').value = String(opts.body || '').slice(0, 300);
     $('lhSetup').classList.remove('d-none'); $('lhBar').classList.add('d-none');
@@ -220,14 +309,13 @@
     $('lhMute').className = 'ls-btn'; $('lhMute').textContent = '🎤';
     $('lhCam').className = 'ls-btn'; $('lhCam').textContent = '📷';
     $('lhFlip').style.display = 'none';
-    $('lhVideo').classList.add('mirror');
-    $('lhSave').classList.add('d-none'); $('lhSaveBtns').classList.add('d-none');
+    $('lhVideo').classList.toggle('mirror', h.facing === 'user'); $('lhSave').classList.add('d-none'); $('lhSaveBtns').classList.add('d-none');
     hostMsg('Starting camera…');
     $('liveHost').classList.remove('d-none');
 
     navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-      video: { facingMode: 'user', width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } }
+      video: { facingMode: h.facing === 'environment' ? { ideal: 'environment' } : 'user', width: { ideal: 854 }, height: { ideal: 480 }, frameRate: { ideal: 24 } }
     }).then(function (stream) {
       if (h.ended) { stream.getTracks().forEach(function (t) { t.stop(); }); return; }
       h.stream = stream;
@@ -256,6 +344,7 @@
         if (h.ended) return;
         h.live = true; h.t0 = Date.now();
         barStart(h.id, 'lhScore');
+      emit({ role: 'host', live: true, streamId: h.id, matchId: h.matchId });
         $('lhSetup').classList.add('d-none'); $('lhBar').classList.remove('d-none');
         $('lhClose').style.display = 'none';
         $('lhBadge').classList.remove('d-none'); $('lhViewers').classList.remove('d-none'); $('lhViewers').textContent = '👁 0';
@@ -344,7 +433,7 @@
     });
   }
 
-  function gotoPost(h) { saving = false; $('liveHost').classList.add('d-none'); location.href = '/feed/' + h.postId; }
+  function gotoPost(h) { saving = false; $('liveHost').classList.add('d-none'); location.href = h.returnUrl || ('/feed/' + h.postId); }
 
   function saveFlow(h, blob) {
     saving = true;
@@ -370,6 +459,7 @@
     h.ended = true;
     clearTimeout(h.pollT); clearInterval(h.tick);
     barStop('lhScore');
+    if (h.live) emit({ role: 'host', live: false, streamId: h.id, matchId: h.matchId });
     if (tellServer && h.id) api('POST', '/live/' + h.id + '/end').catch(noop);
     var recP = h.live ? finalizeRec(h) : Promise.resolve(null);   // stopMedia se PEHLE (tracks band hone se pehle recorder ko roko)
     stopMedia(h);
@@ -689,7 +779,7 @@
     this.classList.add('d-none');
   });
   $('lvClose').addEventListener('click', function () { if (view) closeView(view, null, true); });
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && view) closeView(view, null, true); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && view && !$('liveView').classList.contains('live-inline')) closeView(view, null, true); });
 
   /* =================== buttons + page leave =================== */
   document.addEventListener('click', function (e) {
@@ -704,6 +794,27 @@
       openHost({ body: ta ? ta.value : '', groupId: s.getAttribute('data-live-group') || '' });
     }
   });
+
+    /* =================== docking for the cricket pages =================== */
+  ['liveHost', 'liveView'].forEach(function (id) {
+    var el = $(id), was = !el.classList.contains('d-none');
+    new MutationObserver(function () {
+      var now = !el.classList.contains('d-none');
+      if (now !== was) { was = now; emit({ role: id === 'liveHost' ? 'host' : 'view', open: now }); }
+    }).observe(el, { attributes: true, attributeFilter: ['class'] });
+  });
+  $('lvFs').addEventListener('click', function () {
+    var el = $('liveView');
+    if (document.fullscreenElement) { document.exitFullscreen().catch(noop); } else if (el.requestFullscreen) { el.requestFullscreen().catch(noop); }
+  });
+  window.KZLive = {
+    // Move the host / viewer screen into a page slot (it then behaves like an inline video panel)
+    dock: function (role, slot) { var el = $(role === 'host' ? 'liveHost' : 'liveView'); if (el && slot) { slot.appendChild(el); el.classList.add('live-inline'); } },
+    start: function (opts) { openHost(opts || {}); },
+    watch: function (id, name) { openView(String(id), name || ''); },
+    refreshBar: function () { Object.keys(bars).forEach(function (k) { if (bars[k].tick) bars[k].tick(); }); },
+    status: function () { return { hosting: !!(host && host.live && !host.ended), watching: !!view }; }
+  };
 
   window.addEventListener('beforeunload', function (e) {
     if ((host && host.live && !host.ended) || saving) { e.preventDefault(); e.returnValue = ''; }

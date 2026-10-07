@@ -2,8 +2,8 @@
 <%- include('partials/cricket-assets') %>
 <div class="ck">
   <div class="ck-hero">
-    <h1>Mohalla Cricket Manager</h1>
-    <p>Score gali and club cricket ball by ball. Create a tournament, add teams and players, make fixtures, and send the live scorecard link on WhatsApp. Every player gets a career profile.</p>
+    <h1>Street Cricket Manager</h1>
+    <p>Score street and club cricket ball by ball. Create a tournament, add teams and players with photos, make fixtures, go live with your camera and a TV-style score bar, and share the live scorecard on WhatsApp. Every player gets a career profile.</p>
     <div class="mt-3 d-flex gap-2 flex-wrap">
       <% if (user) { %><a class="ck-btn" style="background:#fff;color:#064e3b" href="#new">Start a tournament</a><% } else { %><a class="ck-btn" style="background:#fff;color:#064e3b" href="/login">Log in to start</a><% } %>
     </div>
@@ -34,7 +34,7 @@
           <h2>New tournament</h2>
           <input class="form-control ck-in mb-2" name="name" maxlength="80" placeholder="e.g. Gulberg Street Cup 2026" required>
           <div class="d-flex gap-2 mb-3">
-            <input class="form-control ck-in" name="city" maxlength="60" placeholder="City / mohalla">
+            <input class="form-control ck-in" name="city" maxlength="60" placeholder="City / neighbourhood">
             <input class="form-control ck-in" style="max-width:110px" type="number" name="overs" min="1" max="50" value="6" title="Overs per match" aria-label="Overs per match">
           </div>
           <button class="ck-btn" type="submit">Create tournament</button>

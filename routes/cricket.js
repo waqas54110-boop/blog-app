@@ -1,9 +1,11 @@
-// Mohalla Cricket Manager (V35): /cricket - tournaments, teams, players, fixtures, ball-by-ball scorer,
-// public live scorecard (WhatsApp share), player career, aur live stream par score bar (/cricket/bar/:streamId).
+// Street Cricket Manager (V35/V36): /cricket - tournaments, teams, players (with photos), fixtures, ball-by-ball scorer,
+// public live scorecard with embedded live video (WhatsApp share), player career, and the live-stream score bar (/cricket/bar/:streamId).
 const express = require('express');
 const pool = require('../db');
 const config = require('../config');
 const C = require('../lib/cricket');
+const cloud = require('../lib/cloudinary');
+const { detectImage } = require('./uploads');
 
 const router = express.Router();
 const toId = (v) => (/^\d{1,9}$/.test(String(v)) ? parseInt(v, 10) : null);
@@ -20,6 +22,7 @@ const wrapPage = (fn) => (req, res, next) => fn(req, res, next).catch((err) => {
 });
 const wrapJson = (fn) => (req, res) => fn(req, res).catch((err) => {
   if (err && err.code === '42P01') return res.status(503).json({ error: 'Cricket is not set up yet (migration_v35.sql).' });
+    if (err && err.code === '42703') return res.status(503).json({ error: 'Player photos are not set up yet (run migration_v36.sql).' });
   console.error('[cricket]', err.message);
   if (!res.headersSent) res.status(500).json({ error: 'Server error, please try again.' });
 });
@@ -27,7 +30,7 @@ const needLogin = (req, res) => { req.session.returnTo = req.originalUrl; res.re
 const denied = (res, msg) => res.status(403).render('404', { code: 403, title: 'Not allowed', message: msg || 'Only the tournament organizer can do this.' });
 const back = (res, path, kind, text) => res.redirect(`${path}?${kind}=${encodeURIComponent(text)}`);
 
-// Chhota cache: ek match ko bohat se viewers poll karte hain (live stream par 200 tak)
+// Small cache: many viewers poll the same match (up to 200 on a live stream)
 const cache = new Map();
 async function cachedState(id, ttl = 2000) {
   const hit = cache.get(id);
@@ -39,13 +42,34 @@ async function cachedState(id, ttl = 2000) {
 }
 const bust = (id) => cache.delete(id);
 
-async function ownerStreaming(ownerId) {
+// Is anyone streaming for this match right now? Either the organizer or the assigned scorer can be the one who is live.
+const streamCache = new Map();
+async function matchStream(m) {
+  const key = `${m.owner_id}:${m.scorer_id || 0}`;
+  const hit = streamCache.get(key);
+  if (hit && Date.now() - hit.t < 2000) return hit.v;
+  let v = null;
   try {
-    const r = await pool.query(`SELECT 1 FROM live_streams WHERE user_id = $1 AND status = 'live' AND host_seen > now() - interval '25 seconds' LIMIT 1`, [ownerId]);
-    return r.rowCount > 0;
-  } catch (e) { return false; }
+    const r = await pool.query(
+      `SELECT s.id, s.user_id, u.username FROM live_streams s JOIN users u ON u.id = s.user_id
+       WHERE s.user_id = ANY($1::int[]) AND s.status = 'live' AND s.host_seen > now() - interval '25 seconds' ORDER BY s.id DESC LIMIT 1`,
+      [[m.owner_id, m.scorer_id || m.owner_id]]);
+    if (r.rows[0]) v = { id: Number(r.rows[0].id), host: r.rows[0].username, uid: r.rows[0].user_id };
+  } catch (e) { v = null; } // live tables missing (migration_v27 not run): simply no video
+  streamCache.set(key, { t: Date.now(), v });
+  if (streamCache.size > 300) streamCache.clear();
+  return v;
 }
+const ownerStreaming = async (m) => !!(await matchStream(m));
+// What the browser gets: the stream id + host name, and whether the viewer is the one streaming
+const pubStream = (req, s) => (s ? { id: s.id, host: s.host, mine: !!(req.session.user && req.session.user.id === s.uid) } : null);
 
+// Queries that read the photo column keep working before migration_v36.sql is run (they just return no photos).
+let hasPhotoCol = true;
+async function qPhoto(withSql, withoutSql, params) {
+  if (hasPhotoCol) { try { return await pool.query(withSql, params); } catch (e) { if (e.code !== '42703') throw e; hasPhotoCol = false; } }
+  return pool.query(withoutSql, params);
+}
 const canManage = (req, ownerId) => !!req.session.user && (req.session.user.id === ownerId || isAdmin(req));
 const canScore = (req, m) => !!req.session.user && (req.session.user.id === m.owner_id || req.session.user.id === m.scorer_id || isAdmin(req));
 
@@ -95,8 +119,8 @@ router.get('/cricket', wrapPage(async (req, res) => {
     live.push({ ...m, score: `${bt.name} ${c.runs}/${c.wkts} (${c.overs})`, chase: st.match.target ? `Target ${st.match.target}` : '' });
   }
   res.render('cricket', {
-    title: 'Mohalla Cricket Manager - live scores, tournaments & player stats | Khabzo',
-    metaDescription: 'Score your gali and club cricket ball by ball, share the live scorecard on WhatsApp, and build every player\'s career profile.',
+    title: 'Street Cricket Manager - live scores, tournaments & player stats | Khabzo',
+    metaDescription: 'Score your street and club cricket ball by ball, stream it live with a score bar, share the live scorecard on WhatsApp, and build every player\'s career profile.',
     live, recent: recentQ.rows, tournaments: tq.rows, mine: mine.rows, err: oneLine(req.query.err, 160), ok: oneLine(req.query.ok, 160),
   });
 }));
@@ -124,8 +148,10 @@ router.get('/cricket/t/:id', wrapPage(async (req, res, next) => {
   if (!t) return next();
   const [teams, pl, ms] = await Promise.all([
     pool.query('SELECT id, name FROM cricket_teams WHERE tournament_id = $1 ORDER BY id', [id]),
-    pool.query(`SELECT tp.team_id, p.id, p.name FROM cricket_team_players tp JOIN cricket_players p ON p.id = tp.player_id
-                 JOIN cricket_teams x ON x.id = tp.team_id WHERE x.tournament_id = $1 ORDER BY p.name`, [id]),
+    qPhoto(`SELECT tp.team_id, p.id, p.name, p.photo_image_id FROM cricket_team_players tp JOIN cricket_players p ON p.id = tp.player_id
+            JOIN cricket_teams x ON x.id = tp.team_id WHERE x.tournament_id = $1 ORDER BY p.name`,
+      `SELECT tp.team_id, p.id, p.name, NULL::int AS photo_image_id FROM cricket_team_players tp JOIN cricket_players p ON p.id = tp.player_id
+            JOIN cricket_teams x ON x.id = tp.team_id WHERE x.tournament_id = $1 ORDER BY p.name`, [id]),
     pool.query(`${MATCH_SQL} WHERE m.tournament_id = $1 ORDER BY m.id`, [id]),
   ]);
   const table = teams.rows.map((x) => ({ id: x.id, name: x.name, p: 0, w: 0, l: 0, t: 0, pts: 0 }));
@@ -147,7 +173,7 @@ router.get('/cricket/t/:id', wrapPage(async (req, res, next) => {
   });
 }));
 
-// Tournament ke POST routes: sirf organizer
+// Tournament POST routes: organizer only
 async function ownT(req, res) {
   const me = req.session.user;
   if (!me) { needLogin(req, res); return null; }
@@ -271,6 +297,7 @@ router.get('/cricket/m/:id', wrapPage(async (req, res, next) => {
     metaDescription: summary, ogType: 'article', st, summary, shareUrl: url,
     shareText: `🏏 ${A} vs ${B}${st.match.status === 'live' ? ` - LIVE: ${bt} ${c.runs}/${c.wkts} (${c.overs})` : st.match.result ? ' - ' + st.match.result : ''}\nLive scorecard: ${url}`,
     canScore: !!(req.session.user && canScore(req, { owner_id: st.match.owner_id, scorer_id: st.match.scorer_id })),
+    stream: st.match.show_on_stream ? pubStream(req, await matchStream(st.match)) : null,
   });
 }));
 
@@ -279,7 +306,7 @@ router.get('/cricket/m/:id/state.json', wrapJson(async (req, res) => {
   const st = id && await cachedState(id);
   if (!st) return res.status(404).json({ error: 'Match not found.' });
   res.set('Cache-Control', 'no-store');
-  res.json(st);
+  res.json({ ...st, stream: st.match.show_on_stream ? pubStream(req, await matchStream(st.match)) : null });
 }));
 
 // ---------- SCORER ----------
@@ -297,7 +324,8 @@ const reply = async (res, id, extra = {}) => {
   const st = await C.settle(id);
   bust(id);
   const m = st.match;
-  res.json({ ok: true, state: st, streaming: await ownerStreaming(m.owner_id), ...extra });
+  streamCache.clear();
+  res.json({ ok: true, state: st, streaming: await ownerStreaming(m), ...extra });
 };
 
 router.get('/cricket/m/:id/score', wrapPage(async (req, res, next) => {
@@ -305,7 +333,7 @@ router.get('/cricket/m/:id/score', wrapPage(async (req, res, next) => {
   const st = await C.fullState(m.id);
   res.render('cricket-score', {
     title: `Score: ${m.a_name} vs ${m.b_name} | Khabzo`, robots: 'noindex,nofollow', hideNewsBar: true,
-    st, streaming: await ownerStreaming(m.owner_id), isOwner: canManage(req, m.owner_id), shareUrl: `${baseUrl(req)}/cricket/m/${m.id}`,
+    st, streaming: await ownerStreaming(m), isOwner: canManage(req, m.owner_id), shareUrl: `${baseUrl(req)}/cricket/m/${m.id}`,
   });
 }));
 
@@ -400,14 +428,14 @@ router.post('/cricket/m/:id/scorer', wrapJson(async (req, res) => {
 }));
 
 // ---------- LIVE STREAM SCORE BAR ----------
-// Stream dekhne / chalane wali screen isko poll karti hai. Bar sirf tab milti hai jab: organizer isi waqt live stream par ho,
-// aur is match ka "Show on live stream" boolean ON ho. Warna {show:false} (bar nazar nahi aati).
+// The screen that hosts or watches a stream polls this. The bar is returned only when: the organizer (or the assigned scorer) is live
+// right now AND this match's "Show on live stream" switch is ON. Otherwise {show:false} (no bar).
 router.get('/cricket/bar/:streamId', wrapJson(async (req, res) => {
   res.set('Cache-Control', 'no-store');
   const sid = toId(req.params.streamId);
   if (!sid) return res.json({ show: false });
   const r = await pool.query(
-    `SELECT m.id FROM cricket_matches m JOIN cricket_tournaments t ON t.id = m.tournament_id JOIN live_streams s ON s.user_id = t.owner_id
+    `SELECT m.id FROM cricket_matches m JOIN cricket_tournaments t ON t.id = m.tournament_id JOIN live_streams s ON (s.user_id = t.owner_id OR s.user_id = m.scorer_id)
       WHERE s.id = $1 AND s.status = 'live' AND m.show_on_stream
         AND (m.status = 'live' OR (m.status = 'finished' AND m.updated_at > now() - interval '10 minutes'))
       ORDER BY m.updated_at DESC LIMIT 1`, [sid]);
@@ -416,18 +444,62 @@ router.get('/cricket/bar/:streamId', wrapJson(async (req, res) => {
   res.json(st ? C.barPayload(st) : { show: false });
 }));
 
+// ---------- PLAYER PHOTOS ----------
+// The browser crops the picture to a 256x256 JPEG and sends the raw bytes (express.raw in app.js, CSRF token in the x-csrf-token header).
+// The photo is shown on the live score bar, the scorecard and the player's career page.
+async function photoPlayer(req, res) {
+  const me = req.session.user;
+  if (!me) { res.status(401).json({ error: 'Please log in again.' }); return null; }
+  const id = toId(req.params.id);
+  const p = id && (await pool.query('SELECT id, owner_id FROM cricket_players WHERE id = $1', [id])).rows[0];
+  if (!p) { res.status(404).json({ error: 'Player not found.' }); return null; }
+  if (!canManage(req, p.owner_id)) { res.status(403).json({ error: 'Only the organizer can change player photos.' }); return null; }
+  return p;
+}
+async function dropPhoto(imageId) { if (imageId) await pool.query('DELETE FROM images WHERE id = $1', [imageId]).catch(() => {}); }
+
+router.post('/cricket/players/:id/photo', wrapJson(async (req, res) => {
+  const p = await photoPlayer(req, res); if (!p) return;
+  const buf = req.body;
+  if (!Buffer.isBuffer(buf) || buf.length === 0) return res.status(400).json({ error: 'Please choose an image.' });
+  if (detectImage(buf) !== 'image/jpeg') return res.status(400).json({ error: 'Only JPG images are accepted here.' });
+  let remote = null;
+  if (cloud.enabled()) {
+    try { remote = (await cloud.uploadImage(buf, 'image/jpeg')).url; } catch (e) { console.error('[cricket photo] Cloudinary failed, saving in the database instead:', e.message); }
+  }
+  const old = (await pool.query('SELECT photo_image_id FROM cricket_players WHERE id = $1', [p.id])).rows[0];
+  const ins = await pool.query('INSERT INTO images (mime, data, size, uploaded_by, remote_url) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+    ['image/jpeg', remote ? null : buf, buf.length, req.session.user.id, remote]);
+  await pool.query('UPDATE cricket_players SET photo_image_id = $2 WHERE id = $1', [p.id, ins.rows[0].id]);
+  await dropPhoto(old && old.photo_image_id);
+  cache.clear();
+  res.json({ ok: true, url: `/img/${ins.rows[0].id}` });
+}));
+
+router.post('/cricket/players/:id/photo/remove', wrapJson(async (req, res) => {
+  const p = await photoPlayer(req, res); if (!p) return;
+  const old = (await pool.query('SELECT photo_image_id FROM cricket_players WHERE id = $1', [p.id])).rows[0];
+  await pool.query('UPDATE cricket_players SET photo_image_id = NULL WHERE id = $1', [p.id]);
+  await dropPhoto(old && old.photo_image_id);
+  cache.clear();
+  res.json({ ok: true });
+}));
+
 // ---------- PLAYER CAREER ----------
 router.get('/cricket/p/:id', wrapPage(async (req, res, next) => {
   const id = toId(req.params.id);
-  const p = id && (await pool.query(
-    `SELECT p.id, p.name, u.username AS owner,
-            (SELECT string_agg(DISTINCT t.name, ', ') FROM cricket_team_players tp JOIN cricket_teams t ON t.id = tp.team_id WHERE tp.player_id = p.id) AS teams
-       FROM cricket_players p JOIN users u ON u.id = p.owner_id WHERE p.id = $1`, [id])).rows[0];
+  const teamsSql = "(SELECT string_agg(DISTINCT t.name, ', ') FROM cricket_team_players tp JOIN cricket_teams t ON t.id = tp.team_id WHERE tp.player_id = p.id) AS teams";
+  const p = id && (await qPhoto(
+    `SELECT p.id, p.name, p.owner_id, p.photo_image_id, u.username AS owner, ${teamsSql} FROM cricket_players p JOIN users u ON u.id = p.owner_id WHERE p.id = $1`,
+    `SELECT p.id, p.name, p.owner_id, NULL::int AS photo_image_id, u.username AS owner, ${teamsSql} FROM cricket_players p JOIN users u ON u.id = p.owner_id WHERE p.id = $1`,
+    [id])).rows[0];
   if (!p) return next();
   const s = await C.career(id);
   res.render('cricket-player', {
     title: `${p.name} - cricket career: ${s.runs} runs, ${s.wkts} wickets | Khabzo`,
     metaDescription: `${p.name}: ${s.matches} matches, ${s.runs} runs (SR ${s.sr.toFixed(1)}), ${s.wkts} wickets.`, p, s,
+    ogImage: p.photo_image_id ? `${baseUrl(req)}/img/${p.photo_image_id}` : null,
+    manage: canManage(req, p.owner_id),
   });
 }));
 

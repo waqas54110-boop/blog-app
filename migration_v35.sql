@@ -1,4 +1,4 @@
--- V35: Mohalla Cricket Manager (/cricket). Neon SQL Editor mein ek baar run karein. Dobara run karna safe hai.
+-- V35: Street Cricket Manager (/cricket). Run once in the Neon SQL Editor. Safe to run again.
 
 CREATE TABLE IF NOT EXISTS cricket_tournaments (
   id SERIAL PRIMARY KEY,
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS cricket_teams (
 );
 CREATE UNIQUE INDEX IF NOT EXISTS cricket_team_name_idx ON cricket_teams (tournament_id, lower(name));
 
--- Player ek organizer ke roster mein hota hai (naam se), isi liye career alag alag tournaments mein jud jata hai
+-- A player belongs to an organizer's roster (matched by name), so a career is joined across that organizer's tournaments
 CREATE TABLE IF NOT EXISTS cricket_players (
   id SERIAL PRIMARY KEY,
   owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -46,8 +46,8 @@ CREATE TABLE IF NOT EXISTS cricket_matches (
   target INTEGER,
   result VARCHAR(160),
   winner_id INTEGER,
-  scorer_id INTEGER REFERENCES users(id) ON DELETE SET NULL,   -- owner ke ilawa jo dost score kar raha hai
-  show_on_stream BOOLEAN NOT NULL DEFAULT FALSE,                -- TRUE ho aur owner live stream par ho to score bar stream par nazar aati hai
+  scorer_id INTEGER REFERENCES users(id) ON DELETE SET NULL,   -- a friend who scores in addition to the owner
+  show_on_stream BOOLEAN NOT NULL DEFAULT FALSE,                -- when TRUE and the owner / scorer is live, the score bar is shown on the stream
   scheduled_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
