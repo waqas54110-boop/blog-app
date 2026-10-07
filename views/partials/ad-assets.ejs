@@ -1,0 +1,17 @@
+<%# V39: small stylesheet for ads (loaded once in the header) %>
+<style>
+  .kz-ad { position: relative; display: flex; align-items: center; gap: 14px; margin: 0 0 18px; padding: 12px 14px; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-left: 4px solid #d98a00; border-radius: 14px; box-shadow: 0 6px 20px rgba(0,0,0,.04); }
+  .kz-ad-img { flex: 0 0 auto; width: 84px; height: 84px; object-fit: cover; border-radius: 10px; background: var(--bs-tertiary-bg); }
+  .kz-ad-text { flex: 1; min-width: 0; }
+  .kz-ad-name { font-weight: 700; line-height: 1.25; color: var(--bs-body-color); text-decoration: none; }
+  .kz-ad-name:hover { text-decoration: underline; }
+  .kz-ad-line { font-size: 14px; color: var(--bs-secondary-color); margin-top: 2px; }
+  .kz-ad-cta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .kz-ad-tag { position: absolute; top: 6px; right: 12px; font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--bs-secondary-color); }
+  .kz-ad-tag a { color: inherit; }
+  .kz-ad-feed { display: block; padding: 0; border-left-width: 1px; border-top: 4px solid #d98a00; overflow: hidden; }
+  .kz-ad-feed .kz-ad-hero { display: block; width: 100%; max-height: 360px; object-fit: cover; background: var(--bs-tertiary-bg); }
+  .kz-ad-feed .kz-ad-body { padding: 14px 16px 16px; }
+  .kz-ad-feed .kz-ad-tag { position: static; margin-bottom: 4px; }
+  @media (max-width: 575px) { .kz-ad:not(.kz-ad-feed) { align-items: flex-start; } .kz-ad-img { width: 64px; height: 64px; } .kz-ad-tag { top: 4px; } }
+</style>

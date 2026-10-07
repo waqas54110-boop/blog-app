@@ -1,0 +1,190 @@
+<%- include('partials/header') %>
+
+<% const isBanner = kind === 'banner', isFeed = kind === 'feed', isListing = kind === 'listing', isCpc = kind === 'cpc', isContest = kind === 'contest'; %>
+<% const U = UNITS[kind] || null; %>
+
+<div class="row justify-content-center">
+<div class="col-12 col-lg-8">
+  <nav aria-label="breadcrumb"><ol class="breadcrumb small"><li class="breadcrumb-item"><a href="/advertise">Advertise</a></li><li class="breadcrumb-item active"><%= KIND_LABEL[kind] %></li></ol></nav>
+  <h1 class="h3 fw-bold mb-3">Create: <%= KIND_LABEL[kind] %></h1>
+
+  <% if (error) { %><div class="alert alert-danger" role="alert"><%= error %></div><% } %>
+
+  <div class="card border-0 shadow-sm"><div class="card-body">
+    <form action="/advertise" method="POST" id="adForm">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="kind" value="<%= kind %>">
+      <input type="hidden" name="image_id" id="imageId" value="<%= f.image_id || '' %>">
+
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="business_name">Business or brand name</label>
+        <input class="form-control" id="business_name" name="business_name" maxlength="80" required value="<%= f.business_name || '' %>" placeholder="Al-Madina Sweets">
+      </div>
+
+      <% if (!isContest) { %>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="tagline">
+          <%= isListing ? 'Short line' : 'Headline' %>
+          <% if (isListing) { %><span class="text-body-secondary fw-normal">(optional)</span><% } %>
+        </label>
+        <input class="form-control" id="tagline" name="tagline" maxlength="120" <%= isListing ? '' : 'required' %> value="<%= f.tagline || '' %>" placeholder="<%= isListing ? 'Fresh sweets and bakery since 1998' : 'Eid sale: 20% off on all sweets' %>">
+        <div class="form-text">Up to 120 characters.</div>
+      </div>
+      <% } %>
+
+      <% if (isFeed || isListing || isContest) { %>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="body">
+          <%= isContest ? 'Tell us about the contest' : isListing ? 'About your business' : 'Ad text' %>
+          <% if (isFeed) { %><span class="text-body-secondary fw-normal">(optional)</span><% } %>
+        </label>
+        <textarea class="form-control" id="body" name="body" rows="<%= isFeed ? 4 : 6 %>" maxlength="500" <%= isFeed ? '' : 'required' %> placeholder="<%= isContest ? 'What is the prize, what do you want to achieve, your budget and when it should run.' : isListing ? 'What do you sell or do, what are your timings, what makes you different?' : 'A few lines about your offer.' %>"><%= f.body || '' %></textarea>
+        <div class="form-text"><span id="bodyCount">0</span> / 500</div>
+      </div>
+      <% } %>
+
+      <% if (isListing) { %>
+      <div class="row g-3 mb-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold" for="city">City</label>
+          <input class="form-control" id="city" name="city" maxlength="60" required value="<%= f.city || '' %>" placeholder="Lahore">
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold" for="area">Area <span class="text-body-secondary fw-normal">(optional)</span></label>
+          <input class="form-control" id="area" name="area" maxlength="80" value="<%= f.area || '' %>" placeholder="Johar Town, Block C">
+        </div>
+      </div>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="category">Category</label>
+        <select class="form-select" id="category" name="category" required>
+          <option value="">Choose a category</option>
+          <% CATEGORIES.forEach(c => { %><option value="<%= c %>" <%= f.category === c ? 'selected' : '' %>><%= c %></option><% }) %>
+        </select>
+      </div>
+      <% } %>
+
+      <div class="row g-3 mb-3">
+        <% if (!isContest) { %>
+        <div class="col-12">
+          <label class="form-label fw-semibold" for="link">Website link <span class="text-body-secondary fw-normal">(optional if you add a phone or WhatsApp)</span></label>
+          <input class="form-control" id="link" name="link" maxlength="500" inputmode="url" value="<%= f.link || '' %>" placeholder="https://example.com">
+        </div>
+        <% } %>
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold" for="phone">Phone <span class="text-body-secondary fw-normal">(optional)</span></label>
+          <input class="form-control" id="phone" name="phone" maxlength="20" inputmode="tel" value="<%= f.phone || '' %>" placeholder="0300 1234567">
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label fw-semibold" for="whatsapp">WhatsApp <span class="text-body-secondary fw-normal">(optional)</span></label>
+          <input class="form-control" id="whatsapp" name="whatsapp" maxlength="20" inputmode="tel" value="<%= f.whatsapp || '' %>" placeholder="0300 1234567">
+        </div>
+        <% if (isContest) { %><div class="col-12 form-text">Add at least one of phone or WhatsApp so we can contact you.</div><% } %>
+      </div>
+
+      <% if (isBanner || isCpc) { %>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="placement">Where should it appear?</label>
+        <select class="form-select" id="placement" name="placement">
+          <% Object.keys(PLACEMENTS).forEach(k => { %><option value="<%= k %>" <%= f.placement === k ? 'selected' : '' %>><%= PLACEMENTS[k] %></option><% }) %>
+        </select>
+      </div>
+      <% } %>
+
+      <% if (U) { %>
+      <div class="mb-3">
+        <label class="form-label fw-semibold" for="units">How long?</label>
+        <select class="form-select" id="units" name="units" data-rate="<%= U.rate %>">
+          <% U.opts.forEach(n => { %><option value="<%= n %>" <%= String(f.units) === String(n) ? 'selected' : '' %>><%= n %> <%= U.word %><%= n > 1 ? 's' : '' %> - Rs <%= (U.rate * n).toLocaleString('en-PK') %></option><% }) %>
+        </select>
+      </div>
+      <div class="alert alert-light border d-flex justify-content-between align-items-center">
+        <span>Total price</span><strong class="fs-5">Rs <span id="priceTotal">0</span></strong>
+      </div>
+      <% } else if (isCpc) { %>
+      <div class="alert alert-light border">Each real click costs <strong>Rs <%= cfg.cpcRs %></strong>. Add money to your wallet from the dashboard after your ad is approved (minimum Rs <%= cfg.minTopupRs.toLocaleString('en-PK') %>).</div>
+      <% } else if (isContest) { %>
+      <div class="alert alert-light border">Contest packages start from <strong>Rs <%= cfg.contestFromRs.toLocaleString('en-PK') %></strong>. We will contact you to agree the details. You pay nothing now.</div>
+      <% } %>
+
+      <% if (!isContest) { %>
+      <div class="mb-4">
+        <div class="fw-semibold mb-1">Logo or picture <span class="text-body-secondary fw-normal">(recommended)</span></div>
+        <input type="file" id="photoFile" accept="image/*" class="d-none">
+        <button type="button" class="btn btn-outline-secondary btn-sm" id="photoBtn">Add a picture</button>
+        <div id="photoPrev" class="mt-2 <%= f.image_id ? '' : 'd-none' %>">
+          <img id="photoImg" src="<%= f.image_id ? '/img/' + f.image_id : '' %>" alt="Selected picture" style="max-width: 280px; max-height: 200px; border-radius: 12px;">
+          <button type="button" class="btn btn-link btn-sm text-danger" id="photoRm">Remove</button>
+        </div>
+        <div class="text-danger small mt-1" id="photoMsg" role="alert"></div>
+      </div>
+      <% } %>
+
+      <p class="small text-body-secondary">By submitting you agree that the site owner may review, reject or end your ad. <%= cfg.payInfo %></p>
+      <button class="btn btn-success btn-lg" id="adBtn" type="submit">Submit for review</button>
+      <a href="/advertise" class="btn btn-outline-secondary ms-1">Cancel</a>
+    </form>
+  </div></div>
+</div>
+</div>
+
+<script>
+(function () {
+  var csrf = <%- JSON.stringify(csrfToken) %>;
+  var form = document.getElementById('adForm'), btn = document.getElementById('adBtn');
+
+  var body = document.getElementById('body'), cnt = document.getElementById('bodyCount');
+  if (body && cnt) { var upd = function () { cnt.textContent = body.value.length; }; body.addEventListener('input', upd); upd(); }
+
+  var units = document.getElementById('units'), total = document.getElementById('priceTotal');
+  if (units && total) { var calc = function () { total.textContent = (parseInt(units.value, 10) * parseInt(units.getAttribute('data-rate'), 10)).toLocaleString('en-PK'); }; units.addEventListener('change', calc); calc(); }
+
+  var file = document.getElementById('photoFile');
+  if (!file) return;
+  var pick = document.getElementById('photoBtn'), prev = document.getElementById('photoPrev');
+  var img = document.getElementById('photoImg'), rm = document.getElementById('photoRm'), idIn = document.getElementById('imageId');
+  var msg = document.getElementById('photoMsg');
+  var busy = false, blobUrl = null;
+  function discard(id) { if (!id) return;
+    fetch('/feed/image/discard', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-csrf-token': csrf, 'X-Requested-With': 'fetch' }, body: 'id=' + encodeURIComponent(id) }); }
+  function clearPhoto() { if (blobUrl) { URL.revokeObjectURL(blobUrl); blobUrl = null; } prev.classList.add('d-none'); img.removeAttribute('src'); idIn.value = ''; file.value = ''; busy = false; btn.disabled = false; }
+  pick.addEventListener('click', function () { file.click(); });
+  rm.addEventListener('click', function () { var id = idIn.value; clearPhoto(); discard(id); });
+  function upload(blob) {
+    busy = true; btn.disabled = true; msg.textContent = '';
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+    blobUrl = URL.createObjectURL(blob); img.src = blobUrl; prev.classList.remove('d-none'); img.style.opacity = '.5';
+    fetch('/upload-feed-image', { method: 'POST', headers: { 'Content-Type': 'image/jpeg', 'x-csrf-token': csrf }, body: blob, credentials: 'same-origin' })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        img.style.opacity = '1';
+        if (x.ok && x.j.id) { idIn.value = x.j.id; busy = false; btn.disabled = false; }
+        else { clearPhoto(); msg.textContent = (x.j && x.j.error) || 'Upload failed. Please try again.'; }
+      })
+      .catch(function () { img.style.opacity = '1'; clearPhoto(); msg.textContent = 'Upload failed. Please try again.'; });
+  }
+  file.addEventListener('change', function () {
+    var f = file.files[0]; if (!f) return; msg.textContent = '';
+    if (!/^image\//.test(f.type)) { msg.textContent = 'Please choose an image.'; file.value = ''; return; }
+    discard(idIn.value); idIn.value = '';
+    var im = new Image(), url = URL.createObjectURL(f);
+    im.onload = function () {
+      function encode(max, q, cb) { var s = Math.min(1, max / Math.max(im.width, im.height)); var c = document.createElement('canvas');
+        c.width = Math.round(im.width * s); c.height = Math.round(im.height * s); var ctx = c.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(im, 0, 0, c.width, c.height); c.toBlob(cb, 'image/jpeg', q); }
+      encode(1600, 0.85, function (blob) {
+        if (blob && blob.size > 1900000) return encode(1280, 0.65, function (b2) { URL.revokeObjectURL(url); b2 ? upload(b2) : (msg.textContent = 'Could not read this image.'); });
+        URL.revokeObjectURL(url); blob ? upload(blob) : (msg.textContent = 'Could not read this image.');
+      });
+    };
+    im.onerror = function () { URL.revokeObjectURL(url); msg.textContent = 'Could not read this image. Please try a JPG or PNG picture.'; file.value = ''; };
+    im.src = url;
+  });
+  form.addEventListener('submit', function (e) {
+    if (busy) { e.preventDefault(); msg.textContent = 'The picture is still uploading...'; return; }
+    btn.disabled = true; btn.textContent = 'Submitting...';
+  });
+  window.addEventListener('pageshow', function (ev) { if (ev.persisted) { btn.disabled = false; btn.textContent = 'Submit for review'; } });
+})();
+</script>
+
+<%- include('partials/footer') %>

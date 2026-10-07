@@ -1,0 +1,3 @@
+<%# V39: coloured status badge. Local: state %>
+<% const _lbl = { pending: ['warning', 'Waiting for review'], awaiting_payment: ['info', 'Approved - payment needed'], active: ['success', 'Live'], paused: ['secondary', 'Paused'], rejected: ['danger', 'Rejected'], ended: ['dark', 'Ended'] }; const _s = _lbl[state] || ['secondary', state]; %>
+<span class="badge text-bg-<%= _s[0] %>"><%= _s[1] %></span>

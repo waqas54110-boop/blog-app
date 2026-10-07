@@ -43,6 +43,8 @@ const storiesRouter = require('./routes/stories');
 const groupsRouter = require('./routes/groups');
 const earningsRouter = require('./routes/earnings');
 const earningsLib = require('./lib/earnings');
+const adsRouter = require('./routes/ads');
+const adsLib = require('./lib/ads');
 const { startCleaner: startStoryCleaner } = require('./lib/stories');
 const { startFollowNotifier } = require('./lib/follow');
 const { startTelegramPoster } = require('./lib/telegram');
@@ -209,6 +211,11 @@ app.post(['/groups/:slug/join', '/groups/:slug/leave'], limiter(10, 40, 'Too man
 app.post('/groups/:slug/delete', limiter(10, 10, 'Too many requests. Please wait a few minutes.'));
 app.post(['/groups/join/:token', '/groups/:slug/invite/reset'], limiter(10, 20, 'Too many requests. Please wait a few minutes.'));
 app.get('/r/:code', limiter(10, 30, 'Too many requests. Please try again in a few minutes.'));
+// V39: Advertise on Khabzo
+app.post('/advertise', limiter(60, 10, 'You are submitting ads too fast. Please try again later.', { skipFailedRequests: true }));
+app.post('/advertise/topup', limiter(60, 10, 'Too many top-up requests. Please try again later.'));
+app.post('/advertise/:id/:action', limiter(10, 40, 'Too many requests. Please wait a few minutes.'));
+app.get('/ads/:id/go', limiter(5, 60, 'Too many requests. Please try again in a few minutes.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
 // Ye csrf middleware se pehle hona chahiye.
@@ -391,6 +398,33 @@ app.use(async (req, res, next) => {
       console.error('inquiries count:', err.message);
     }
   }
+
+  // V39: ad slots. Only normal page GETs; a missing migration_v39 never breaks the site (own try)
+  res.locals.adBanner = null;
+  res.locals.feedAd = null;
+  res.locals.pendingAds = 0;
+  if (req.method === 'GET' && !req.query.partial && !/^\/(img|video|a|icons|live|calls|stories|cricket\/bar|ads|admin|advertise)(\/|$)/.test(req.path)) {
+    try {
+      const place = adsLib.placeOf(req.path, req.query);
+      if (place) {
+        const shown = [];
+        res.locals.adBanner = await adsLib.bannerFor(req);
+        if (res.locals.adBanner) shown.push(res.locals.adBanner);
+        if (req.path === '/' && place === 'feed' && !req.query.before) {
+          res.locals.feedAd = await adsLib.feedAdFor();
+          if (res.locals.feedAd && !(res.locals.adBanner && res.locals.adBanner.id === res.locals.feedAd.id)) shown.push(res.locals.feedAd);
+        }
+        if (shown.length) adsLib.recordViews(req, shown);
+      }
+    } catch (err) {
+      console.error('ad slots (migration_v39.sql chali?):', err.message);
+    }
+  }
+  // Admin: ads and wallet top-ups waiting for a decision (header badge)
+  if (res.locals.isAdmin) {
+    try { res.locals.pendingAds = await adsLib.pendingCount(); }
+    catch (err) { console.error('pending ads count (migration_v39.sql chali?):', err.message); }
+  }
   next();
 });
 
@@ -422,6 +456,7 @@ app.use('/', feedRouter);
 app.use('/', storiesRouter);
 app.use('/', groupsRouter);
 app.use('/', earningsRouter);
+app.use('/', adsRouter);
 app.use('/', authRouter);
 
 app.use((req, res) => {

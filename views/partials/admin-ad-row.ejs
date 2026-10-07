@@ -1,0 +1,60 @@
+<%# V39: one ad in the admin list. Locals: a, mode ('pending' | 'awaiting' | 'live' | 'done'), rs, KIND_LABEL %>
+<% const fmt = (d) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); %>
+<div class="card border-0 shadow-sm mb-3"><div class="card-body">
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+    <a class="fw-semibold fs-5 text-reset text-decoration-none" href="/advertise/<%= a.id %>">#<%= a.id %> <%= a.business_name %></a>
+    <span class="badge text-bg-light border"><%= KIND_LABEL[a.kind] %></span>
+    <%- include('ad-state', { state: a.state }) %>
+    <span class="small text-body-secondary ms-auto"><%= fmt(a.created_at) %></span>
+  </div>
+  <div class="small text-body-secondary mb-2">
+    By <a href="/u/<%= encodeURIComponent(a.username) %>"><%= a.username %></a> &middot; <%= a.email %>
+    <% if (a.price_rs) { %> &middot; <strong>Rs <%= a.price_rs.toLocaleString('en-PK') %></strong> (<%= a.units %> <%= a.kind === 'banner' ? 'wk' : a.kind === 'feed' ? 'day' : 'mo' %>)<% } %>
+    <% if (a.kind === 'cpc') { %> &middot; Rs <%= rs(a.cpc_paise) %> per click, spent Rs <%= rs(a.spent_paise) %><% } %>
+    <% if (a.kind === 'banner' || a.kind === 'cpc') { %> &middot; <%= a.placement %><% } %>
+  </div>
+  <% if (a.tagline) { %><div class="fw-semibold"><%= a.tagline %></div><% } %>
+  <% if (a.body) { %><div class="small mb-1" style="white-space:pre-line;"><%= a.body %></div><% } %>
+  <div class="small text-body-secondary mb-2">
+    <% if (a.link_url) { %><span class="text-break">🔗 <%= a.link_url %></span> &middot; <% } %>
+    <% if (a.phone) { %>📞 +<%= a.phone %> &middot; <% } %>
+    <% if (a.whatsapp) { %>💬 +<%= a.whatsapp %> &middot; <% } %>
+    <% if (a.city) { %>📍 <%= a.city %><%= a.area ? ', ' + a.area : '' %><%= a.category ? ' · ' + a.category : '' %><% } %>
+  </div>
+  <% if (a.image_id) { %><img src="/img/<%= a.image_id %>" alt="" loading="lazy" style="max-height:110px;border-radius:10px;" class="mb-2 d-block"><% } %>
+  <% if (a.ends_at) { %><div class="small text-body-secondary mb-2">Runs <%= a.starts_at ? fmt(a.starts_at) : '' %> to <%= fmt(a.ends_at) %> &middot; <%= a.views %> views, <%= a.clicks %> clicks</div><% } %>
+  <% if (a.kind === 'cpc' && mode === 'live') { %><div class="small text-body-secondary mb-2"><%= a.views %> views, <%= a.clicks %> clicks</div><% } %>
+  <% if (a.admin_note) { %><div class="small text-body-secondary mb-2">Note: <%= a.admin_note %></div><% } %>
+
+  <% if (mode === 'pending' || mode === 'awaiting') { %>
+  <div class="d-flex flex-wrap gap-2">
+    <% if (mode === 'pending') { %>
+    <form action="/admin/ads/<%= a.id %>/approve" method="POST" class="d-flex gap-2 flex-grow-1">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input name="note" class="form-control form-control-sm" maxlength="300" placeholder="Note to advertiser (optional)">
+      <button class="btn btn-success btn-sm text-nowrap" type="submit">Approve</button>
+    </form>
+    <% } else { %>
+    <form action="/admin/ads/<%= a.id %>/paid" method="POST" class="d-flex gap-2 flex-grow-1">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input name="note" class="form-control form-control-sm" maxlength="300" placeholder="Payment note, for example transaction ID (optional)">
+      <button class="btn btn-success btn-sm text-nowrap" type="submit" onclick="return confirm('Did you receive Rs <%= a.price_rs %>? The ad will go live now.')">Mark paid, start</button>
+    </form>
+    <% } %>
+    <form action="/admin/ads/<%= a.id %>/reject" method="POST" class="d-flex gap-2 flex-grow-1">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input name="note" class="form-control form-control-sm" maxlength="300" placeholder="Reason (shown to advertiser)">
+      <button class="btn btn-outline-danger btn-sm text-nowrap" type="submit">Reject</button>
+    </form>
+  </div>
+  <% } else if (mode === 'live') { %>
+  <div class="d-flex flex-wrap gap-2">
+    <% if (a.status === 'active') { %>
+      <form action="/admin/ads/<%= a.id %>/pause" method="POST" class="mb-0"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-outline-secondary btn-sm">Pause</button></form>
+    <% } else { %>
+      <form action="/admin/ads/<%= a.id %>/resume" method="POST" class="mb-0"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-outline-success btn-sm">Resume</button></form>
+    <% } %>
+    <form action="/admin/ads/<%= a.id %>/end" method="POST" class="mb-0" onsubmit="return confirm('End this ad now?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-outline-danger btn-sm">End now</button></form>
+  </div>
+  <% } %>
+</div></div>

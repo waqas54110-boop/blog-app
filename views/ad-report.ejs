@@ -1,0 +1,101 @@
+<%- include('partials/header') %>
+
+<% const fmt = (d) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); %>
+<% const fmtD = (d) => new Date(d).toLocaleDateString('en-GB', { dateStyle: 'medium' }); %>
+<% const ctr = ad.views > 0 ? ((ad.clicks / ad.views) * 100).toFixed(1) : '0.0'; %>
+<% const U = UNITS[ad.kind] || null; %>
+
+<nav aria-label="breadcrumb"><ol class="breadcrumb small"><li class="breadcrumb-item"><a href="/advertise/dashboard">My ads</a></li><li class="breadcrumb-item active"><%= ad.business_name %></li></ol></nav>
+
+<% if (msg) { %><div class="alert alert-success" role="status"><%= msg %></div><% } %>
+<% if (error) { %><div class="alert alert-danger" role="alert"><%= error %></div><% } %>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <h1 class="h3 fw-bold mb-0"><%= ad.business_name %></h1>
+  <span class="badge text-bg-light border"><%= KIND_LABEL[ad.kind] %></span>
+  <%- include('partials/ad-state', { state: ad.state }) %>
+</div>
+
+<% if (ad.state === 'pending') { %>
+  <div class="alert alert-warning">Your ad is waiting for review. You will get a notification as soon as the site owner decides.</div>
+<% } else if (ad.state === 'awaiting_payment') { %>
+  <div class="alert alert-info">
+    <div class="fw-semibold mb-1">Approved! Please pay Rs <%= ad.price_rs.toLocaleString('en-PK') %> to start your ad.</div>
+    <div class="small"><%= cfg.payInfo %></div>
+    <% if (cfg.contact) { %><div class="small mt-1">Contact: <strong><%= cfg.contact %></strong></div><% } %>
+    <div class="small mt-1">Mention your ad number <strong>#<%= ad.id %></strong> when you pay. The ad goes live as soon as the owner confirms the payment.</div>
+  </div>
+<% } else if (ad.state === 'rejected') { %>
+  <div class="alert alert-danger">This ad was not approved.<% if (ad.admin_note) { %> Reason: <%= ad.admin_note %><% } %></div>
+<% } else if (ad.kind === 'contest') { %>
+  <div class="alert alert-success">We received your contest request and will contact you on the phone or WhatsApp number you gave.</div>
+<% } %>
+
+<div class="row g-3 mb-4 text-center">
+  <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="fs-3 fw-bold"><%= ad.views.toLocaleString('en-PK') %></div><div class="small text-body-secondary">Views</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="fs-3 fw-bold"><%= ad.clicks.toLocaleString('en-PK') %></div><div class="small text-body-secondary">Clicks</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="fs-3 fw-bold"><%= ctr %>%</div><div class="small text-body-secondary">Click rate</div></div></div></div>
+  <div class="col-6 col-md-3"><div class="card border-0 shadow-sm"><div class="card-body"><div class="fs-3 fw-bold"><%= ad.kind === 'cpc' ? 'Rs ' + rs(ad.spent_paise) : (ad.price_rs ? 'Rs ' + ad.price_rs.toLocaleString('en-PK') : '-') %></div><div class="small text-body-secondary"><%= ad.kind === 'cpc' ? 'Spent' : 'Price' %></div></div></div></div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <div class="fw-semibold mb-2">Details</div>
+      <dl class="row small mb-0">
+        <% if (ad.username && locals.isAdmin) { %><dt class="col-4">Advertiser</dt><dd class="col-8"><a href="/u/<%= encodeURIComponent(ad.username) %>"><%= ad.username %></a></dd><% } %>
+        <dt class="col-4">Ad number</dt><dd class="col-8">#<%= ad.id %></dd>
+        <% if (ad.kind === 'banner' || ad.kind === 'cpc') { %><dt class="col-4">Where</dt><dd class="col-8"><%= PLACEMENTS[ad.placement] %></dd><% } %>
+        <% if (U && ad.units) { %><dt class="col-4">Length</dt><dd class="col-8"><%= ad.units %> <%= U.word %><%= ad.units > 1 ? 's' : '' %></dd><% } %>
+        <% if (ad.kind === 'cpc') { %><dt class="col-4">Price per click</dt><dd class="col-8">Rs <%= rs(ad.cpc_paise) %></dd><% } %>
+        <% if (ad.starts_at) { %><dt class="col-4">Started</dt><dd class="col-8"><%= fmt(ad.starts_at) %></dd><% } %>
+        <% if (ad.ends_at) { %><dt class="col-4">Ends</dt><dd class="col-8"><%= fmt(ad.ends_at) %></dd><% } %>
+        <% if (ad.city) { %><dt class="col-4">City</dt><dd class="col-8"><%= ad.city %><%= ad.area ? ', ' + ad.area : '' %></dd><% } %>
+        <% if (ad.category) { %><dt class="col-4">Category</dt><dd class="col-8"><%= ad.category %></dd><% } %>
+        <% if (ad.link_url) { %><dt class="col-4">Website</dt><dd class="col-8 text-break"><%= ad.link_url %></dd><% } %>
+        <% if (ad.phone) { %><dt class="col-4">Phone</dt><dd class="col-8">+<%= ad.phone %></dd><% } %>
+        <% if (ad.whatsapp) { %><dt class="col-4">WhatsApp</dt><dd class="col-8">+<%= ad.whatsapp %></dd><% } %>
+        <% if (ad.body) { %><dt class="col-4">Text</dt><dd class="col-8" style="white-space:pre-line;"><%= ad.body %></dd><% } %>
+      </dl>
+    </div></div>
+  </div>
+  <div class="col-12 col-lg-6">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <div class="fw-semibold mb-2">Preview</div>
+      <% if (ad.kind !== 'contest') { %>
+        <%- include('partials/ad-unit', { ad: ad, variant: ad.kind === 'feed' ? 'feed' : 'banner' }) %>
+        <div class="small text-body-secondary">Your own clicks and views are not counted.</div>
+      <% } else { %>
+        <div class="text-body-secondary small">Contests have no banner. We will set it up together with you.</div>
+      <% } %>
+    </div></div>
+  </div>
+</div>
+
+<h2 class="h5 mb-2">Last 30 days</h2>
+<% if (!daily.length) { %>
+  <div class="text-body-secondary mb-4">No views yet.</div>
+<% } else { %>
+  <div class="table-responsive mb-4"><table class="table table-sm align-middle">
+    <thead><tr><th>Day</th><th class="text-end">Views</th><th class="text-end">Clicks</th><th class="text-end">Click rate</th></tr></thead>
+    <tbody>
+    <% daily.forEach(d => { %>
+      <tr><td><%= fmtD(d.day) %></td><td class="text-end"><%= d.views %></td><td class="text-end"><%= d.clicks %></td><td class="text-end"><%= d.views > 0 ? ((d.clicks / d.views) * 100).toFixed(1) + '%' : '-' %></td></tr>
+    <% }) %>
+    </tbody>
+  </table></div>
+<% } %>
+
+<div class="d-flex flex-wrap gap-2">
+  <a class="btn btn-outline-secondary" href="/advertise/dashboard">← My ads</a>
+  <% if (ad.status === 'active' && ad.state === 'active') { %>
+    <form action="/advertise/<%= ad.id %>/pause" method="POST" class="mb-0"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-outline-secondary">Pause</button></form>
+  <% } else if (ad.status === 'paused') { %>
+    <form action="/advertise/<%= ad.id %>/resume" method="POST" class="mb-0"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-outline-success">Resume</button></form>
+  <% } %>
+  <% if (['pending', 'awaiting_payment', 'rejected', 'paused'].includes(ad.status) || ad.state === 'ended') { %>
+    <form action="/advertise/<%= ad.id %>/delete" method="POST" class="mb-0" onsubmit="return confirm('Delete this ad?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-outline-danger">Delete</button></form>
+  <% } %>
+</div>
+
+<%- include('partials/footer') %>

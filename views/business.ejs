@@ -1,0 +1,29 @@
+<%- include('partials/header') %>
+
+<% const go = '/ads/' + b.id + '/go'; %>
+<% const ld = { '@context': 'https://schema.org', '@type': 'LocalBusiness', name: b.business_name, description: b.tagline || b.body || undefined, url: (locals.ogUrl || undefined), telephone: (b.phone || b.whatsapp) ? '+' + (b.phone || b.whatsapp) : undefined, address: { '@type': 'PostalAddress', addressLocality: b.city || undefined, streetAddress: b.area || undefined, addressCountry: 'PK' } }; %>
+<script type="application/ld+json"><%- safeJson(ld) %></script>
+
+<nav aria-label="breadcrumb"><ol class="breadcrumb small"><li class="breadcrumb-item"><a href="/businesses">Local Businesses</a></li><% if (b.city) { %><li class="breadcrumb-item"><a href="/businesses?city=<%= encodeURIComponent(b.city) %>"><%= b.city %></a></li><% } %><li class="breadcrumb-item active"><%= b.business_name %></li></ol></nav>
+
+<div class="row justify-content-center"><div class="col-12 col-lg-8">
+  <article class="card border-0 shadow-sm"><div class="card-body">
+    <% if (b.image_id) { %><img src="/img/<%= b.image_id %>" alt="<%= b.business_name %>" class="w-100 mb-3" style="max-height:340px;object-fit:cover;border-radius:14px;"><% } %>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <h1 class="h3 fw-bold mb-0"><%= b.business_name %></h1>
+      <span class="badge text-bg-warning">Featured</span>
+    </div>
+    <div class="text-body-secondary mb-2"><%= b.category %><%= b.city ? ' · ' + b.city : '' %><%= b.area ? ', ' + b.area : '' %></div>
+    <% if (b.tagline) { %><p class="fw-semibold"><%= b.tagline %></p><% } %>
+    <% if (b.body) { %><p style="white-space:pre-line;"><%= b.body %></p><% } %>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+      <% if (b.phone || b.whatsapp) { %><a class="btn btn-outline-secondary" href="<%= go %>?to=call" rel="nofollow noopener">📞 Call +<%= b.phone || b.whatsapp %></a><% } %>
+      <% if (b.whatsapp) { %><a class="btn btn-success" href="<%= go %>?to=wa" target="_blank" rel="nofollow noopener">WhatsApp</a><% } %>
+      <% if (b.link_url) { %><a class="btn btn-dark" href="<%= go %>?to=link" target="_blank" rel="nofollow noopener">Visit website</a><% } %>
+    </div>
+  </div>
+  </article>
+  <div class="text-center text-body-secondary small mt-3">This is a paid listing. <a href="/advertise/new?kind=listing">List your business</a></div>
+</div></div>
+
+<%- include('partials/footer') %>

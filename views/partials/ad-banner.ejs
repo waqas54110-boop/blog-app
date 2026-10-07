@@ -1,0 +1,2 @@
+<%# V39: banner slot at the top of the page. res.locals.adBanner is filled in app.js %>
+<% if (locals.adBanner) { %><%- include('ad-unit', { ad: adBanner, variant: 'banner' }) %><% } %>

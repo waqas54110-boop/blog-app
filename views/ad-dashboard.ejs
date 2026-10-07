@@ -1,0 +1,93 @@
+<%- include('partials/header') %>
+
+<% const fmt = (d) => new Date(d).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); %>
+<% const fmtD = (d) => new Date(d).toLocaleDateString('en-GB', { dateStyle: 'medium' }); %>
+<% const tLbl = { pending: ['warning', 'Waiting'], approved: ['success', 'Approved'], rejected: ['danger', 'Rejected'] }; %>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <h1 class="h3 fw-bold mb-0">📣 My ads</h1>
+  <a href="/advertise" class="btn btn-success">+ New ad</a>
+</div>
+
+<% if (msg) { %><div class="alert alert-success" role="status"><%= msg %></div><% } %>
+<% if (error) { %><div class="alert alert-danger" role="alert"><%= error %></div><% } %>
+
+<div class="row g-3 mb-4" id="wallet">
+  <div class="col-12 col-lg-5">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <div class="small text-body-secondary">Ad wallet (for pay-per-click)</div>
+      <div class="display-6 fw-bold mb-1">Rs <%= rs(wallet.balance_paise) %></div>
+      <div class="small text-body-secondary mb-3">Added so far: Rs <%= rs(wallet.total_topup_paise) %> &middot; Spent: Rs <%= rs(wallet.total_spent_paise) %></div>
+
+      <form action="/advertise/topup" method="POST" class="vstack gap-2">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="fw-semibold">Add money</div>
+        <div class="small text-body-secondary"><%= cfg.payInfo %> Send the money, then enter the transaction ID here. Minimum Rs <%= cfg.minTopupRs.toLocaleString('en-PK') %>.</div>
+        <input type="number" class="form-control" name="amount_rs" min="<%= cfg.minTopupRs %>" max="1000000" step="1" required placeholder="Amount in Rs (for example 1000)">
+        <select class="form-select" name="method" required>
+          <option value="">How did you pay?</option>
+          <% METHODS.forEach(m => { %><option value="<%= m %>"><%= m %></option><% }) %>
+        </select>
+        <input class="form-control" name="txn_ref" maxlength="60" required placeholder="Transaction ID">
+        <button class="btn btn-success" type="submit">Send top-up request</button>
+      </form>
+    </div></div>
+  </div>
+  <div class="col-12 col-lg-7">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body">
+      <div class="fw-semibold mb-2">Recent top-ups</div>
+      <% if (!topups.length) { %>
+        <div class="text-body-secondary small">No top-ups yet.</div>
+      <% } else { %>
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+          <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Transaction</th><th>Status</th></tr></thead>
+          <tbody>
+          <% topups.forEach(t => { const l = tLbl[t.status] || ['secondary', t.status]; %>
+            <tr><td class="small"><%= fmtD(t.created_at) %></td><td>Rs <%= t.amount_rs.toLocaleString('en-PK') %></td><td><%= t.method %></td><td class="small text-break"><%= t.txn_ref %></td><td><span class="badge text-bg-<%= l[0] %>"><%= l[1] %></span></td></tr>
+          <% }) %>
+          </tbody>
+        </table></div>
+      <% } %>
+    </div></div>
+  </div>
+</div>
+
+<h2 class="h5 mb-3">All my ads</h2>
+<% if (!ads.length) { %>
+  <div class="card border-0 shadow-sm"><div class="card-body text-center text-body-secondary py-5">
+    You have no ads yet. <a href="/advertise">See the packages</a> and create your first ad.
+  </div></div>
+<% } %>
+
+<% ads.forEach(a => { const ctr = a.views > 0 ? ((a.clicks / a.views) * 100).toFixed(1) : '0.0'; %>
+  <div class="card border-0 shadow-sm mb-3"><div class="card-body">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <a class="fw-semibold fs-5 text-reset text-decoration-none" href="/advertise/<%= a.id %>"><%= a.business_name %></a>
+      <span class="badge text-bg-light border"><%= KIND_LABEL[a.kind] %></span>
+      <%- include('partials/ad-state', { state: a.state }) %>
+      <span class="small text-body-secondary ms-auto">Created <%= fmtD(a.created_at) %></span>
+    </div>
+    <div class="row g-2 text-center mb-2">
+      <div class="col-3"><div class="fw-bold"><%= a.views.toLocaleString('en-PK') %></div><div class="small text-body-secondary">Views</div></div>
+      <div class="col-3"><div class="fw-bold"><%= a.clicks.toLocaleString('en-PK') %></div><div class="small text-body-secondary">Clicks</div></div>
+      <div class="col-3"><div class="fw-bold"><%= ctr %>%</div><div class="small text-body-secondary">Click rate</div></div>
+      <div class="col-3"><div class="fw-bold"><%= a.kind === 'cpc' ? 'Rs ' + rs(a.spent_paise) : (a.price_rs ? 'Rs ' + a.price_rs.toLocaleString('en-PK') : '-') %></div><div class="small text-body-secondary"><%= a.kind === 'cpc' ? 'Spent' : 'Price' %></div></div>
+    </div>
+    <% if (a.state === 'awaiting_payment') { %><div class="alert alert-info py-2 small mb-2">Approved! Please pay <strong>Rs <%= a.price_rs.toLocaleString('en-PK') %></strong> to start your ad. <a href="/advertise/<%= a.id %>">How to pay</a></div><% } %>
+    <% if (a.state === 'rejected' && a.admin_note) { %><div class="alert alert-danger py-2 small mb-2">Reason: <%= a.admin_note %></div><% } %>
+    <% if (a.ends_at && a.state === 'active') { %><div class="small text-body-secondary mb-2">Runs until <%= fmt(a.ends_at) %></div><% } %>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-sm btn-outline-primary" href="/advertise/<%= a.id %>">Report</a>
+      <% if (a.status === 'active' && a.state === 'active') { %>
+        <form action="/advertise/<%= a.id %>/pause" method="POST" class="mb-0"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-secondary">Pause</button></form>
+      <% } else if (a.status === 'paused') { %>
+        <form action="/advertise/<%= a.id %>/resume" method="POST" class="mb-0"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-success">Resume</button></form>
+      <% } %>
+      <% if (['pending', 'awaiting_payment', 'rejected', 'paused'].includes(a.status) || a.state === 'ended') { %>
+        <form action="/advertise/<%= a.id %>/delete" method="POST" class="mb-0" onsubmit="return confirm('Delete this ad?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-danger">Delete</button></form>
+      <% } %>
+    </div>
+  </div></div>
+<% }) %>
+
+<%- include('partials/footer') %>

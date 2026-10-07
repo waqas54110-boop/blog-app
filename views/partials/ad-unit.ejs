@@ -1,0 +1,26 @@
+<%# V39: one ad. Locals: ad, variant ('banner' or 'feed'). The links go through /ads/ID/go so clicks are counted. %>
+<% const go = '/ads/' + ad.id + '/go'; %>
+<% const feedV = locals.variant === 'feed'; %>
+<aside class="kz-ad <%= feedV ? 'kz-ad-feed card shadow-sm mb-3' : '' %>" aria-label="Sponsored">
+  <% if (feedV) { %>
+    <% if (ad.image_id) { %><a href="<%= go %>" target="_blank" rel="sponsored nofollow noopener"><img class="kz-ad-hero" src="/img/<%= ad.image_id %>" alt="<%= ad.business_name %>" loading="lazy" decoding="async"></a><% } %>
+    <div class="kz-ad-body">
+      <div class="kz-ad-tag">Sponsored</div>
+      <a class="kz-ad-name fs-5" href="<%= go %>" target="_blank" rel="sponsored nofollow noopener"><%= ad.business_name %></a>
+      <div class="kz-ad-line"><%= ad.tagline %></div>
+      <% if (ad.body) { %><div class="mt-2" style="white-space:pre-line;"><%= ad.body %></div><% } %>
+  <% } else { %>
+    <div class="kz-ad-tag">Sponsored &middot; <a href="/advertise">Advertise here</a></div>
+    <% if (ad.image_id) { %><a href="<%= go %>" target="_blank" rel="sponsored nofollow noopener" tabindex="-1" aria-hidden="true"><img class="kz-ad-img" src="/img/<%= ad.image_id %>" alt="" loading="lazy" decoding="async"></a><% } %>
+    <div class="kz-ad-text">
+      <a class="kz-ad-name" href="<%= go %>" target="_blank" rel="sponsored nofollow noopener"><%= ad.business_name %></a>
+      <div class="kz-ad-line"><%= ad.tagline %></div>
+  <% } %>
+      <div class="kz-ad-cta">
+        <% if (ad.link_url) { %><a class="btn btn-sm btn-dark rounded-pill px-3" href="<%= go %>?to=link" target="_blank" rel="sponsored nofollow noopener">Visit website</a><% } %>
+        <% if (ad.whatsapp) { %><a class="btn btn-sm btn-success rounded-pill px-3" href="<%= go %>?to=wa" target="_blank" rel="sponsored nofollow noopener">WhatsApp</a><% } %>
+        <% if (ad.phone || ad.whatsapp) { %><a class="btn btn-sm btn-outline-secondary rounded-pill px-3" href="<%= go %>?to=call" rel="sponsored nofollow noopener">Call</a><% } %>
+      </div>
+      <% if (feedV) { %><div class="small text-body-secondary mt-2"><a class="text-reset" href="/advertise">Advertise on Khabzo</a></div><% } %>
+    </div>
+</aside>

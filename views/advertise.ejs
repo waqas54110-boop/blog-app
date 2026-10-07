@@ -1,0 +1,89 @@
+<%- include('partials/header') %>
+
+<% const rsf = (n) => Number(n).toLocaleString('en-PK'); %>
+
+<div class="text-center py-4 mb-3">
+  <h1 class="fw-bold mb-2">📣 Advertise on <%= siteName %></h1>
+  <p class="lead text-body-secondary mb-3">Put your business in front of Pakistani readers who read the news, vote, sign petitions and follow street cricket every day.</p>
+  <div class="d-flex flex-wrap justify-content-center gap-2">
+    <a href="#packages" class="btn btn-success btn-lg">See packages</a>
+    <a href="/advertise/dashboard" class="btn btn-outline-secondary btn-lg">My ads</a>
+    <a href="/businesses" class="btn btn-outline-secondary btn-lg">Browse Local Businesses</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4 text-center">
+  <div class="col-12 col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="fs-3">🎯</div><div class="fw-semibold">Real readers</div><div class="small text-body-secondary">Your ad sits next to news, posts and the community feed, not in a hidden corner.</div></div></div></div>
+  <div class="col-12 col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="fs-3">📊</div><div class="fw-semibold">A report for every ad</div><div class="small text-body-secondary">See views, clicks and daily numbers in your own dashboard. Bots are not counted.</div></div></div></div>
+  <div class="col-12 col-md-4"><div class="card border-0 shadow-sm h-100"><div class="card-body"><div class="fs-3">💳</div><div class="fw-semibold">Pay with JazzCash or Easypaisa</div><div class="small text-body-secondary">No card needed. You pay only after your ad is approved.</div></div></div></div>
+</div>
+
+<h2 class="h4 mb-3" id="packages">Packages</h2>
+<div class="row g-3 mb-4">
+
+  <div class="col-12 col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body d-flex flex-column">
+      <div class="d-flex justify-content-between align-items-start"><h3 class="h5 mb-1">🖼️ Banner ad</h3><span class="badge text-bg-warning">Popular</span></div>
+      <div class="fs-3 fw-bold">Rs <%= rsf(UNITS.banner.rate) %> <small class="fs-6 fw-normal text-body-secondary">/ week</small></div>
+      <p class="text-body-secondary small mt-2">A banner with your logo or picture, headline and call / WhatsApp / website buttons at the top of the home page, the community feed or blog posts. Choose 1, 2 or 4 weeks.</p>
+      <a href="/advertise/new?kind=banner" class="btn btn-success mt-auto">Create banner ad</a>
+    </div></div>
+  </div>
+
+  <div class="col-12 col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body d-flex flex-column">
+      <h3 class="h5 mb-1">📰 Sponsored post in the feed</h3>
+      <div class="fs-3 fw-bold">Rs <%= rsf(UNITS.feed.rate) %> <small class="fs-6 fw-normal text-body-secondary">/ day</small></div>
+      <p class="text-body-secondary small mt-2">Your post appears inside the community feed with a "Sponsored" label, between normal posts. Photo, text and contact buttons. Choose from 1 to 30 days.</p>
+      <a href="/advertise/new?kind=feed" class="btn btn-success mt-auto">Create sponsored post</a>
+    </div></div>
+  </div>
+
+  <div class="col-12 col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body d-flex flex-column">
+      <h3 class="h5 mb-1">🏪 Featured business listing</h3>
+      <div class="fs-3 fw-bold">Rs <%= rsf(UNITS.listing.rate) %> <small class="fs-6 fw-normal text-body-secondary">/ month</small></div>
+      <p class="text-body-secondary small mt-2">Get your own page in <a href="/businesses">Local Businesses</a>, searchable by city and category. Customers can call or WhatsApp you directly. Choose 1, 3, 6 or 12 months.</p>
+      <a href="/advertise/new?kind=listing" class="btn btn-success mt-auto">List my business</a>
+    </div></div>
+  </div>
+
+  <div class="col-12 col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body d-flex flex-column">
+      <h3 class="h5 mb-1">🏆 Sponsored contest</h3>
+      <div class="fs-3 fw-bold">From Rs <%= rsf(cfg.contestFromRs) %></div>
+      <p class="text-body-secondary small mt-2">Your brand and prize on a vote contest or giveaway that readers share on WhatsApp and Facebook. This is a premium package, so tell us your goal and budget and we will plan it with you.</p>
+      <a href="/advertise/new?kind=contest" class="btn btn-outline-success mt-auto">Ask about a contest</a>
+    </div></div>
+  </div>
+
+  <div class="col-12 col-md-6 col-lg-4">
+    <div class="card border-0 shadow-sm h-100"><div class="card-body d-flex flex-column">
+      <h3 class="h5 mb-1">👆 Pay-per-click</h3>
+      <div class="fs-3 fw-bold">Rs <%= cfg.cpcRs %> <small class="fs-6 fw-normal text-body-secondary">/ real click</small></div>
+      <p class="text-body-secondary small mt-2">Add money to your ad wallet (minimum Rs <%= rsf(cfg.minTopupRs) %>). Each real click costs Rs <%= cfg.cpcRs %>. Bots and repeat clicks from the same person on the same day are not charged. Your ad stops by itself when the wallet is empty.</p>
+      <a href="/advertise/new?kind=cpc" class="btn btn-success mt-auto">Start pay-per-click</a>
+    </div></div>
+  </div>
+
+</div>
+
+<h2 class="h4 mb-3">How it works</h2>
+<div class="row g-3 mb-4">
+  <div class="col-12 col-md-3"><div class="card border-0 bg-body-tertiary h-100"><div class="card-body"><div class="fw-bold">1. Create</div><div class="small text-body-secondary">Fill in a short form. Add a picture and your contact details.</div></div></div></div>
+  <div class="col-12 col-md-3"><div class="card border-0 bg-body-tertiary h-100"><div class="card-body"><div class="fw-bold">2. Review</div><div class="small text-body-secondary">The site owner checks your ad. You get a notification when it is approved.</div></div></div></div>
+  <div class="col-12 col-md-3"><div class="card border-0 bg-body-tertiary h-100"><div class="card-body"><div class="fw-bold">3. Pay</div><div class="small text-body-secondary"><%= cfg.payInfo %></div></div></div></div>
+  <div class="col-12 col-md-3"><div class="card border-0 bg-body-tertiary h-100"><div class="card-body"><div class="fw-bold">4. Go live</div><div class="small text-body-secondary">Your ad starts as soon as the payment is confirmed. Follow the results in your dashboard.</div></div></div></div>
+</div>
+
+<h2 class="h4 mb-3">Rules</h2>
+<ul class="text-body-secondary">
+  <li>No adult, illegal, misleading or hateful ads. No fake offers or fake prizes.</li>
+  <li>Ads must lead somewhere real: a website, a phone number or a WhatsApp number.</li>
+  <li>The site owner can reject, pause or end an ad that breaks these rules.</li>
+  <li>Views and clicks are counted by our own system. Your own views, admin views and bots are ignored.</li>
+</ul>
+
+<% if (cfg.contact) { %><p class="text-center text-body-secondary">Questions? Contact us: <strong><%= cfg.contact %></strong></p><% } %>
+
+<%- include('partials/footer') %>

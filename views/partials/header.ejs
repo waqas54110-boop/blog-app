@@ -153,6 +153,7 @@
     .reply-box { margin-left: 3rem; }
     .notif-unread { border-left: 4px solid #4f46e5; background: var(--bs-primary-bg-subtle); }
   </style>
+  <%- include('ad-assets') %>
 </head>
 <body>
 
@@ -187,6 +188,7 @@
       <a href="/petitions" class="<%= _path.indexOf('/petitions') === 0 ? 'on' : '' %>">Petitions</a>
       <a href="/creators" class="<%= _path.indexOf('/creators') === 0 ? 'on' : '' %>">Creators</a>
       <a href="/trends" class="<%= _path.indexOf('/trends') === 0 ? 'on' : '' %>">Trend Radar</a>
+      <a href="/businesses" class="<%= _path.indexOf('/businesses') === 0 ? 'on' : '' %>">Local Businesses</a>
       <% navCategories.forEach(c => { %>
         <a href="/blog?category=<%= encodeURIComponent(c) %>" class="<%= _cat === c ? 'on' : '' %>"><%= c %></a>
       <% }) %>
@@ -228,6 +230,12 @@
               </li>
               <li><a class="dropdown-item" href="/admin/petitions">📢 Petition milestones</a></li>
               <li>
+                <a class="dropdown-item d-flex justify-content-between align-items-center" href="/admin/ads">
+                  📣 Ads
+                  <% if (locals.pendingAds > 0) { %><span class="badge rounded-pill bg-danger ms-2"><%= pendingAds %></span><% } %>
+                </a>
+              </li>
+              <li>
                 <a class="dropdown-item d-flex justify-content-between align-items-center" href="/admin/payouts">
                   Payouts
                   <% if (locals.pendingPayouts > 0) { %><span class="badge rounded-pill bg-danger ms-2"><%= pendingPayouts %></span><% } %>
@@ -251,6 +259,7 @@
               </a>
             </li>
             <li><a class="dropdown-item" href="/earnings">💰 Earnings</a></li>
+            <li><a class="dropdown-item" href="/advertise/dashboard">📣 My Ads</a></li>
             <li><a class="dropdown-item" href="/invite">🎁 Invite Friends</a></li>
             <li><a class="dropdown-item" href="/bookmarks">My Bookmarks</a></li>
             <li><hr class="dropdown-divider"></li>
@@ -279,6 +288,8 @@
           <li><a class="dropdown-item" href="/petitions">📢 Petitions</a></li>
           <li><a class="dropdown-item" href="/creators">🎬 Creator Showcase</a></li>
           <li><a class="dropdown-item" href="/trends">📈 Trend Radar</a></li>
+          <li><a class="dropdown-item" href="/businesses">🏪 Local Businesses</a></li>
+          <li><a class="dropdown-item" href="/advertise">📣 Advertise on Khabzo</a></li>
           <li><a class="dropdown-item" href="/hire">💼 Hire Me</a></li>
           <li><hr class="dropdown-divider"></li>
           <li><a class="dropdown-item" href="/about">About</a></li>
@@ -292,3 +303,4 @@
 <%- include('news-bar') %>
 
 <main class="container py-4">
+<%- include('ad-banner') %>

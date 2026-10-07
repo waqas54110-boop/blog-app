@@ -1,0 +1,73 @@
+<%- include('partials/header') %>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+  <div>
+    <h1 class="h3 fw-bold mb-1">🏪 Local Businesses</h1>
+    <div class="text-body-secondary">Find shops, clinics, tutors and services in your city. Call or WhatsApp them directly.</div>
+  </div>
+  <a href="/advertise/new?kind=listing" class="btn btn-success">List my business</a>
+</div>
+
+<form action="/businesses" method="GET" class="card border-0 shadow-sm mb-3"><div class="card-body">
+  <div class="row g-2">
+    <div class="col-12 col-md-4"><input class="form-control" name="q" maxlength="60" value="<%= f.q %>" placeholder="Search: pizza, tuition, AC repair..."></div>
+    <div class="col-6 col-md-3"><input class="form-control" name="city" maxlength="60" value="<%= f.city %>" placeholder="City" list="bizCities"></div>
+    <div class="col-6 col-md-3">
+      <select class="form-select" name="cat">
+        <option value="">All categories</option>
+        <% CATEGORIES.forEach(c => { %><option value="<%= c %>" <%= f.cat === c ? 'selected' : '' %>><%= c %></option><% }) %>
+      </select>
+    </div>
+    <div class="col-12 col-md-2 d-grid"><button class="btn btn-dark" type="submit">Search</button></div>
+  </div>
+  <datalist id="bizCities"><% cities.forEach(c => { %><option value="<%= c.city %>"><% }) %></datalist>
+</div></form>
+
+<% if (cities.length) { %>
+  <div class="d-flex flex-wrap gap-2 mb-3">
+    <a href="/businesses" class="btn btn-sm <%= !f.city ? 'btn-dark' : 'btn-outline-secondary' %> rounded-pill">All cities</a>
+    <% cities.forEach(c => { %>
+      <a href="/businesses?city=<%= encodeURIComponent(c.city) %>" class="btn btn-sm <%= f.city && f.city.toLowerCase() === c.city.toLowerCase() ? 'btn-dark' : 'btn-outline-secondary' %> rounded-pill"><%= c.city %> <span class="opacity-75"><%= c.n %></span></a>
+    <% }) %>
+  </div>
+<% } %>
+
+<% if (!list.length) { %>
+  <div class="card border-0 shadow-sm"><div class="card-body text-center py-5">
+    <div class="fs-1">🏪</div>
+    <div class="fw-semibold mb-1">No businesses found here yet.</div>
+    <div class="text-body-secondary mb-3">Be the first to list your business in this city or category.</div>
+    <a href="/advertise/new?kind=listing" class="btn btn-success">List my business</a>
+  </div></div>
+<% } %>
+
+<div class="row g-3">
+<% list.forEach(b => { const go = '/ads/' + b.id + '/go'; %>
+  <div class="col-12 col-md-6">
+    <article class="card border-0 shadow-sm h-100">
+      <div class="card-body d-flex gap-3">
+        <% if (b.image_id) { %><a href="/businesses/<%= b.id %>"><img src="/img/<%= b.image_id %>" alt="<%= b.business_name %>" loading="lazy" style="width:92px;height:92px;object-fit:cover;border-radius:12px;"></a><% } %>
+        <div class="flex-grow-1" style="min-width:0;">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <a class="fw-bold fs-5 text-reset text-decoration-none" href="/businesses/<%= b.id %>"><%= b.business_name %></a>
+            <span class="badge text-bg-warning">Featured</span>
+          </div>
+          <div class="small text-body-secondary mb-1"><%= b.category %> &middot; <%= b.city %><%= b.area ? ', ' + b.area : '' %></div>
+          <% if (b.tagline) { %><div class="fw-semibold small"><%= b.tagline %></div><% } %>
+          <div class="small text-body-secondary"><%= (b.body || '').length > 150 ? b.body.slice(0, 150) + '…' : b.body %></div>
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            <% if (b.phone || b.whatsapp) { %><a class="btn btn-sm btn-outline-secondary rounded-pill" href="<%= go %>?to=call" rel="nofollow noopener">📞 Call</a><% } %>
+            <% if (b.whatsapp) { %><a class="btn btn-sm btn-success rounded-pill" href="<%= go %>?to=wa" target="_blank" rel="nofollow noopener">WhatsApp</a><% } %>
+            <% if (b.link_url) { %><a class="btn btn-sm btn-dark rounded-pill" href="<%= go %>?to=link" target="_blank" rel="nofollow noopener">Website</a><% } %>
+            <a class="btn btn-sm btn-link" href="/businesses/<%= b.id %>">Details</a>
+          </div>
+        </div>
+      </div>
+    </article>
+  </div>
+<% }) %>
+</div>
+
+<div class="text-center text-body-secondary small mt-4">Listings are paid advertisements. Khabzo does not guarantee the quality of any business.</div>
+
+<%- include('partials/footer') %>

@@ -1,2 +1,2 @@
-<%# Feed ke cards ki list (feed page + "Load more" ka jawab). Locals: posts %>
-<% posts.forEach(function (post) { %><%- include('feed-card', { f: post }) %><% }) %>
+<%# Feed ke cards ki list (feed page + "Load more" ka jawab). Locals: posts. V39: after the 3rd card a sponsored post may appear (locals.feedAd, first page only) %>
+<% posts.forEach(function (post, i) { %><%- include('feed-card', { f: post }) %><% if (locals.feedAd && (i === 2 || (posts.length < 3 && i === posts.length - 1))) { %><%- include('ad-unit', { ad: feedAd, variant: 'feed' }) %><% } %><% }) %>
