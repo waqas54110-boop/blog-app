@@ -116,6 +116,110 @@ router.get('/analytics', requireAdmin, async (req, res) => {
       ),
     ]);
 
+    // ===== Naye features: pichle period se muqabla, best posting time (heatmap), live pulse, smart insights =====
+    let extra = null;
+    try {
+      const [prevTot, prevDaily, heat, live, hot] = await Promise.all([
+        pool.query(
+          `SELECT COUNT(*)::int AS visits,
+                  COUNT(*) FILTER (WHERE source = 'whatsapp')::int AS whatsapp,
+                  COUNT(*) FILTER (WHERE source = 'facebook')::int AS facebook,
+                  COUNT(*) FILTER (WHERE source IN ('google','bing'))::int AS search,
+                  COUNT(*) FILTER (WHERE source = 'newsletter')::int AS newsletter
+           FROM post_visits
+           WHERE created_at > now() - (($1::int * 2) * interval '1 day') AND created_at <= now() - ($1::int * interval '1 day')`,
+          [days]
+        ),
+        pool.query(
+          `SELECT COUNT(v.id)::int AS visits
+           FROM generate_series(
+                  date_trunc('day', now() AT TIME ZONE $2::text) - (($1::int * 2 - 1) * interval '1 day'),
+                  date_trunc('day', now() AT TIME ZONE $2::text) - ($1::int * interval '1 day'),
+                  interval '1 day') AS d
+           LEFT JOIN post_visits v
+             ON date_trunc('day', v.created_at AT TIME ZONE $2::text) = d
+           GROUP BY d ORDER BY d`,
+          [days, TZ]
+        ),
+        pool.query(
+          `SELECT EXTRACT(dow FROM v.created_at AT TIME ZONE $2::text)::int AS dow,
+                  EXTRACT(hour FROM v.created_at AT TIME ZONE $2::text)::int AS hr,
+                  COUNT(*)::int AS n
+           FROM post_visits v WHERE v.created_at > ${since} GROUP BY 1, 2`,
+          [days, TZ]
+        ),
+        pool.query(
+          `SELECT COUNT(*) FILTER (WHERE created_at > now() - interval '30 minutes')::int AS now30,
+                  COUNT(*)::int AS day24
+           FROM post_visits WHERE created_at > now() - interval '24 hours'`
+        ),
+        pool.query(
+          `SELECT p.slug, p.title, COUNT(*)::int AS visits
+           FROM post_visits v JOIN posts p ON p.id = v.post_id
+           WHERE v.created_at > now() - interval '24 hours'
+           GROUP BY p.slug, p.title ORDER BY visits DESC LIMIT 1`
+        ),
+      ]);
+
+      const cur = totals.rows[0];
+      const prev = prevTot.rows[0];
+      const pct = (a, b) => (b > 0 ? Math.round(((a - b) * 100) / b) : (a > 0 ? null : 0)); // null = "new"
+      const deltas = {};
+      ['visits', 'whatsapp', 'facebook', 'search', 'newsletter'].forEach((k) => { deltas[k] = { prev: prev[k], pct: pct(cur[k], prev[k]) }; });
+
+      // Heatmap: Mon..Sun x 0..23 (timezone = config.timezone)
+      const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const order = [1, 2, 3, 4, 5, 6, 0];
+      const grid = order.map(() => Array(24).fill(0));
+      heat.rows.forEach((r) => { const i = order.indexOf(r.dow); if (i >= 0 && r.hr >= 0 && r.hr < 24) grid[i][r.hr] = r.n; });
+      let heatMax = 0, best = null;
+      const hourTot = Array(24).fill(0), dayTot = Array(7).fill(0);
+      grid.forEach((row, di) => row.forEach((n, h) => {
+        hourTot[h] += n; dayTot[di] += n;
+        if (n > heatMax) { heatMax = n; best = { di, h, n }; }
+      }));
+      const bestHour = hourTot.indexOf(Math.max(...hourTot));
+      const bestDayIdx = dayTot.indexOf(Math.max(...dayTot));
+      const hh = (h) => { const x = h % 12 === 0 ? 12 : h % 12; return x + (h < 12 ? ' AM' : ' PM'); };
+
+      // Smart insights (Roman Urdu)
+      const insights = [];
+      const total = cur.visits;
+      if (total > 0) {
+        const g = deltas.visits.pct;
+        if (g === null) insights.push({ icon: '🚀', tone: 'up', text: `Pichle ${days} din mein koi visit nahi tha, ab ${total} aa chuke hain. Shandar shuruaat!` });
+        else if (g > 0) insights.push({ icon: '📈', tone: 'up', text: `Visits pichle ${days} din ke muqable mein ${g}% barh gaye (${prev.visits} → ${total}).` });
+        else if (g < 0) insights.push({ icon: '📉', tone: 'down', text: `Visits pichle ${days} din se ${Math.abs(g)}% kam hain (${prev.visits} → ${total}). Naya post ya share karke dekho.` });
+        else insights.push({ icon: '➖', tone: 'flat', text: `Visits pichle ${days} din ke barabar hain (${total}).` });
+
+        const peak = daily.rows.reduce((m, d) => (d.visits > m.visits ? d : m), { visits: -1 });
+        if (peak.visits > 0) insights.push({ icon: '🏔️', tone: 'up', text: `Sab se zyada visits ${peak.label} ko aaye: ${peak.visits}.` });
+
+        if (sources.rows.length) {
+          const top = sources.rows[0];
+          insights.push({ icon: '🧭', tone: 'flat', text: `Sab se bara source "${top.source}" hai, total traffic ka ${Math.round((top.visits * 100) / total)}%.` });
+        }
+        if (best) insights.push({ icon: '⏰', tone: 'up', text: `Best time: ${DAY_NAMES[order[best.di]]} ko ${hh(best.h)} ke aas paas sab se zyada log aate hain. Post usse thora pehle daalo.` });
+      }
+      if (hot.rows[0]) insights.push({ icon: '🔥', tone: 'up', text: `Abhi ka hot post: "${hot.rows[0].title}" (pichle 24 ghante mein ${hot.rows[0].visits} visits).` });
+
+      extra = {
+        deltas,
+        prevDaily: prevDaily.rows.map((r) => r.visits),
+        heat: {
+          grid, max: heatMax,
+          days: order.map((d) => DAY_NAMES[d].slice(0, 3)),
+          bestHour: hourTot[bestHour] > 0 ? hh(bestHour) : null,
+          bestDay: dayTot[bestDayIdx] > 0 ? DAY_NAMES[order[bestDayIdx]] : null,
+          bestCell: best ? { day: DAY_NAMES[order[best.di]], hour: hh(best.h), n: best.n } : null,
+        },
+        live: { now30: live.rows[0].now30, day24: live.rows[0].day24, hot: hot.rows[0] || null },
+        insights,
+      };
+    } catch (err) {
+      console.error('[analytics] extra:', err.message);
+    }
+
     // Vote contests ke numbers (alag try: migration_v9 na chali ho to baaqi analytics phir bhi chale)
     let pollStats = null;
     try {
@@ -273,7 +377,50 @@ router.get('/analytics', requireAdmin, async (req, res) => {
       mediums: mediums.rows,
       pollStats,
       audience,
+      extra,
     });
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- ANALYTICS CSV EXPORT (admin) ----------
+const csvCell = (v) => {
+  let t = String(v === null || v === undefined ? '' : v);
+  if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; // Excel formula injection se bachao
+  return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+};
+router.get('/analytics/export.csv', requireAdmin, async (req, res) => {
+  const days = [7, 30, 90].includes(parseInt(req.query.days, 10)) ? parseInt(req.query.days, 10) : 30;
+  try {
+    const since = `now() - ($1::int * interval '1 day')`;
+    const [daily, sources, posts] = await Promise.all([
+      pool.query(
+        `SELECT to_char(d, 'YYYY-MM-DD') AS day, COUNT(v.id)::int AS visits
+         FROM generate_series(
+                date_trunc('day', now() AT TIME ZONE $2::text) - (($1::int - 1) * interval '1 day'),
+                date_trunc('day', now() AT TIME ZONE $2::text), interval '1 day') AS d
+         LEFT JOIN post_visits v ON date_trunc('day', v.created_at AT TIME ZONE $2::text) = d
+         GROUP BY d ORDER BY d`, [days, TZ]),
+      pool.query(`SELECT source, COUNT(*)::int AS visits FROM post_visits WHERE created_at > ${since} GROUP BY source ORDER BY visits DESC`, [days]),
+      pool.query(
+        `SELECT p.title, p.slug, COUNT(v.id)::int AS visits,
+                COUNT(*) FILTER (WHERE v.source = 'whatsapp')::int AS whatsapp,
+                COUNT(*) FILTER (WHERE v.source = 'facebook')::int AS facebook
+         FROM post_visits v JOIN posts p ON p.id = v.post_id WHERE v.created_at > ${since}
+         GROUP BY p.id, p.slug, p.title ORDER BY visits DESC LIMIT 50`, [days]),
+    ]);
+    const line = (a) => a.map(csvCell).join(',');
+    const out = [
+      line(['Report', `Last ${days} days`]), '',
+      'DAILY VISITS', line(['Date', 'Visits']), ...daily.rows.map((r) => line([r.day, r.visits])), '',
+      'TRAFFIC SOURCES', line(['Source', 'Visits']), ...sources.rows.map((r) => line([r.source, r.visits])), '',
+      'TOP POSTS', line(['Title', 'Slug', 'Visits', 'WhatsApp', 'Facebook']), ...posts.rows.map((r) => line([r.title, r.slug, r.visits, r.whatsapp, r.facebook])),
+    ].join('\r\n');
+    res.set('Content-Type', 'text/csv; charset=utf-8');
+    res.set('Content-Disposition', `attachment; filename="analytics-${days}d.csv"`);
+    res.send('\ufeff' + out);
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');

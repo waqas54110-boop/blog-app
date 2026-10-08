@@ -1,291 +1,340 @@
 <%- include('partials/header') %>
 
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-  <h2 class="mb-0">📊 Analytics</h2>
-  <div class="btn-group">
-    <% [7, 30, 90].forEach(d => { %>
-      <a href="/analytics?days=<%= d %>" class="btn btn-sm <%= d === days ? 'btn-primary' : 'btn-outline-primary' %>">Last <%= d %> days</a>
-    <% }) %>
-  </div>
-</div>
+<%
+  const ex = locals.extra || null;
+  const SRC_COL = { whatsapp: '#22c55e', facebook: '#2563eb', google: '#f59e0b', bing: '#0ea5e9', instagram: '#ec4899', twitter: '#64748b', youtube: '#ef4444', telegram: '#06b6d4', linkedin: '#1d4ed8', newsletter: '#8b5cf6', direct: '#14b8a6', internal: '#94a3b8', other: '#a1a1aa' };
+  const srcCol = (s) => SRC_COL[s] || '#7c3aed';
+  const dl = (k) => {
+    if (!ex) return '';
+    const d = ex.deltas[k];
+    const tip = 'Pichle ' + days + ' din: ' + d.prev;
+    if (d.pct === null) return '<span class="an-delta up" title="' + tip + '">✨ NEW</span>';
+    if (d.pct > 0) return '<span class="an-delta up" title="' + tip + '">▲ ' + d.pct + '%</span>';
+    if (d.pct < 0) return '<span class="an-delta down" title="' + tip + '">▼ ' + Math.abs(d.pct) + '%</span>';
+    return '<span class="an-delta flat" title="' + tip + '">● 0%</span>';
+  };
+  const spark = (arr, w, h) => {
+    if (!arr.length) return '';
+    const mx = Math.max(1, ...arr), step = arr.length > 1 ? w / (arr.length - 1) : w;
+    const pts = arr.map((v, i) => [Math.round(i * step * 10) / 10, Math.round((h - 3 - (v / mx) * (h - 6)) * 10) / 10]);
+    const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0] + ' ' + p[1]).join(' ');
+    return '<svg class="an-spark" viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" aria-hidden="true"><path d="' + line + ' L' + w + ' ' + h + ' L0 ' + h + ' Z" fill="currentColor" opacity=".18"/><path d="' + line + '" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  };
+  const kpis = [
+    { k: 'visits', label: 'Total visits', icon: '👁️', val: totals.visits, cls: 'k-main' },
+    { k: 'whatsapp', label: 'WhatsApp', icon: '💬', val: totals.whatsapp, cls: 'k-wa' },
+    { k: 'facebook', label: 'Facebook', icon: '📘', val: totals.facebook, cls: 'k-fb' },
+    { k: 'search', label: 'Google / Bing', icon: '🔎', val: totals.search, cls: 'k-gg' },
+    { k: 'newsletter', label: 'Newsletter', icon: '✉️', val: totals.newsletter, cls: 'k-nl' },
+  ];
+%>
 
-<div class="row g-3 mb-4">
-  <% [
-    ['Total visits', totals.visits, 'text-primary'],
-    ['From WhatsApp', totals.whatsapp, 'text-success'],
-    ['From Facebook', totals.facebook, 'text-primary'],
-    ['From Google/Bing', totals.search, 'text-warning'],
-    ['From newsletter', totals.newsletter, 'text-info']
-  ].forEach(s => { %>
-    <div class="col-6 col-lg">
-      <div class="card border-0 shadow-sm text-center"><div class="card-body">
-        <div class="display-6 fw-bold <%= s[2] %>"><%= s[1] %></div>
-        <div class="text-body-secondary small"><%= s[0] %></div>
-      </div></div>
-    </div>
-  <% }) %>
-</div>
-
-<div class="card border-0 shadow-sm mb-4">
-  <div class="card-body">
-    <h5 class="mb-3">Daily visits</h5>
-    <div style="height:280px;"><canvas id="dailyChart"></canvas></div>
-  </div>
-</div>
-
-<div class="row g-4">
-  <div class="col-lg-6">
-    <div class="card border-0 shadow-sm h-100"><div class="card-body">
-      <h5 class="mb-3">Traffic sources</h5>
-      <% if (sources.length === 0) { %>
-        <p class="text-body-secondary mb-0">Abhi data nahi hai. Post share karein aur visits aane do.</p>
-      <% } else { %>
-        <table class="table table-sm align-middle mb-0">
-          <tbody>
-            <% const max = Math.max(...sources.map(s => s.visits)); %>
-            <% sources.forEach(s => { %>
-              <tr>
-                <td style="width:30%"><%= s.source %></td>
-                <td>
-                  <div class="progress" style="height:10px;"><div class="progress-bar" style="width:<%= Math.round(s.visits / max * 100) %>%"></div></div>
-                </td>
-                <td class="text-end fw-semibold"><%= s.visits %></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      <% } %>
-    </div></div>
-  </div>
-
-  <div class="col-lg-6">
-    <div class="card border-0 shadow-sm h-100"><div class="card-body">
-      <h5 class="mb-3">Group / share / newsletter</h5>
-      <% if (mediums.length === 0) { %>
-        <p class="text-body-secondary mb-0">
-          Jab aap dashboard se "Copy WhatsApp msg" ya share buttons use karenge to yahan
-          <code>group</code> aur <code>share</code> ke visits alag alag dikhenge.
-        </p>
-      <% } else { %>
-        <table class="table table-sm mb-0">
-          <thead><tr><th>Source</th><th>Medium</th><th class="text-end">Visits</th></tr></thead>
-          <tbody>
-            <% mediums.forEach(m => { %>
-              <tr><td><%= m.source %></td><td><%= m.medium %></td><td class="text-end"><%= m.visits %></td></tr>
-            <% }) %>
-          </tbody>
-        </table>
-      <% } %>
-    </div></div>
-  </div>
-
-  <div class="col-lg-8">
-    <div class="card border-0 shadow-sm"><div class="card-body">
-      <h5 class="mb-3">Top posts</h5>
-      <div class="table-responsive">
-        <table class="table table-sm align-middle mb-0">
-          <thead><tr><th>Post</th><th class="text-end">Visits</th><th class="text-end">WhatsApp</th><th class="text-end">Facebook</th></tr></thead>
-          <tbody>
-            <% if (topPosts.length === 0) { %><tr><td colspan="4" class="text-body-secondary">No data yet.</td></tr><% } %>
-            <% topPosts.forEach(p => { %>
-              <tr>
-                <td><a href="/posts/<%= p.slug %>" class="text-decoration-none"><%= p.title %></a></td>
-                <td class="text-end fw-semibold"><%= p.visits %></td>
-                <td class="text-end"><%= p.whatsapp %></td>
-                <td class="text-end"><%= p.facebook %></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
-    </div></div>
-  </div>
-
-  <div class="col-lg-4">
-    <div class="card border-0 shadow-sm h-100"><div class="card-body">
-      <h5 class="mb-3">Top referrers</h5>
-      <% if (referrers.length === 0) { %>
-        <p class="text-body-secondary mb-0">No external referrers yet.</p>
-      <% } %>
-      <ul class="list-unstyled mb-0">
-        <% referrers.forEach(r => { %>
-          <li class="d-flex justify-content-between border-bottom py-1"><span class="text-truncate me-2"><%= r.referrer %></span><strong><%= r.visits %></strong></li>
-        <% }) %>
-      </ul>
-    </div></div>
-  </div>
-</div>
-
-<p class="text-body-secondary small mt-4">
-  Note: WhatsApp aur Facebook ki in-app browser aksar referrer chhupa deti hain, is liye group ke traffic ki
-  sahi pehchan <code>?utm_source=</code> wale links se hoti hai (share buttons aur "Copy msg" buttons yehi lagate hain).
-  Bots aur aap (admin) ke visits count nahi hote.
-</p>
-
-<% if (locals.audience) { const au = audience, at = au.totals; %>
 <style>
-  .aud-card { border: 0; border-radius: 1rem; box-shadow: 0 2px 14px rgba(79,70,229,.08); }
-  .aud-stat { border-radius: 1rem; color: #fff; padding: 1.1rem 1.2rem; height: 100%; position: relative; overflow: hidden; }
-  .aud-stat::after { content: ''; position: absolute; right: -22px; top: -22px; width: 90px; height: 90px; border-radius: 50%; background: rgba(255,255,255,.14); }
-  .aud-stat .num { font-size: 2rem; font-weight: 800; line-height: 1.1; }
-  .aud-stat .lbl { font-size: .82rem; opacity: .9; }
-  .g1 { background: linear-gradient(135deg,#4f46e5,#7c3aed); } .g2 { background: linear-gradient(135deg,#ec4899,#f43f5e); }
-  .g3 { background: linear-gradient(135deg,#0ea5e9,#14b8a6); } .g4 { background: linear-gradient(135deg,#f59e0b,#f97316); }
-  .aud-title { font-weight: 700; display: flex; align-items: center; gap: .5rem; }
-  .aud-sub { font-size: .8rem; color: var(--bs-secondary-color); font-weight: 400; }
+  .an { --acc: #0a6b4d; --acc2: #12a37f; --line: color-mix(in srgb, var(--bs-body-color) 10%, transparent); --shadow: 0 1px 2px rgba(16,24,40,.05), 0 16px 34px -24px rgba(16,24,40,.5); }
+  [data-bs-theme="dark"] .an { --line: rgba(255,255,255,.1); --shadow: 0 1px 2px rgba(0,0,0,.5), 0 16px 34px -22px rgba(0,0,0,.85); }
+  body:has(.an) { background: radial-gradient(900px 480px at 100% -8%, color-mix(in srgb, #0a6b4d 12%, transparent), transparent 62%), radial-gradient(800px 440px at 0% 0%, color-mix(in srgb, #7c3aed 9%, transparent), transparent 60%), var(--bs-tertiary-bg); background-attachment: fixed; }
+  .an section { scroll-margin-top: 1rem; }
+
+  /* ===== Hero ===== */
+  .an-hero { position: relative; isolation: isolate; overflow: hidden; color: #fff; border-radius: 1.6rem; padding: clamp(1.2rem, 3.5vw, 2rem); margin-bottom: 1rem;
+    background: radial-gradient(440px 240px at 100% 0%, rgba(245,158,11,.36), transparent 62%), radial-gradient(440px 260px at 0% 130%, rgba(124,58,237,.45), transparent 62%), linear-gradient(120deg, #0b1f35 0%, #0a4a43 58%, #0a6b4d 100%); box-shadow: 0 22px 44px -22px rgba(10,74,67,.8); }
+  .an-hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(rgba(255,255,255,.15) 1px, transparent 1.3px); background-size: 20px 20px; -webkit-mask-image: linear-gradient(115deg, #000, transparent 72%); mask-image: linear-gradient(115deg, #000, transparent 72%); }
+  .an-hero h1 { margin: 0; font: 800 clamp(1.6rem, 4vw, 2.3rem)/1.05 var(--kz-serif, Georgia, serif); letter-spacing: -.02em; }
+  .an-hero p { margin: .35rem 0 0; opacity: .82; font: 500 .95rem var(--kz-sans, system-ui); }
+  .an-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+  .an-tools { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+  .an-seg { display: inline-flex; padding: .25rem; border-radius: 2rem; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .an-seg a { padding: .38rem .9rem; border-radius: 2rem; color: #fff; text-decoration: none; font: 700 .82rem var(--kz-sans, system-ui); opacity: .85; transition: background .15s, opacity .15s; }
+  .an-seg a:hover { opacity: 1; background: rgba(255,255,255,.14); }
+  .an-seg a.on { opacity: 1; color: #0a4a43; background: #fff; box-shadow: 0 6px 14px -6px rgba(0,0,0,.5); }
+  .an-btn { display: inline-flex; align-items: center; gap: .4rem; padding: .5rem 1rem; border-radius: 2rem; color: #fff; text-decoration: none; font: 700 .82rem var(--kz-sans, system-ui); background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.28); transition: background .15s, transform .15s; }
+  .an-btn:hover { background: rgba(255,255,255,.26); color: #fff; transform: translateY(-1px); }
+  .an-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.1rem; }
+  .an-chip { display: inline-flex; align-items: center; gap: .45rem; padding: .35rem .85rem; border-radius: 2rem; color: #fff; text-decoration: none; font: 700 .78rem var(--kz-sans, system-ui); background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); transition: background .15s; }
+  .an-chip:hover { background: rgba(255,255,255,.22); color: #fff; }
+  .an-live { display: inline-flex; align-items: center; gap: .55rem; margin-top: 1rem; padding: .45rem .95rem; border-radius: 2rem; background: rgba(34,197,94,.16); border: 1px solid rgba(74,222,128,.45); font: 700 .84rem var(--kz-sans, system-ui); }
+  .an-live .dot { position: relative; width: 10px; height: 10px; border-radius: 50%; background: #4ade80; }
+  .an-live .dot::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid #4ade80; animation: ping 1.8s ease-out infinite; }
+  @keyframes ping { from { transform: scale(.5); opacity: .9; } to { transform: scale(1.7); opacity: 0; } }
+  .an-live b { font-size: 1rem; }
+  .an-live .sep { opacity: .45; }
+
+  /* ===== KPI ===== */
+  .an-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .8rem; margin-bottom: 1rem; }
+  .an-kpi { position: relative; overflow: hidden; padding: 1rem 1.05rem .8rem; border-radius: 1.3rem; background: var(--bs-body-bg); border: 1px solid var(--line); box-shadow: var(--shadow); transition: transform .2s, box-shadow .2s; animation: anIn .45s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 55ms); }
+  .an-kpi:hover { transform: translateY(-3px); }
+  .an-kpi .ic { display: grid; place-items: center; width: 38px; height: 38px; border-radius: .9rem; font-size: 1.1rem; margin-bottom: .6rem; color: var(--c); background: color-mix(in srgb, var(--c) 15%, transparent); }
+  .an-kpi .num { font: 800 clamp(1.7rem, 3.4vw, 2.2rem)/1 var(--kz-sans, system-ui); letter-spacing: -.02em; }
+  .an-kpi .lbl { margin-top: .25rem; font: 600 .78rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); }
+  .an-kpi .row2 { display: flex; align-items: center; justify-content: space-between; gap: .4rem; margin-top: .45rem; min-height: 1.6rem; }
+  .an-spark { display: block; width: 100%; height: 36px; color: var(--c); margin-top: .35rem; }
+  .k-main { --c: #0a6b4d; } .k-wa { --c: #16a34a; } .k-fb { --c: #2563eb; } .k-gg { --c: #d97706; } .k-nl { --c: #7c3aed; }
+  .k-main { background: linear-gradient(160deg, color-mix(in srgb, #0a6b4d 10%, var(--bs-body-bg)), var(--bs-body-bg) 60%); }
+  .an-delta { display: inline-block; padding: .12rem .55rem; border-radius: 2rem; font: 800 .72rem var(--kz-sans, system-ui); white-space: nowrap; }
+  .an-delta.up { color: #047857; background: rgba(16,185,129,.16); } .an-delta.down { color: #b91c1c; background: rgba(239,68,68,.15); } .an-delta.flat { color: var(--bs-secondary-color); background: color-mix(in srgb, var(--bs-body-color) 8%, transparent); }
+  [data-bs-theme="dark"] .an-delta.up { color: #6ee7b7; } [data-bs-theme="dark"] .an-delta.down { color: #fca5a5; }
+  .an-vs { font: 500 .68rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); }
+  @keyframes anIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+
+  /* ===== Cards ===== */
+  .an-card { position: relative; height: 100%; padding: 1.15rem 1.2rem; border-radius: 1.4rem; background: var(--bs-body-bg); border: 1px solid var(--line); box-shadow: var(--shadow); }
+  .an-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .6rem; margin: 0 0 .8rem; font: 800 1.02rem var(--kz-sans, system-ui); }
+  .an-h small { font: 500 .78rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); }
+  .an-sec { display: flex; align-items: center; gap: .7rem; margin: 2rem .2rem .9rem; font: 800 1.3rem var(--kz-serif, Georgia, serif); }
+  .an-sec::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
+  .an-sec small { font: 500 .8rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); }
+  .an-empty { margin: 0; padding: 1.2rem; text-align: center; border-radius: 1rem; border: 1.5px dashed var(--line); color: var(--bs-secondary-color); font: 600 .88rem var(--kz-sans, system-ui); }
+  .an-note { margin-top: 1.2rem; font: 500 .8rem/1.5 var(--kz-sans, system-ui); color: var(--bs-secondary-color); }
+  .an-note code { color: var(--acc); }
+  .an-tbl { width: 100%; border-collapse: separate; border-spacing: 0; font: 500 .9rem var(--kz-sans, system-ui); }
+  .an-tbl th { padding: .5rem .6rem; font: 800 .7rem var(--kz-sans, system-ui); letter-spacing: .08em; text-transform: uppercase; color: var(--bs-secondary-color); border-bottom: 1px solid var(--line); white-space: nowrap; }
+  .an-tbl td { padding: .6rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  .an-tbl tbody tr { transition: background .12s; } .an-tbl tbody tr:hover { background: color-mix(in srgb, var(--acc) 6%, transparent); }
+  .an-tbl tr:last-child td { border-bottom: 0; }
+  .an-tbl a { color: inherit; text-decoration: none; font-weight: 700; } .an-tbl a:hover { color: var(--acc); }
+  .r { text-align: right; }
+
+  /* ===== Insights ===== */
+  .an-ins { display: grid; gap: .55rem; }
+  .an-in { display: flex; gap: .75rem; align-items: flex-start; padding: .7rem .85rem; border-radius: 1rem; background: color-mix(in srgb, var(--bs-body-color) 4%, transparent); border-left: 4px solid var(--bs-secondary-color); font: 500 .9rem/1.45 var(--kz-sans, system-ui); animation: anIn .4s ease both; animation-delay: calc(var(--i) * 70ms); }
+  .an-in.up { border-left-color: #10b981; background: rgba(16,185,129,.08); } .an-in.down { border-left-color: #ef4444; background: rgba(239,68,68,.08); }
+  .an-in .e { font-size: 1.25rem; line-height: 1.2; }
+
+  /* ===== Heatmap ===== */
+  .an-heat { display: grid; grid-template-columns: 2.4rem repeat(24, minmax(0, 1fr)); gap: 3px; align-items: center; }
+  .an-heat .dn { font: 700 .72rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); }
+  .an-heat .hn { font: 600 .62rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); text-align: center; white-space: nowrap; }
+  .an-heat i { display: block; aspect-ratio: 1; min-height: 14px; border-radius: 5px; background: color-mix(in srgb, var(--bs-body-color) 6%, transparent); transition: transform .12s; cursor: default; }
+  .an-heat i[style] { background: color-mix(in srgb, #0a6b4d calc(var(--v) * 100%), color-mix(in srgb, var(--bs-body-color) 6%, transparent)); }
+  .an-heat i:hover { transform: scale(1.45); position: relative; z-index: 2; box-shadow: 0 6px 14px -4px rgba(0,0,0,.5); }
+  .an-heat i.best { outline: 2px solid #f59e0b; outline-offset: 1px; }
+  .an-legend { display: flex; align-items: center; gap: .5rem; margin-top: .8rem; font: 600 .72rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); }
+  .an-legend .bar { width: 110px; height: 8px; border-radius: 8px; background: linear-gradient(90deg, color-mix(in srgb, var(--bs-body-color) 8%, transparent), #0a6b4d); }
+  .an-best { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: .9rem; }
+  .an-best span { padding: .3rem .8rem; border-radius: 2rem; font: 700 .78rem var(--kz-sans, system-ui); background: rgba(245,158,11,.15); color: #b45309; }
+  [data-bs-theme="dark"] .an-best span { color: #fcd34d; }
+
+  /* ===== Sources ===== */
+  .an-srcwrap { display: grid; grid-template-columns: 170px 1fr; gap: 1rem; align-items: center; }
+  .an-leg { display: grid; gap: .45rem; }
+  .an-leg div { display: flex; align-items: center; gap: .55rem; font: 600 .86rem var(--kz-sans, system-ui); }
+  .an-leg i { width: 11px; height: 11px; border-radius: 50%; flex: none; }
+  .an-leg .n { margin-left: auto; font-weight: 800; } .an-leg .p { width: 2.8rem; text-align: right; color: var(--bs-secondary-color); font-weight: 600; }
+  .an-ref { display: flex; align-items: center; gap: .6rem; padding: .5rem 0; border-bottom: 1px solid var(--line); font: 600 .86rem var(--kz-sans, system-ui); }
+  .an-ref:last-child { border: 0; } .an-ref .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .an-ref b { font-weight: 800; }
+  .an-minibar { height: 6px; border-radius: 6px; background: color-mix(in srgb, var(--bs-body-color) 8%, transparent); overflow: hidden; margin-top: .35rem; }
+  .an-minibar span { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, #0a6b4d, #12a37f); }
+  .rank { display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: .5rem; border-radius: 50%; font: 800 .74rem var(--kz-sans, system-ui); background: color-mix(in srgb, var(--bs-body-color) 8%, transparent); }
+  .rank.r1 { color: #fff; background: linear-gradient(135deg, #f59e0b, #f97316); } .rank.r2 { color: #fff; background: linear-gradient(135deg, #94a3b8, #64748b); } .rank.r3 { color: #fff; background: linear-gradient(135deg, #d97706, #92400e); }
+
+  /* ===== Audience ===== */
+  .an-aud { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin-bottom: 1rem; }
+  .an-stat { position: relative; overflow: hidden; color: #fff; padding: 1.05rem 1.15rem; border-radius: 1.3rem; box-shadow: 0 16px 30px -18px rgba(0,0,0,.6); animation: anIn .45s ease both; animation-delay: calc(var(--i) * 55ms); }
+  .an-stat::after { content: ""; position: absolute; right: -24px; top: -24px; width: 96px; height: 96px; border-radius: 50%; background: rgba(255,255,255,.15); }
+  .an-stat .num { font: 800 2rem/1.1 var(--kz-sans, system-ui); } .an-stat .lbl { font: 600 .8rem var(--kz-sans, system-ui); opacity: .92; }
+  .g1 { background: linear-gradient(135deg, #0a4a43, #12a37f); } .g2 { background: linear-gradient(135deg, #7c3aed, #ec4899); } .g3 { background: linear-gradient(135deg, #0ea5e9, #14b8a6); } .g4 { background: linear-gradient(135deg, #f59e0b, #f97316); }
   .country-row { display: flex; align-items: center; gap: .6rem; padding: .35rem 0; }
   .country-row .flag { font-size: 1.4rem; width: 2rem; text-align: center; }
-  .country-row .bar { flex: 1; height: 10px; border-radius: 99px; background: var(--bs-tertiary-bg); overflow: hidden; }
-  .country-row .bar > span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg,#4f46e5,#ec4899); }
-  .pill { display: inline-block; padding: .1rem .55rem; border-radius: 99px; font-size: .75rem; font-weight: 600; }
-  .pill.male { background: rgba(79,70,229,.14); color: #4f46e5; } .pill.female { background: rgba(236,72,153,.14); color: #db2777; }
-  .pill.other { background: rgba(20,184,166,.16); color: #0f766e; } .pill.unknown { background: var(--bs-tertiary-bg); color: var(--bs-secondary-color); }
-  .click-badge { background: linear-gradient(135deg,#4f46e5,#ec4899); color: #fff; border-radius: 99px; padding: .15rem .7rem; font-weight: 700; }
+  .country-row .bar { flex: 1; height: 10px; border-radius: 99px; background: color-mix(in srgb, var(--bs-body-color) 8%, transparent); overflow: hidden; }
+  .country-row .bar > span { display: block; height: 100%; border-radius: 99px; background: linear-gradient(90deg, #0a6b4d, #12a37f, #f59e0b); }
+  .pill { display: inline-block; padding: .1rem .55rem; border-radius: 99px; font-size: .74rem; font-weight: 700; }
+  .pill.male { background: rgba(37,99,235,.14); color: #2563eb; } .pill.female { background: rgba(236,72,153,.14); color: #db2777; }
+  .pill.other { background: rgba(20,184,166,.16); color: #0f766e; } .pill.unknown { background: color-mix(in srgb, var(--bs-body-color) 8%, transparent); color: var(--bs-secondary-color); }
+  .click-badge { display: inline-block; min-width: 2rem; text-align: center; padding: .12rem .7rem; border-radius: 99px; color: #fff; font-weight: 800; background: linear-gradient(135deg, #0a6b4d, #12a37f); }
+  .vbadge { display: inline-block; padding: .1rem .5rem; border-radius: 1rem; font: 800 .68rem var(--kz-sans, system-ui); background: rgba(245,158,11,.18); color: #b45309; margin-left: .3rem; }
+  [data-bs-theme="dark"] .vbadge { color: #fcd34d; }
+
+  /* ===== Contests KPI ===== */
+  .an-pk { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: .7rem; margin-bottom: 1rem; }
+  .an-pk .c { padding: .9rem .6rem; text-align: center; border-radius: 1.2rem; background: var(--bs-body-bg); border: 1px solid var(--line); box-shadow: var(--shadow); animation: anIn .45s ease both; animation-delay: calc(var(--i) * 50ms); }
+  .an-pk .v { font: 800 1.7rem/1.1 var(--kz-sans, system-ui); } .an-pk .l { font: 600 .72rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); margin-top: .2rem; }
+
+  @media (max-width: 1199.98px) { .an-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } .an-pk { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 767.98px) {
+    .an-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .an-aud { grid-template-columns: repeat(2, minmax(0, 1fr)); } .an-pk { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .an-srcwrap { grid-template-columns: 1fr; } .an-heat { gap: 2px; } .an-heat .hn.skip { visibility: hidden; }
+    .an-heatscroll { overflow-x: auto; } .an-heatscroll .an-heat { min-width: 560px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .an-kpi, .an-in, .an-stat, .an-pk .c { animation: none; } .an-live .dot::after { animation: none; } }
 </style>
 
-<h4 class="mt-5 mb-3">👥 Audience <small class="text-body-secondary fs-6">(last <%= days %> days)</small></h4>
+<div class="an">
 
-<div class="row g-3 mb-3">
-  <% [
-    ['Total clicks', at.clicks, 'g1', '🖱️'],
-    ['Unique people', at.people, 'g2', '🧑'],
-    ['Avg clicks / person', at.avg, 'g3', '🔁'],
-    ['Came back (2+ clicks)', at.returning, 'g4', '⭐']
-  ].forEach(c => { %>
-    <div class="col-6 col-lg-3">
-      <div class="aud-stat <%= c[2] %>">
-        <div class="lbl"><%= c[3] %> <%= c[0] %></div>
-        <div class="num"><%= c[1] %></div>
+  <!-- ================= HERO ================= -->
+  <header class="an-hero">
+    <div class="an-top">
+      <div>
+        <h1>📊 Analytics</h1>
+        <p>Tumhari site ki poori tasveer, ek jagah.</p>
+      </div>
+      <div class="an-tools">
+        <div class="an-seg" role="tablist" aria-label="Date range">
+          <% [7, 30, 90].forEach(d => { %><a href="/analytics?days=<%= d %>" class="<%= d === days ? 'on' : '' %>">Last <%= d %>d</a><% }) %>
+        </div>
+        <a class="an-btn" href="/analytics/export.csv?days=<%= days %>" title="Daily visits, sources aur top posts CSV mein">⬇ Export CSV</a>
       </div>
     </div>
-  <% }) %>
-</div>
 
-<div class="row g-4 mb-4">
-  <div class="col-lg-7">
-    <div class="card aud-card h-100"><div class="card-body">
-      <div class="aud-title mb-1">🎂 Clicks by age group <span class="aud-sub">only members who added their birth year</span></div>
-      <div style="height:260px;"><canvas id="ageChart"></canvas></div>
-    </div></div>
-  </div>
-  <div class="col-lg-5">
-    <div class="card aud-card h-100"><div class="card-body">
-      <div class="aud-title mb-1">⚧ Gender <span class="aud-sub">clicks</span></div>
-      <div style="height:260px;"><canvas id="genderChart"></canvas></div>
-    </div></div>
-  </div>
-</div>
+    <% if (ex) { %>
+      <div class="an-live" title="Pichle 30 minute aur 24 ghante ke visits">
+        <span class="dot"></span>
+        <span><b data-count="<%= ex.live.now30 %>"><%= ex.live.now30 %></b> visits in last 30 min</span>
+        <span class="sep">|</span>
+        <span><b><%= ex.live.day24 %></b> in last 24h</span>
+      </div>
+    <% } %>
 
-<div class="row g-4 mb-4">
-  <div class="col-lg-6">
-    <div class="card aud-card h-100"><div class="card-body">
-      <div class="aud-title mb-2">🌍 Clicks by country</div>
-      <% if (au.countries.length === 0) { %>
-        <p class="text-body-secondary mb-0">Abhi country ka data nahi. Members apni country profile mein daalen, ya hosting (Cloudflare etc.) se country header aaye.</p>
-      <% } else { const cmax = Math.max(...au.countries.map(c => c.clicks)); %>
-        <% au.countries.forEach(c => { %>
-          <div class="country-row">
-            <span class="flag"><%= c.flag %></span>
-            <span style="width:8.5rem" class="text-truncate"><%= c.name %></span>
-            <span class="bar"><span style="width:<%= Math.max(4, Math.round(c.clicks / cmax * 100)) %>%"></span></span>
-            <span class="fw-bold text-end" style="width:3rem"><%= c.clicks %></span>
+    <div class="an-chips">
+      <a class="an-chip" href="#overview">📈 Overview</a>
+      <% if (ex) { %><a class="an-chip" href="#timing">⏰ Best time</a><% } %>
+      <a class="an-chip" href="#sources">🧭 Sources</a>
+      <a class="an-chip" href="#posts">📰 Top posts</a>
+      <% if (locals.audience) { %><a class="an-chip" href="#audience">👥 Audience</a><% } %>
+      <% if (locals.pollStats) { %><a class="an-chip" href="#contests">🗳️ Contests</a><% } %>
+    </div>
+  </header>
+
+  <!-- ================= KPI ================= -->
+  <section id="overview">
+    <div class="an-kpis">
+      <% kpis.forEach((s, i) => { %>
+        <div class="an-kpi <%= s.cls %>" style="--i: <%= i %>;">
+          <div class="ic"><%= s.icon %></div>
+          <div class="num" data-count="<%= s.val %>"><%= s.val %></div>
+          <div class="lbl"><%= s.label %></div>
+          <% if (s.k === 'visits') { %><%- spark(daily.map(d => d.visits), 120, 36) %><% } %>
+          <% if (ex) { %><div class="row2"><%- dl(s.k) %><span class="an-vs">vs pichle <%= days %> din</span></div><% } %>
+        </div>
+      <% }) %>
+    </div>
+
+    <% if (ex && ex.insights.length) { %>
+      <div class="row g-3 mb-3">
+        <div class="col-lg-5">
+          <div class="an-card">
+            <h5 class="an-h">💡 Smart insights <small>apne aap bane</small></h5>
+            <div class="an-ins">
+              <% ex.insights.forEach((n, i) => { %>
+                <div class="an-in <%= n.tone %>" style="--i: <%= i %>;"><span class="e"><%= n.icon %></span><span><%= n.text %></span></div>
+              <% }) %>
+            </div>
           </div>
-        <% }) %>
-        <div class="aud-sub mt-2">Country mili: <%= at.countryPct %>% clicks mein.</div>
-      <% } %>
-    </div></div>
-  </div>
-  <div class="col-lg-6">
-    <div class="card aud-card h-100"><div class="card-body">
-      <div class="aud-title mb-1">🔁 Ek banda kitni bar click karta hai? <span class="aud-sub">people</span></div>
-      <div style="height:260px;"><canvas id="repeatChart"></canvas></div>
-    </div></div>
-  </div>
-</div>
-
-<div class="card aud-card mb-4"><div class="card-body">
-  <div class="aud-title mb-3">🏆 Most active visitors <span class="aud-sub">who clicked the most</span></div>
-  <% if (au.top.length === 0) { %>
-    <p class="text-body-secondary mb-0">No data yet.</p>
-  <% } else { %>
-    <div class="table-responsive">
-      <table class="table table-sm align-middle mb-0">
-        <thead><tr><th>#</th><th>Visitor</th><th>Country</th><th>Gender</th><th>Age</th><th class="text-end">Posts</th><th class="text-end">Clicks</th><th class="text-end">Last seen</th></tr></thead>
-        <tbody>
-          <% au.top.forEach((v, i) => { %>
-            <tr>
-              <td class="text-body-secondary"><%= i + 1 %></td>
-              <td>
-                <% if (v.member) { %><a class="text-decoration-none fw-semibold" href="/u/<%= encodeURIComponent(v.who) %>"><%= v.who %></a> <span class="pill unknown">member</span>
-                <% } else { %><span class="text-body-secondary"><%= v.who %></span><% } %>
-              </td>
-              <td><%= v.flag %> <%= v.countryName %></td>
-              <td><span class="pill <%= v.gender || 'unknown' %>"><%= v.gender || 'unknown' %></span></td>
-              <td><%= v.age_group || '-' %></td>
-              <td class="text-end"><%= v.posts %></td>
-              <td class="text-end"><span class="click-badge"><%= v.clicks %></span></td>
-              <td class="text-end text-body-secondary small"><%= new Date(v.last_seen).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
-  <% } %>
-  <p class="text-body-secondary small mt-3 mb-0">
-    Login wale banda ek hi count hota hai (kisi bhi device se); guest browser cookie se pehchana jata hai. Age / gender sirf un members ki dikhti hai jinhon ne profile mein bhari hai, baaqi "Unknown".
-  </p>
-</div></div>
-<% } %>
-
-<% if (locals.pollStats) { const ps = pollStats, pt = ps.totals; %>
-  <h4 class="mt-5 mb-3">🗳️ Vote contests <small class="text-body-secondary fs-6">(last <%= days %> days)</small></h4>
-
-  <div class="row g-3 mb-3">
-    <% [
-      ['Contest opens', pt.opens, 'text-primary'],
-      ['People (unique)', pt.people, 'text-info'],
-      ['Votes cast', pt.votes, 'text-success'],
-      ['Opened from WhatsApp', pt.wa_opens, 'text-success'],
-      ['Voted from WhatsApp', pt.wa_votes, 'text-success'],
-      ['Share clicks', pt.shares, 'text-warning']
-    ].forEach(s => { %>
-      <div class="col-6 col-lg-2">
-        <div class="card border-0 shadow-sm text-center"><div class="card-body py-3">
-          <div class="h2 fw-bold mb-0 <%= s[2] %>"><%= s[1] %></div>
-          <div class="text-body-secondary small"><%= s[0] %></div>
-        </div></div>
+        </div>
+        <div class="col-lg-7">
+          <div class="an-card">
+            <h5 class="an-h">Daily visits <small>dashed line = pichle <%= days %> din</small></h5>
+            <div style="height:290px;"><canvas id="dailyChart"></canvas></div>
+          </div>
+        </div>
       </div>
-    <% }) %>
-  </div>
+    <% } else { %>
+      <div class="an-card mb-3">
+        <h5 class="an-h">Daily visits</h5>
+        <div style="height:290px;"><canvas id="dailyChart"></canvas></div>
+      </div>
+    <% } %>
+  </section>
 
-  <div class="card border-0 shadow-sm mb-3">
-    <div class="card-body">
-      <h6 class="fw-bold mb-3">Per contest</h6>
-      <% if (ps.polls.length === 0) { %>
-        <p class="text-body-secondary mb-0">No contest activity in this period yet.</p>
+  <!-- ================= BEST TIME (heatmap) ================= -->
+  <% if (ex) { const hm = ex.heat; %>
+  <section id="timing">
+    <div class="an-card mb-3">
+      <h5 class="an-h">⏰ Best time to post <small>din × ghanta (<%= days %> din ka data, site ka apna time)</small></h5>
+      <% if (hm.max === 0) { %>
+        <p class="an-empty">Abhi itna data nahi ke best time nikala ja sake.</p>
+      <% } else { %>
+        <div class="an-best">
+          <% if (hm.bestCell) { %><span>🏆 Peak: <%= hm.bestCell.day %>, <%= hm.bestCell.hour %> (<%= hm.bestCell.n %> visits)</span><% } %>
+          <% if (hm.bestDay) { %><span>📅 Best din: <%= hm.bestDay %></span><% } %>
+          <% if (hm.bestHour) { %><span>🕒 Best ghanta: <%= hm.bestHour %></span><% } %>
+        </div>
+        <div class="an-heatscroll">
+          <div class="an-heat" role="img" aria-label="Visits heatmap by weekday and hour">
+            <span></span>
+            <% for (let h = 0; h < 24; h++) { %><span class="hn <%= h % 3 ? 'skip' : '' %>"><%= h % 3 === 0 ? (h % 12 === 0 ? 12 : h % 12) + (h < 12 ? 'a' : 'p') : '' %></span><% } %>
+            <% hm.grid.forEach((row, di) => { %>
+              <span class="dn"><%= hm.days[di] %></span>
+              <% row.forEach((n, h) => { %><i <% if (n > 0) { %>style="--v: <%= Math.max(0.12, n / hm.max).toFixed(2) %>"<% } %> class="<%= hm.bestCell && n === hm.max && n > 0 ? 'best' : '' %>" title="<%= hm.days[di] %> <%= h % 12 === 0 ? 12 : h % 12 %><%= h < 12 ? ' AM' : ' PM' %>: <%= n %> visits"></i><% }) %>
+            <% }) %>
+          </div>
+        </div>
+        <div class="an-legend"><span>Kam</span><span class="bar"></span><span>Zyada</span></div>
+      <% } %>
+    </div>
+  </section>
+  <% } %>
+
+  <!-- ================= SOURCES ================= -->
+  <section id="sources">
+    <div class="row g-3 mb-3">
+      <div class="col-lg-7">
+        <div class="an-card">
+          <h5 class="an-h">🧭 Traffic sources</h5>
+          <% if (sources.length === 0) { %>
+            <p class="an-empty">Abhi data nahi hai. Post share karein aur visits aane do.</p>
+          <% } else { const stot = sources.reduce((a, s) => a + s.visits, 0) || 1; %>
+            <div class="an-srcwrap">
+              <div style="height:170px;"><canvas id="srcChart"></canvas></div>
+              <div class="an-leg">
+                <% sources.slice(0, 8).forEach(s => { %>
+                  <div><i style="background:<%= srcCol(s.source) %>"></i><span class="text-truncate"><%= s.source %></span><span class="n"><%= s.visits %></span><span class="p"><%= Math.round(s.visits * 100 / stot) %>%</span></div>
+                <% }) %>
+              </div>
+            </div>
+          <% } %>
+        </div>
+      </div>
+      <div class="col-lg-5">
+        <div class="an-card">
+          <h5 class="an-h">🔗 Top referrers</h5>
+          <% if (referrers.length === 0) { %><p class="an-empty">No external referrers yet.</p><% } %>
+          <% const rmax = referrers.length ? Math.max(...referrers.map(r => r.visits)) : 1; %>
+          <% referrers.forEach(r => { %>
+            <div class="an-ref"><span class="nm"><%= r.referrer %></span><b><%= r.visits %></b></div>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+
+    <div class="an-card mb-3">
+      <h5 class="an-h">📣 Group / share / newsletter</h5>
+      <% if (mediums.length === 0) { %>
+        <p class="an-empty">Jab aap dashboard se "Copy WhatsApp msg" ya share buttons use karenge to yahan <code>group</code> aur <code>share</code> ke visits alag alag dikhenge.</p>
       <% } else { %>
         <div class="table-responsive">
-          <table class="table table-sm align-middle mb-0">
-            <thead>
-              <tr>
-                <th>Contest</th><th class="text-end">Opened</th><th class="text-end">People</th><th class="text-end">Voted</th>
-                <th class="text-end">Vote rate</th><th class="text-end">From WhatsApp (open / vote)</th><th class="text-end">Shares</th>
-              </tr>
-            </thead>
+          <table class="an-tbl">
+            <thead><tr><th>Source</th><th>Medium</th><th class="r">Visits</th></tr></thead>
             <tbody>
-              <% ps.polls.forEach(r => { %>
+              <% mediums.forEach(m => { %>
+                <tr><td><span class="pill unknown" style="color:<%= srcCol(m.source) %>"><%= m.source %></span></td><td><%= m.medium %></td><td class="r"><b><%= m.visits %></b></td></tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+  </section>
+
+  <!-- ================= TOP POSTS ================= -->
+  <section id="posts">
+    <div class="an-card mb-3">
+      <h5 class="an-h">📰 Top posts</h5>
+      <% if (topPosts.length === 0) { %>
+        <p class="an-empty">No data yet.</p>
+      <% } else { const pmax = Math.max(...topPosts.map(p => p.visits)) || 1; %>
+        <div class="table-responsive">
+          <table class="an-tbl">
+            <thead><tr><th>Post</th><th class="r">Visits</th><th class="r">WhatsApp</th><th class="r">Facebook</th></tr></thead>
+            <tbody>
+              <% topPosts.forEach((p, i) => { %>
                 <tr>
-                  <td>
-                    <a href="/votes/<%= r.id %>" class="text-decoration-none"><%= r.title %></a>
-                    <% if (r.kind === 'knockout') { %><span class="badge text-bg-warning ms-1">Knockout</span><% } %>
-                    <% if (r.in_post > 0) { %><span class="badge text-bg-light border ms-1" title="Widget views inside blog posts"><%= r.in_post %> in posts</span><% } %>
+                  <td style="min-width:240px;">
+                    <div class="d-flex align-items-center"><span class="rank <%= i < 3 ? 'r' + (i + 1) : '' %>"><%= i + 1 %></span><a href="/posts/<%= p.slug %>"><%= p.title %></a></div>
+                    <div class="an-minibar"><span style="width:<%= Math.max(3, Math.round(p.visits * 100 / pmax)) %>%"></span></div>
                   </td>
-                  <td class="text-end"><%= r.opens %></td>
-                  <td class="text-end"><%= r.people %></td>
-                  <td class="text-end fw-semibold"><%= r.votes %></td>
-                  <td class="text-end"><%= r.people ? Math.min(100, Math.round(r.votes * 100 / r.people)) + '%' : '-' %></td>
-                  <td class="text-end"><span class="text-success fw-semibold"><%= r.wa_opens %></span> / <span class="text-success fw-semibold"><%= r.wa_votes %></span></td>
-                  <td class="text-end"><%= r.shares %></td>
+                  <td class="r"><b><%= p.visits %></b></td>
+                  <td class="r"><%= p.whatsapp %></td>
+                  <td class="r"><%= p.facebook %></td>
                 </tr>
               <% }) %>
             </tbody>
@@ -293,128 +342,234 @@
         </div>
       <% } %>
     </div>
-  </div>
+  </section>
 
-  <% if (ps.sources.length) { %>
-    <div class="card border-0 shadow-sm mb-3">
-      <div class="card-body">
-        <h6 class="fw-bold mb-3">Where contest traffic and votes come from</h6>
+  <p class="an-note">
+    Note: WhatsApp aur Facebook ki in-app browser aksar referrer chhupa deti hain, is liye group ke traffic ki sahi pehchan <code>?utm_source=</code> wale links se hoti hai
+    (share buttons aur "Copy msg" buttons yehi lagate hain). Bots aur aap (admin) ke visits count nahi hote.
+  </p>
+
+  <!-- ================= AUDIENCE ================= -->
+  <% if (locals.audience) { const au = audience, at = au.totals; %>
+  <section id="audience">
+    <h4 class="an-sec">👥 Audience <small>(last <%= days %> days)</small></h4>
+
+    <div class="an-aud">
+      <% [['Total clicks', at.clicks, 'g1', '🖱️'], ['Unique people', at.people, 'g2', '🧑'], ['Avg clicks / person', at.avg, 'g3', '🔁'], ['Came back (2+ clicks)', at.returning, 'g4', '⭐']].forEach((c, i) => { %>
+        <div class="an-stat <%= c[2] %>" style="--i: <%= i %>;"><div class="lbl"><%= c[3] %> <%= c[0] %></div><div class="num"><%= c[1] %></div></div>
+      <% }) %>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-lg-7"><div class="an-card">
+        <h5 class="an-h">🎂 Clicks by age group <small>only members who added their birth year</small></h5>
+        <div style="height:260px;"><canvas id="ageChart"></canvas></div>
+      </div></div>
+      <div class="col-lg-5"><div class="an-card">
+        <h5 class="an-h">⚧ Gender <small>clicks</small></h5>
+        <div style="height:260px;"><canvas id="genderChart"></canvas></div>
+      </div></div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-lg-6"><div class="an-card">
+        <h5 class="an-h">🌍 Clicks by country</h5>
+        <% if (au.countries.length === 0) { %>
+          <p class="an-empty">Abhi country ka data nahi. Members apni country profile mein daalen, ya hosting (Cloudflare etc.) se country header aaye.</p>
+        <% } else { const cmax = Math.max(...au.countries.map(c => c.clicks)); %>
+          <% au.countries.forEach(c => { %>
+            <div class="country-row">
+              <span class="flag"><%= c.flag %></span>
+              <span style="width:8.5rem" class="text-truncate fw-semibold"><%= c.name %></span>
+              <span class="bar"><span style="width:<%= Math.max(4, Math.round(c.clicks / cmax * 100)) %>%"></span></span>
+              <span class="fw-bold text-end" style="width:3rem"><%= c.clicks %></span>
+            </div>
+          <% }) %>
+          <div class="an-vs mt-2">Country mili: <%= at.countryPct %>% clicks mein.</div>
+        <% } %>
+      </div></div>
+      <div class="col-lg-6"><div class="an-card">
+        <h5 class="an-h">🔁 Ek banda kitni bar click karta hai? <small>people</small></h5>
+        <div style="height:260px;"><canvas id="repeatChart"></canvas></div>
+      </div></div>
+    </div>
+
+    <div class="an-card mb-3">
+      <h5 class="an-h">🏆 Most active visitors <small>who clicked the most</small></h5>
+      <% if (au.top.length === 0) { %>
+        <p class="an-empty">No data yet.</p>
+      <% } else { %>
         <div class="table-responsive">
-          <table class="table table-sm mb-0">
-            <thead><tr><th>Source</th><th class="text-end">Opened</th><th class="text-end">Voted</th></tr></thead>
+          <table class="an-tbl">
+            <thead><tr><th>#</th><th>Visitor</th><th>Country</th><th>Gender</th><th>Age</th><th class="r">Posts</th><th class="r">Clicks</th><th class="r">Last seen</th></tr></thead>
             <tbody>
-              <% ps.sources.forEach(s => { %>
-                <tr><td><%= s.source %></td><td class="text-end"><%= s.opens %></td><td class="text-end"><%= s.votes %></td></tr>
+              <% au.top.forEach((v, i) => { %>
+                <tr>
+                  <td><span class="rank <%= i < 3 ? 'r' + (i + 1) : '' %>"><%= i + 1 %></span></td>
+                  <td>
+                    <% if (v.member) { %><a href="/u/<%= encodeURIComponent(v.who) %>"><%= v.who %></a><span class="vbadge">member</span>
+                    <% } else { %><span class="text-body-secondary"><%= v.who %></span><% } %>
+                  </td>
+                  <td><%= v.flag %> <%= v.countryName %></td>
+                  <td><span class="pill <%= v.gender || 'unknown' %>"><%= v.gender || 'unknown' %></span></td>
+                  <td><%= v.age_group || '-' %></td>
+                  <td class="r"><%= v.posts %></td>
+                  <td class="r"><span class="click-badge"><%= v.clicks %></span></td>
+                  <td class="r text-body-secondary small"><%= new Date(v.last_seen).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) %></td>
+                </tr>
               <% }) %>
             </tbody>
           </table>
         </div>
-      </div>
+      <% } %>
+      <p class="an-note mb-0">Login wale banda ek hi count hota hai (kisi bhi device se); guest browser cookie se pehchana jata hai. Age / gender sirf un members ki dikhti hai jinhon ne profile mein bhari hai, baaqi "Unknown".</p>
     </div>
+  </section>
   <% } %>
-  <p class="text-body-secondary small">
-    "Opened" = contest page or post widget loaded. "People" = unique browsers (cookie). "Voted from WhatsApp" = voters whose contest link came from a WhatsApp share
-    (share buttons add <code>?utm_source=whatsapp</code>). Bots and admin visits are not counted.
-  </p>
-<% } %>
+
+  <!-- ================= CONTESTS ================= -->
+  <% if (locals.pollStats) { const ps = pollStats, pt = ps.totals; %>
+  <section id="contests">
+    <h4 class="an-sec">🗳️ Vote contests <small>(last <%= days %> days)</small></h4>
+
+    <div class="an-pk">
+      <% [['Contest opens', pt.opens, '#0a6b4d'], ['People (unique)', pt.people, '#0ea5e9'], ['Votes cast', pt.votes, '#16a34a'], ['Opened from WhatsApp', pt.wa_opens, '#16a34a'], ['Voted from WhatsApp', pt.wa_votes, '#16a34a'], ['Share clicks', pt.shares, '#d97706']].forEach((s, i) => { %>
+        <div class="c" style="--i: <%= i %>;"><div class="v" style="color:<%= s[2] %>"><%= s[1] %></div><div class="l"><%= s[0] %></div></div>
+      <% }) %>
+    </div>
+
+    <div class="an-card mb-3">
+      <h5 class="an-h">Per contest</h5>
+      <% if (ps.polls.length === 0) { %>
+        <p class="an-empty">No contest activity in this period yet.</p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="an-tbl">
+            <thead><tr><th>Contest</th><th class="r">Opened</th><th class="r">People</th><th class="r">Voted</th><th class="r">Vote rate</th><th class="r">WhatsApp (open / vote)</th><th class="r">Shares</th></tr></thead>
+            <tbody>
+              <% ps.polls.forEach(r => { %>
+                <tr>
+                  <td style="min-width:220px;">
+                    <a href="/votes/<%= r.id %>"><%= r.title %></a>
+                    <% if (r.kind === 'knockout') { %><span class="vbadge">Knockout</span><% } %>
+                    <% if (r.in_post > 0) { %><span class="vbadge" style="background:rgba(14,165,233,.15);color:#0369a1;" title="Widget views inside blog posts"><%= r.in_post %> in posts</span><% } %>
+                  </td>
+                  <td class="r"><%= r.opens %></td>
+                  <td class="r"><%= r.people %></td>
+                  <td class="r"><b><%= r.votes %></b></td>
+                  <td class="r"><%= r.people ? Math.min(100, Math.round(r.votes * 100 / r.people)) + '%' : '-' %></td>
+                  <td class="r"><span class="text-success fw-semibold"><%= r.wa_opens %></span> / <span class="text-success fw-semibold"><%= r.wa_votes %></span></td>
+                  <td class="r"><%= r.shares %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+
+    <% if (ps.sources.length) { %>
+      <div class="an-card mb-3">
+        <h5 class="an-h">Where contest traffic and votes come from</h5>
+        <div class="table-responsive">
+          <table class="an-tbl">
+            <thead><tr><th>Source</th><th class="r">Opened</th><th class="r">Voted</th></tr></thead>
+            <tbody>
+              <% ps.sources.forEach(s => { %><tr><td><span class="pill unknown" style="color:<%= srcCol(s.source) %>"><%= s.source %></span></td><td class="r"><%= s.opens %></td><td class="r"><b><%= s.votes %></b></td></tr><% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% } %>
+    <p class="an-note">"Opened" = contest page or post widget loaded. "People" = unique browsers (cookie). "Voted from WhatsApp" = voters whose contest link came from a WhatsApp share
+      (share buttons add <code>?utm_source=whatsapp</code>). Bots and admin visits are not counted.</p>
+  </section>
+  <% } %>
+
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
-  const daily = <%- JSON.stringify(daily).replace(/</g, '\\u003c') %>;
-  const themeColors = () => {
-    const dark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
-    return { text: dark ? '#adb5bd' : '#6c757d', grid: dark ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.08)' };
-  };
-  const dailyChart = new Chart(document.getElementById('dailyChart'), {
-    type: 'line',
-    data: {
-      labels: daily.map(d => d.label),
-      datasets: [{
-        label: 'Visits',
-        data: daily.map(d => d.visits),
-        borderColor: '#4f46e5',
-        backgroundColor: 'rgba(79,70,229,.15)',
-        fill: true,
-        tension: .3,
-        pointRadius: daily.length > 40 ? 0 : 3,
-      }],
-    },
-    options: {
-      maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { ticks: { maxTicksLimit: 10 } } },
-    },
-  });
-  // Dark/light badalne par chart ke rang bhi badlein
-  const paintChart = () => {
-    const c = themeColors();
-    dailyChart.options.scales.x.ticks.color = c.text;
-    dailyChart.options.scales.y.ticks.color = c.text;
-    dailyChart.options.scales.x.grid = { color: c.grid };
-    dailyChart.options.scales.y.grid = { color: c.grid };
-    dailyChart.update();
-  };
-  document.addEventListener('themechange', paintChart);
-  paintChart();
-</script>
-
-<% if (locals.audience) { %>
-<script>
   (function () {
-    const au = <%- JSON.stringify(audience).replace(/</g, '\\u003c') %>;
+    const daily = <%- JSON.stringify(daily).replace(/</g, '\\u003c') %>;
+    const prevDaily = <%- JSON.stringify(ex ? ex.prevDaily : []).replace(/</g, '\\u003c') %>;
+    const sources = <%- JSON.stringify(sources.slice(0, 8)).replace(/</g, '\\u003c') %>;
+    const SRC_COL = <%- JSON.stringify(SRC_COL) %>;
     const dark = () => document.documentElement.getAttribute('data-bs-theme') === 'dark';
     const txt = () => (dark() ? '#adb5bd' : '#6c757d');
-    const grid = () => (dark() ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.06)');
+    const grid = () => (dark() ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.07)');
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
     const charts = [];
-    const axes = () => ({
-      y: { beginAtZero: true, ticks: { precision: 0, color: txt() }, grid: { color: grid() } },
-      x: { ticks: { color: txt() }, grid: { display: false } },
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+
+    // KPI numbers ginti ke saath ooper chadhein
+    if (!reduce) document.querySelectorAll('[data-count]').forEach(function (el) {
+      const to = parseFloat(el.getAttribute('data-count')) || 0;
+      if (!to) return;
+      const t0 = performance.now(), dur = 900;
+      (function tick(t) {
+        const p = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(to * e);
+        if (p < 1) requestAnimationFrame(tick);
+      })(t0);
     });
 
+    // ----- Daily line (+ pichle period ki dashed line) -----
+    const dEl = document.getElementById('dailyChart');
+    if (dEl) {
+      const ctx = dEl.getContext('2d');
+      const g = ctx.createLinearGradient(0, 0, 0, 290);
+      g.addColorStop(0, 'rgba(10,107,77,.35)'); g.addColorStop(1, 'rgba(10,107,77,0)');
+      const sets = [{ label: 'Visits', data: daily.map(d => d.visits), borderColor: '#0a6b4d', backgroundColor: g, fill: true, tension: .35, borderWidth: 3, pointRadius: daily.length > 40 ? 0 : 3, pointHoverRadius: 6, pointBackgroundColor: '#0a6b4d' }];
+      if (prevDaily.length === daily.length) sets.push({ label: 'Pichla period', data: prevDaily, borderColor: '#94a3b8', borderDash: [6, 6], borderWidth: 2, fill: false, tension: .35, pointRadius: 0, pointHoverRadius: 4 });
+      const dc = new Chart(dEl, {
+        type: 'line', data: { labels: daily.map(d => d.label), datasets: sets },
+        options: { maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: sets.length > 1, labels: { color: txt(), usePointStyle: true, boxWidth: 8 } }, tooltip: { padding: 10, cornerRadius: 10 } },
+          scales: { y: { beginAtZero: true, ticks: { precision: 0, color: txt() }, grid: { color: grid() } }, x: { ticks: { maxTicksLimit: 10, color: txt() }, grid: { display: false } } } },
+      });
+      charts.push(dc);
+    }
+
+    // ----- Source doughnut -----
+    const sEl = document.getElementById('srcChart');
+    if (sEl) charts.push(new Chart(sEl, {
+      type: 'doughnut',
+      data: { labels: sources.map(s => s.source), datasets: [{ data: sources.map(s => s.visits), backgroundColor: sources.map(s => SRC_COL[s.source] || '#7c3aed'), borderWidth: 0, hoverOffset: 8 }] },
+      options: { maintainAspectRatio: false, cutout: '68%', plugins: { legend: { display: false } } },
+    }));
+
+    <% if (locals.audience) { %>
+    const au = <%- JSON.stringify(audience).replace(/</g, '\\u003c') %>;
+    const axes = () => ({ y: { beginAtZero: true, ticks: { precision: 0, color: txt() }, grid: { color: grid() } }, x: { ticks: { color: txt() }, grid: { display: false } } });
     charts.push(new Chart(document.getElementById('ageChart'), {
       type: 'bar',
-      data: {
-        labels: au.ages.map(a => a.label),
-        datasets: [{
-          label: 'Clicks',
-          data: au.ages.map(a => a.clicks),
-          backgroundColor: ['#4f46e5', '#7c3aed', '#ec4899', '#f59e0b', '#14b8a6', '#0ea5e9', '#94a3b8'],
-          borderRadius: 10, maxBarThickness: 46,
-        }],
-      },
+      data: { labels: au.ages.map(a => a.label), datasets: [{ label: 'Clicks', data: au.ages.map(a => a.clicks), backgroundColor: ['#0a6b4d', '#12a37f', '#0ea5e9', '#7c3aed', '#ec4899', '#f59e0b', '#94a3b8'], borderRadius: 10, maxBarThickness: 46 }] },
       options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: axes() },
     }));
-
-    const gcol = { male: '#4f46e5', female: '#ec4899', other: '#14b8a6', unknown: '#94a3b8' };
+    const gcol = { male: '#2563eb', female: '#ec4899', other: '#14b8a6', unknown: '#94a3b8' };
     charts.push(new Chart(document.getElementById('genderChart'), {
       type: 'doughnut',
-      data: {
-        labels: au.genders.map(g => g.label.charAt(0).toUpperCase() + g.label.slice(1)),
-        datasets: [{ data: au.genders.map(g => g.clicks), backgroundColor: au.genders.map(g => gcol[g.label] || '#94a3b8'), borderWidth: 0 }],
-      },
+      data: { labels: au.genders.map(g => g.label.charAt(0).toUpperCase() + g.label.slice(1)), datasets: [{ data: au.genders.map(g => g.clicks), backgroundColor: au.genders.map(g => gcol[g.label] || '#94a3b8'), borderWidth: 0, hoverOffset: 8 }] },
       options: { maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { color: txt(), usePointStyle: true } } } },
     }));
-
     charts.push(new Chart(document.getElementById('repeatChart'), {
       type: 'bar',
-      data: {
-        labels: au.buckets.map(b => b.label),
-        datasets: [{ label: 'People', data: au.buckets.map(b => b.people), backgroundColor: '#ec4899', borderRadius: 10, maxBarThickness: 46 }],
-      },
+      data: { labels: au.buckets.map(b => b.label), datasets: [{ label: 'People', data: au.buckets.map(b => b.people), backgroundColor: '#12a37f', borderRadius: 10, maxBarThickness: 46 }] },
       options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: axes() },
     }));
+    <% } %>
 
-    document.addEventListener('themechange', () => {
-      charts.forEach(c => {
-        if (c.options.scales && c.options.scales.x) {
-          c.options.scales.x.ticks.color = txt(); c.options.scales.y.ticks.color = txt(); c.options.scales.y.grid.color = grid();
-        }
-        if (c.options.plugins.legend.labels) c.options.plugins.legend.labels.color = txt();
+    // Dark/light badalne par charts ke rang bhi badlein
+    document.addEventListener('themechange', function () {
+      charts.forEach(function (c) {
+        const sc = c.options.scales;
+        if (sc && sc.x) { sc.x.ticks.color = txt(); sc.y.ticks.color = txt(); if (sc.y.grid) sc.y.grid.color = grid(); }
+        const lg = c.options.plugins && c.options.plugins.legend && c.options.plugins.legend.labels;
+        if (lg) lg.color = txt();
         c.update();
       });
     });
   })();
 </script>
-<% } %>
 
 <%- include('partials/footer') %>
