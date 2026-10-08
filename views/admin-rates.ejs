@@ -1,0 +1,45 @@
+<%- include('partials/header') %>
+<div class="container py-4" style="max-width:760px;">
+  <h2 class="fw-bold mb-1">Manage rates</h2>
+  <p class="text-body-secondary">Dollar, gold and silver update automatically every 30 minutes. Petrol and diesel are set here after each government announcement.</p>
+
+  <% if (flash) { %><div class="alert alert-success"><%= flash %></div><% } %>
+  <% if (err) { %><div class="alert alert-danger"><%= err %></div><% } %>
+
+  <div class="card border-0 shadow-sm mb-4"><div class="card-body">
+    <h5 class="fw-bold">Fuel prices and gold adjustment</h5>
+    <form action="/admin/rates" method="POST">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="row g-3">
+        <% fuels.forEach(function (f) { const r = L[f[0]]; %>
+          <div class="col-12 col-sm-6">
+            <label class="form-label small mb-1" for="f_<%= f[0] %>"><%= f[1] %></label>
+            <input class="form-control" id="f_<%= f[0] %>" name="<%= f[0] %>" inputmode="decimal" placeholder="<%= r ? 'Now ' + F.grp(r.value, 2) : 'e.g. 266.45' %>">
+          </div>
+        <% }) %>
+        <div class="col-12 col-sm-6">
+          <label class="form-label small mb-1" for="gp">Gold adjustment (Rs per tola)</label>
+          <input class="form-control" id="gp" name="gold_premium" inputmode="decimal" placeholder="<%= L.gold_premium ? 'Now ' + F.grp(L.gold_premium.value) : 'e.g. 6000 or -3000' %>">
+          <div class="form-text">Added to the calculated 24K tola price so it matches your local sarafa rate. Leave blank to keep the current one.</div>
+        </div>
+        <div class="col-12 col-sm-6">
+          <label class="form-label small mb-1" for="day">Effective from</label>
+          <input class="form-control" id="day" name="day" type="date" value="<%= today %>">
+        </div>
+      </div>
+      <button class="btn btn-primary mt-3">Save</button>
+      <div class="form-text mt-2">Only fill the boxes you want to change.</div>
+    </form>
+  </div></div>
+
+  <div class="card border-0 shadow-sm"><div class="card-body">
+    <h5 class="fw-bold">Automatic rates</h5>
+    <p class="mb-2 small">USD to PKR: <strong><%= L.usd_pkr ? F.grp(L.usd_pkr.value, 2) : 'not loaded yet' %></strong> &middot; Gold (USD per ounce): <strong><%= L.xau_usd ? F.grp(L.xau_usd.value, 2) : 'not loaded yet' %></strong><% if (L.usd_pkr) { %> &middot; updated <%= F.timeText(L.usd_pkr.updatedAt) %><% } %></p>
+    <form action="/admin/rates/refresh" method="POST" class="d-inline">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="btn btn-outline-secondary btn-sm">Refresh now</button>
+    </form>
+    <a href="/rates" class="btn btn-outline-primary btn-sm ms-2">View public page</a>
+  </div></div>
+</div>
+<%- include('partials/footer') %>

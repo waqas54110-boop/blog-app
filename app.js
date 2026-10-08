@@ -45,6 +45,8 @@ const posterRouter = require('./routes/poster');
 const earningsRouter = require('./routes/earnings');
 const earningsLib = require('./lib/earnings');
 const adsRouter = require('./routes/ads');
+const ratesRouter = require('./routes/rates');
+const { startRates } = require('./lib/rates');
 const adsLib = require('./lib/ads');
 const { startCleaner: startStoryCleaner } = require('./lib/stories');
 const { startFollowNotifier } = require('./lib/follow');
@@ -462,6 +464,7 @@ app.use('/', groupsRouter);
 app.use('/', posterRouter);
 app.use('/', earningsRouter);
 app.use('/', adsRouter);
+app.use('/', ratesRouter); // Daily Rates: /rates (dollar, gold, petrol, namaz)
 app.use('/', authRouter);
 
 app.use((req, res) => {
@@ -489,6 +492,7 @@ app.listen(PORT, (err) => {
   console.log('Server chal raha hai, port ' + PORT);
   startNewsletterScheduler();
   startPublisher();
+  startRates(); // dollar + gold ki qeemat har 30 min baad khud update (rates_history table chahiye)
   startPollScheduler(); // knockout rounds jin ka time ho gaya unhein agle round par le jata hai
   startCourtScheduler(); // People's Court: jury ka waqt khatam hone par faisla + notifications (+ Telegram)
   startTelegramPoster(); // naya contest / result Telegram channel mein (token set ho to)

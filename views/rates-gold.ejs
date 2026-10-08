@@ -1,0 +1,49 @@
+<%- include('partials/header') %>
+<%- include('partials/rates-top', { h1: 'Gold Rate in Pakistan Today', sub: F.dateText() + ': 24K, 22K, 21K and 18K gold price per tola, 10 grams and per gram, plus silver.' }) %>
+
+<% if (S.gold) { %>
+<div class="rt-grid mb-3">
+  <div class="rt-card"><div class="rt-label">24K gold per tola</div><div class="rt-val"><%= F.rs(S.gold.tola24) %></div><%- F.chip(S.goldChange) %></div>
+  <div class="rt-card"><div class="rt-label">24K gold per 10 grams</div><div class="rt-val"><%= F.rs(S.gold.rows[0].g10) %></div></div>
+  <% if (S.silver) { %><div class="rt-card"><div class="rt-label">Silver per tola</div><div class="rt-val"><%= F.rs(S.silver.tola) %></div><%- F.chip(S.silverChange) %></div><% } %>
+</div>
+
+<div class="rt-box">
+  <h2>Gold price by karat</h2>
+  <table>
+    <thead><tr><th>Karat</th><th class="num">Per tola</th><th class="num">Per 10 grams</th><th class="num">Per gram</th></tr></thead>
+    <tbody>
+      <% S.gold.rows.forEach(function (r) { %>
+        <tr><td><strong><%= r.label %></strong></td><td class="num"><strong><%= F.rs(r.tola) %></strong></td><td class="num"><%= F.rs(r.g10) %></td><td class="num"><%= F.rs(r.gram) %></td></tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <% if (S.silver) { %>
+  <h2>Silver price</h2>
+  <table>
+    <thead><tr><th>Silver</th><th class="num">Per tola</th><th class="num">Per 10 grams</th><th class="num">Per gram</th></tr></thead>
+    <tbody><tr><td><strong>Pure silver</strong></td><td class="num"><strong><%= F.rs(S.silver.tola) %></strong></td><td class="num"><%= F.rs(S.silver.g10) %></td><td class="num"><%= F.rs(S.silver.gram, 1) %></td></tr></tbody>
+  </table>
+  <% } %>
+  <div class="rt-note">Calculated from the international gold price and today's USD to PKR rate. 1 tola = 11.664 grams. Local jewellers' (sarafa) rates and making charges can be different, so confirm with your jeweller before buying.</div>
+</div>
+<% } else { %>
+<div class="alert alert-info">Gold rates are being loaded. Please check again in a few minutes.</div>
+<% } %>
+
+<% if (rows.length) { %>
+<div class="rt-box">
+  <h2>24K gold price, last 14 days (per tola)</h2>
+  <table>
+    <thead><tr><th>Date</th><th class="num">Price</th><th class="num">Change</th></tr></thead>
+    <tbody>
+      <% rows.forEach(function (r) { %>
+        <tr><td><%= F.dayShort(r.day) %></td><td class="num"><strong><%= F.rs(r.tola) %></strong></td><td class="num"><%- F.chip(r.ch) %></td></tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+<%- include('partials/rates-bottom') %>
+<%- include('partials/footer') %>

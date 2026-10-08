@@ -1,0 +1,46 @@
+<%- include('partials/header') %>
+<%- include('partials/rates-top', { h1: 'Namaz Timings in ' + city + ' Today', sub: F.dateText() + (data && data.hijri ? ' · ' + data.hijri : '') }) %>
+
+<div class="d-flex flex-wrap gap-2 mb-3">
+  <% Object.keys(cities).forEach(function (k) { %>
+    <a href="/rates/prayer-times/<%= k %>" class="btn btn-sm <%= k === cityKey ? 'btn-success' : 'btn-outline-secondary' %>"><%= cities[k] %></a>
+  <% }) %>
+</div>
+
+<% if (data) { %>
+<div class="rt-box">
+  <table id="ptTable">
+    <thead><tr><th>Prayer</th><th class="num">Time (<%= city %>)</th></tr></thead>
+    <tbody>
+      <% data.times.forEach(function (t) { %>
+        <tr data-time="<%= t[1] %>"><td><strong><%= t[0] %></strong><% if (t[0] === 'Sunrise') { %> <span class="text-body-secondary">(Fajr ends)</span><% } %></td><td class="num"><strong><%= F.to12h(t[1]) %></strong></td></tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <div class="rt-note" id="ptNext"></div>
+  <div class="rt-note">Calculated with the University of Islamic Sciences, Karachi method (Hanafi Asr). Jamaat times at your local mosque can be different.</div>
+</div>
+<script>
+(function () {
+  var rows = document.querySelectorAll('#ptTable tbody tr');
+  var parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Karachi', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+  var now = parseInt(parts[0].value, 10) * 60 + parseInt(parts[2].value, 10), next = null;
+  rows.forEach(function (r) {
+    if (r.children[0].textContent.indexOf('Sunrise') === 0) return;
+    var t = r.getAttribute('data-time').split(':'), m = parseInt(t[0], 10) * 60 + parseInt(t[1], 10);
+    if (!next && m > now) next = { row: r, m: m };
+  });
+  var out = document.getElementById('ptNext');
+  if (next) {
+    next.row.classList.add('rt-next');
+    var d = next.m - now;
+    out.innerHTML = 'Next prayer: <strong>' + next.row.children[0].textContent.trim().split(' ')[0] + '</strong> in ' + Math.floor(d / 60) + ' h ' + (d % 60) + ' min';
+  } else { out.textContent = 'All of today\'s prayers are done. Fajr tomorrow is at about the same time.'; }
+})();
+</script>
+<% } else { %>
+<div class="alert alert-info">Namaz timings for <%= city %> could not be loaded right now. Please try again in a few minutes.</div>
+<% } %>
+
+<%- include('partials/rates-bottom') %>
+<%- include('partials/footer') %>

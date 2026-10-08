@@ -1,0 +1,37 @@
+<style>
+  .rt { max-width: 980px; margin: 0 auto; padding: 18px 12px 8px; }
+  .rt-hero { border-radius: 18px; padding: 26px 24px; color: #fff; background: linear-gradient(120deg, #0f766e, #1e3a8a 70%, #1e1b4b); }
+  .rt-hero h1 { font-size: clamp(1.4rem, 3.6vw, 2.1rem); font-weight: 800; margin: 0 0 6px; }
+  .rt-hero p { margin: 0; opacity: .88; }
+  .rt-tabs { display: flex; gap: 8px; overflow-x: auto; margin: 14px 0; padding-bottom: 4px; scrollbar-width: none; }
+  .rt-tabs::-webkit-scrollbar { display: none; }
+  .rt-tabs a { white-space: nowrap; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--bs-border-color); text-decoration: none; color: var(--bs-body-color); font-weight: 600; font-size: .92rem; }
+  .rt-tabs a.on { background: #0f766e; border-color: #0f766e; color: #fff; }
+  .rt-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .rt-card { border: 1px solid var(--bs-border-color); border-radius: 14px; padding: 16px; background: var(--bs-body-bg); display: block; text-decoration: none; color: inherit; }
+  a.rt-card:hover { border-color: #0f766e; box-shadow: 0 6px 20px rgba(0,0,0,.08); }
+  .rt-label { font-size: .82rem; text-transform: uppercase; letter-spacing: .04em; opacity: .7; font-weight: 700; }
+  .rt-val { font-size: 1.9rem; font-weight: 800; line-height: 1.15; margin: 4px 0; }
+  .rt-sub { font-size: .9rem; opacity: .8; }
+  .rt-ch { display: inline-block; font-size: .82rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .rt-up { background: #fee2e2; color: #b91c1c; }
+  .rt-down { background: #dcfce7; color: #15803d; }
+  .rt-flat { background: var(--bs-secondary-bg); }
+  .rt table { width: 100%; border-collapse: collapse; }
+  .rt th, .rt td { padding: 9px 10px; border-bottom: 1px solid var(--bs-border-color); text-align: left; font-size: .95rem; }
+  .rt th { font-size: .8rem; text-transform: uppercase; opacity: .7; }
+  .rt .num { text-align: right; white-space: nowrap; }
+  .rt-box { border: 1px solid var(--bs-border-color); border-radius: 14px; padding: 8px 14px 14px; margin-top: 16px; overflow-x: auto; }
+  .rt-box h2 { font-size: 1.1rem; font-weight: 800; margin: 12px 0 6px; }
+  .rt-note { font-size: .85rem; opacity: .75; margin-top: 12px; }
+  .rt-next { background: #ecfdf5; }
+  [data-bs-theme="dark"] .rt-next { background: #052e2b; }
+</style>
+<div class="rt">
+  <div class="rt-hero">
+    <h1><%= locals.h1 %></h1>
+    <p><%= locals.sub %></p>
+  </div>
+  <nav class="rt-tabs" aria-label="Rates">
+    <% NAV.forEach(function (n) { %><a href="<%= n[0] %>" class="<%= locals.active === n[0] ? 'on' : '' %>"><%= n[1] %></a><% }) %>
+  </nav>

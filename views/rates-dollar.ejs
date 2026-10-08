@@ -1,0 +1,81 @@
+<%- include('partials/header') %>
+<%- include('partials/rates-top', { h1: 'Dollar Rate in Pakistan Today', sub: F.dateText() + ': USD, Saudi Riyal, UAE Dirham, Pound and Euro to Pakistani Rupee.' }) %>
+
+<% if (S.usd) { %>
+<div class="rt-card mb-3">
+  <div class="rt-label">1 US Dollar =</div>
+  <div class="rt-val"><%= F.rs(S.usd.value, 2) %></div>
+  <%- F.chip(F.change(S.usd.value, S.usd.prev), 2) %>
+</div>
+<% } else { %>
+<div class="alert alert-info">Rates are being loaded. Please check again in a few minutes.</div>
+<% } %>
+
+<div class="rt-box">
+  <h2>Today's exchange rates</h2>
+  <table>
+    <thead><tr><th>Currency</th><th class="num">Rate in PKR</th><th class="num">Change</th></tr></thead>
+    <tbody>
+      <% currencies.forEach(function (c) { const r = S.L[c[0] + '_pkr']; %>
+        <tr>
+          <td><strong>1 <%= c[2] %></strong> <span class="text-body-secondary">&middot; <%= c[1] %></span></td>
+          <td class="num"><strong><%= r ? F.rs(r.value, 2) : '-' %></strong></td>
+          <td class="num"><%- r ? F.chip(F.change(r.value, r.prev), 2) : '' %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  <div class="rt-note">Mid-market rates. Open-market (currency dealer) buying and selling rates can differ by a few rupees.</div>
+</div>
+
+<% if (S.usd) { %>
+<div class="rt-box">
+  <h2>Currency converter</h2>
+  <div class="row g-2 align-items-end">
+    <div class="col-12 col-sm-4"><label class="form-label small mb-1" for="cvAmt">Amount</label><input id="cvAmt" type="number" min="0" step="any" value="100" class="form-control"></div>
+    <div class="col-6 col-sm-4"><label class="form-label small mb-1" for="cvCur">Currency</label>
+      <select id="cvCur" class="form-select">
+        <% currencies.forEach(function (c) { const r = S.L[c[0] + '_pkr']; if (r) { %><option value="<%= r.value %>"><%= c[2] %> - <%= c[1] %></option><% } }) %>
+      </select></div>
+    <div class="col-6 col-sm-4"><label class="form-label small mb-1" for="cvDir">Direction</label>
+      <select id="cvDir" class="form-select"><option value="to">Currency to PKR</option><option value="from">PKR to currency</option></select></div>
+  </div>
+  <div class="rt-val mt-3" id="cvOut"></div>
+</div>
+<script>
+(function () {
+  var a = document.getElementById('cvAmt'), c = document.getElementById('cvCur'), d = document.getElementById('cvDir'), o = document.getElementById('cvOut');
+  function go() {
+    var amt = parseFloat(a.value) || 0, rate = parseFloat(c.value), code = c.options[c.selectedIndex].text.split(' ')[0];
+    var fmt = function (n) { return n.toLocaleString('en-IN', { maximumFractionDigits: 2 }); };
+    o.textContent = d.value === 'to' ? fmt(amt) + ' ' + code + ' = Rs ' + fmt(amt * rate) : 'Rs ' + fmt(amt) + ' = ' + fmt(amt / rate) + ' ' + code;
+  }
+  [a, c, d].forEach(function (el) { el.addEventListener('input', go); el.addEventListener('change', go); });
+  go();
+})();
+</script>
+<% } %>
+
+<% if (hist.length) { %>
+<div class="rt-box">
+  <h2>Last 14 days</h2>
+  <table>
+    <thead><tr><th>Date</th><th class="num">USD</th><th class="num">SAR</th><th class="num">AED</th><th class="num">GBP</th><th class="num">EUR</th></tr></thead>
+    <tbody>
+      <% hist.forEach(function (h) { %>
+        <tr>
+          <td><%= F.dayShort(h.day) %></td>
+          <td class="num"><strong><%= h.usd_pkr ? F.grp(h.usd_pkr, 2) : '-' %></strong></td>
+          <td class="num"><%= h.sar_pkr ? F.grp(h.sar_pkr, 2) : '-' %></td>
+          <td class="num"><%= h.aed_pkr ? F.grp(h.aed_pkr, 2) : '-' %></td>
+          <td class="num"><%= h.gbp_pkr ? F.grp(h.gbp_pkr, 2) : '-' %></td>
+          <td class="num"><%= h.eur_pkr ? F.grp(h.eur_pkr, 2) : '-' %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+<%- include('partials/rates-bottom') %>
+<%- include('partials/footer') %>

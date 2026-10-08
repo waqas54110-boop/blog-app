@@ -1,0 +1,7 @@
+  <div class="d-flex flex-wrap gap-2 align-items-center mt-4">
+    <span class="fw-semibold">Share:</span>
+    <a class="btn btn-sm btn-primary" href="<%= shareFb %>" target="_blank" rel="noopener">Facebook</a>
+    <a class="btn btn-sm btn-success" href="<%= shareWa %>" target="_blank" rel="noopener">WhatsApp</a>
+  </div>
+  <% if (locals.S && S.updatedAt) { %><div class="rt-note">Last updated: <%= F.timeText(S.updatedAt) %> (Pakistan time). Rates are refreshed automatically every 30 minutes.</div><% } %>
+</div>

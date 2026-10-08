@@ -1,0 +1,36 @@
+<%- include('partials/header') %>
+<%- include('partials/rates-top', { h1: 'Petrol Price in Pakistan Today', sub: F.dateText() + ': petrol, high speed diesel, kerosene oil and light diesel oil price per litre.' }) %>
+
+<% if (S.L.petrol || S.L.diesel) { %>
+<div class="rt-grid mb-3">
+  <% fuels.forEach(function (f) { const r = S.L[f[0]]; if (r) { %>
+    <div class="rt-card">
+      <div class="rt-label"><%= f[1] %></div>
+      <div class="rt-val"><%= F.rs(r.value, 2) %></div>
+      <%- F.chip(F.change(r.value, r.prev), 2) %>
+      <div class="rt-sub mt-1">Effective <%= F.dayShort(r.day) %></div>
+    </div>
+  <% } }) %>
+</div>
+<% } else { %>
+<div class="alert alert-info">Petrol and diesel prices will be added here as soon as the next government announcement is made.</div>
+<% } %>
+
+<% if (changes.length > 1) { %>
+<div class="rt-box">
+  <h2>Price history</h2>
+  <table>
+    <thead><tr><th>Effective from</th><th class="num">Petrol</th><th class="num">Diesel</th></tr></thead>
+    <tbody>
+      <% changes.forEach(function (h) { %>
+        <tr><td><%= F.dayShort(h.day) %></td><td class="num"><strong><%= h.petrol ? F.rs(h.petrol, 2) : '-' %></strong></td><td class="num"><%= h.diesel ? F.rs(h.diesel, 2) : '-' %></td></tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+<div class="rt-note">Fuel prices in Pakistan are announced by the government, usually on the 15th and the last day of each month, and are effective from the next day. This page is updated after each announcement.</div>
+
+<%- include('partials/rates-bottom') %>
+<%- include('partials/footer') %>

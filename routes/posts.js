@@ -486,6 +486,9 @@ router.get('/sitemap.xml', async (req, res) => {
       url('/predictions', null), url('/leaderboard', null), url('/about', null), url('/hire', null),
     url('/court', null), url('/petitions', null), url('/cricket', null), url('/creators', null), url('/trends', null),
       url('/businesses', null), url('/advertise', null),
+      // Rates pages roz update hoti hain, is liye lastmod = ab (sach hai)
+      ...['/rates', '/rates/dollar-rate-today', '/rates/gold-rate-today', '/rates/petrol-price-today',
+        ...Object.keys(require('../lib/rates').CITIES).map((c) => '/rates/prayer-times/' + c)].map((u) => url(u, new Date())),
     ].join('');
     const postsXml = result.rows.map((p) => url('/posts/' + p.slug, p.lastmod, img(p.cover_url))).join('');
     const catXml = catRows.map((c) => url(homeUrl({ category: c.name }), c.lastmod)).join('');

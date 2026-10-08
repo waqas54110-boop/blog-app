@@ -1,0 +1,61 @@
+<%- include('partials/header') %>
+<%- include('partials/rates-top', { h1: "Today's Rates in Pakistan", sub: F.dateText() + ': dollar, gold, silver, petrol, diesel and namaz timings, updated daily.' }) %>
+
+<div class="rt-grid">
+  <a class="rt-card" href="/rates/dollar-rate-today">
+    <div class="rt-label">💵 USD to PKR</div>
+    <% if (S.usd) { %>
+      <div class="rt-val"><%= F.rs(S.usd.value, 2) %></div>
+      <%- F.chip(F.change(S.usd.value, S.usd.prev), 2) %>
+      <div class="rt-sub mt-1">
+        SAR <%= S.L.sar_pkr ? F.grp(S.L.sar_pkr.value, 2) : '-' %> &middot; AED <%= S.L.aed_pkr ? F.grp(S.L.aed_pkr.value, 2) : '-' %>
+      </div>
+    <% } else { %><div class="rt-sub mt-2">Updating soon...</div><% } %>
+  </a>
+
+  <a class="rt-card" href="/rates/gold-rate-today">
+    <div class="rt-label">🥇 Gold 24K (per tola)</div>
+    <% if (S.gold) { %>
+      <div class="rt-val"><%= F.rs(S.gold.tola24) %></div>
+      <%- F.chip(S.goldChange) %>
+      <div class="rt-sub mt-1">22K: <%= F.rs(S.gold.rows[1].tola) %></div>
+    <% } else { %><div class="rt-sub mt-2">Updating soon...</div><% } %>
+  </a>
+
+  <a class="rt-card" href="/rates/gold-rate-today">
+    <div class="rt-label">🥈 Silver (per tola)</div>
+    <% if (S.silver) { %>
+      <div class="rt-val"><%= F.rs(S.silver.tola) %></div>
+      <%- F.chip(S.silverChange) %>
+      <div class="rt-sub mt-1">10 grams: <%= F.rs(S.silver.g10) %></div>
+    <% } else { %><div class="rt-sub mt-2">Updating soon...</div><% } %>
+  </a>
+
+  <a class="rt-card" href="/rates/petrol-price-today">
+    <div class="rt-label">⛽ Petrol (per litre)</div>
+    <% if (S.L.petrol) { %>
+      <div class="rt-val"><%= F.rs(S.L.petrol.value, 2) %></div>
+      <%- F.chip(F.change(S.L.petrol.value, S.L.petrol.prev), 2) %>
+      <div class="rt-sub mt-1">Diesel: <%= S.L.diesel ? F.rs(S.L.diesel.value, 2) : '-' %></div>
+    <% } else { %><div class="rt-sub mt-2">Will be added soon.</div><% } %>
+  </a>
+
+  <a class="rt-card" href="/rates/prayer-times/lahore">
+    <div class="rt-label">🕌 Namaz timings</div>
+    <div class="rt-val" style="font-size:1.25rem;">Fajr, Dhuhr, Asr, Maghrib, Isha</div>
+    <div class="rt-sub mt-1">Lahore, Karachi, Islamabad, Peshawar, Quetta and more</div>
+  </a>
+</div>
+
+<div class="rt-box">
+  <h2>How these rates are calculated</h2>
+  <ul class="mb-0 small">
+    <li><strong>Dollar and other currencies:</strong> live mid-market exchange rates. Currency dealers in the open market usually charge a few rupees more or less.</li>
+    <li><strong>Gold and silver:</strong> calculated from the international price and today's USD to PKR rate (1 tola = 11.664 grams). Jewellers' rates and making charges can differ.</li>
+    <li><strong>Petrol and diesel:</strong> updated when the government announces new prices.</li>
+    <li><strong>Namaz timings:</strong> University of Islamic Sciences, Karachi method with Hanafi Asr.</li>
+  </ul>
+</div>
+
+<%- include('partials/rates-bottom') %>
+<%- include('partials/footer') %>
