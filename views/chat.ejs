@@ -7,12 +7,12 @@
 
 <style>
   .ch { --acc: #0a6b4d; --acc2: #12a37f; --line: color-mix(in srgb, var(--bs-body-color) 10%, transparent); --shadow: 0 1px 2px rgba(16,24,40,.05), 0 18px 40px -20px rgba(16,24,40,.32);
-    position: relative; background: var(--bs-body-bg); border: 1px solid var(--line); border-radius: 1.5rem; box-shadow: var(--shadow); overflow: hidden; }
+    position: relative; background: var(--bs-body-bg); border: 1px solid var(--line); border-radius: 1.5rem; box-shadow: var(--shadow); }
   [data-bs-theme="dark"] .ch { --line: rgba(255,255,255,.09); --shadow: 0 1px 2px rgba(0,0,0,.5), 0 18px 40px -20px rgba(0,0,0,.85); }
   body:has(.ch) { background: radial-gradient(900px 480px at 100% -8%, color-mix(in srgb, #0a6b4d 12%, transparent), transparent 62%), radial-gradient(800px 440px at 0% 0%, color-mix(in srgb, #2563eb 8%, transparent), transparent 60%), var(--bs-tertiary-bg); background-attachment: fixed; }
 
   /* ===== Header ===== */
-  .ch-head { position: relative; isolation: isolate; display: flex; align-items: center; gap: .8rem; padding: .85rem 1rem; color: #fff;
+  .ch-head { position: relative; z-index: 30; isolation: isolate; border-radius: 1.5rem 1.5rem 0 0; display: flex; align-items: center; gap: .8rem; padding: .85rem 1rem; color: #fff;
     background: radial-gradient(380px 200px at 100% 0%, rgba(245,158,11,.34), transparent 62%), radial-gradient(380px 220px at 0% 130%, rgba(20,184,166,.4), transparent 62%), linear-gradient(120deg, #0b1f35 0%, #0a4a43 58%, #0a6b4d 100%); }
   .ch-head::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(rgba(255,255,255,.14) 1px, transparent 1.3px); background-size: 20px 20px; -webkit-mask-image: linear-gradient(115deg, #000, transparent 70%); mask-image: linear-gradient(115deg, #000, transparent 70%); }
   .ch-ib { flex: none; width: 40px; height: 40px; display: grid; place-items: center; border-radius: 50%; border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.14); color: #fff; font-size: 1.05rem; text-decoration: none; cursor: pointer; transition: background .15s, transform .15s; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
@@ -27,6 +27,23 @@
   .dots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; animation: dotUp 1s infinite ease-in-out; }
   .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
   @keyframes dotUp { 0%, 80%, 100% { transform: translateY(0); opacity: .45; } 40% { transform: translateY(-4px); opacity: 1; } }
+
+
+  /* ===== Modern "more" menu (header ke upar, kabhi peeche nahi jata) ===== */
+  .ch-menu { --bs-dropdown-min-width: 15rem; min-width: 15rem; margin-top: .65rem !important; padding: .4rem; border-radius: 1.1rem; border: 1px solid var(--line);
+    background: color-mix(in srgb, var(--bs-body-bg) 90%, transparent); -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+    box-shadow: 0 2px 4px rgba(0,0,0,.06), 0 28px 56px -18px rgba(0,0,0,.5); z-index: 1080; }
+  .ch-menu.show { animation: menuFade .16s ease; }
+  @keyframes menuFade { from { opacity: 0; } to { opacity: 1; } }
+  .ch-menu::before { content: ""; position: absolute; top: -6px; right: 15px; width: 12px; height: 12px; transform: rotate(45deg); border-radius: 3px 0 0 0;
+    background: color-mix(in srgb, var(--bs-body-bg) 90%, transparent); border-left: 1px solid var(--line); border-top: 1px solid var(--line); }
+  .ch-menu .dropdown-item { display: flex; align-items: center; gap: .7rem; width: 100%; padding: .5rem .6rem; border-radius: .75rem; font: 700 .92rem var(--kz-sans, system-ui); color: var(--bs-body-color); transition: background .12s, transform .12s; }
+  .ch-menu .dropdown-item:hover, .ch-menu .dropdown-item:focus { background: color-mix(in srgb, var(--acc) 10%, transparent); transform: translateX(2px); }
+  .ch-menu .mi { flex: none; width: 32px; height: 32px; display: grid; place-items: center; border-radius: .6rem; font-size: 1rem; background: color-mix(in srgb, var(--acc) 14%, transparent); }
+  .ch-menu .mi.warn { background: rgba(245,158,11,.18); }
+  .ch-menu .mi.bad { background: rgba(220,38,38,.14); }
+  .ch-menu .dropdown-item.text-danger:hover { background: rgba(220,38,38,.1); }
+  .ch-menu .dropdown-divider { margin: .3rem .4rem; border-color: var(--line); opacity: 1; }
 
   /* ===== Messages area ===== */
   .ch-wrap { position: relative; }
@@ -85,7 +102,7 @@
   .ch-down[hidden] { display: none; }
 
   /* ===== Composer ===== */
-  .ch-form { position: relative; padding: .7rem .85rem .9rem; border-top: 1px solid var(--line); background: var(--bs-body-bg); }
+  .ch-form { position: relative; border-radius: 0 0 1.5rem 1.5rem; padding: .7rem .85rem .9rem; border-top: 1px solid var(--line); background: var(--bs-body-bg); }
   .ch-reply { display: flex; align-items: center; gap: .6rem; margin: 0 .3rem .5rem; padding: .45rem .7rem; border-radius: .8rem; border-left: 4px solid var(--acc); background: var(--bs-tertiary-bg); animation: mIn .2s ease; }
   .ch-reply[hidden] { display: none; }
   .ch-reply .rq { flex: 1; min-width: 0; font: 400 .85rem/1.3 var(--kz-sans, system-ui); }
@@ -121,6 +138,8 @@
   @media (max-width: 575.98px) {
     .m-wrap { max-width: 88%; }
     .ch { border-radius: 1.2rem; }
+    .ch-head { border-radius: 1.2rem 1.2rem 0 0; }
+    .ch-form { border-radius: 0 0 1.2rem 1.2rem; }
     .ch-body { height: clamp(340px, 56vh, 560px); padding: .8rem .6rem 1rem; }
     .m-act button { width: 28px; height: 28px; }
   }
@@ -147,15 +166,16 @@
           <button type="button" class="ch-ib" data-call="video" data-call-user="<%= other.username %>" title="Video call" aria-label="Video call">🎥</button>
           <div class="dropdown">
             <button class="ch-ib" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More options">⋯</button>
-            <ul class="dropdown-menu dropdown-menu-end">
-              <li><a class="dropdown-item" href="<%= link %>">👤 View profile</a></li>
-              <li><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#reportModal" data-report-type="user" data-report-id="<%= other.id %>">🚩 Report user</button></li>
+            <ul class="dropdown-menu dropdown-menu-end ch-menu">
+              <li><a class="dropdown-item" href="<%= link %>"><span class="mi">👤</span>View profile</a></li>
+              <li><button class="dropdown-item" data-bs-toggle="modal" data-bs-target="#reportModal" data-report-type="user" data-report-id="<%= other.id %>"><span class="mi warn">🚩</span>Report user</button></li>
+              <li><hr class="dropdown-divider"></li>
               <li>
                 <form action="/friends/block/<%= encodeURIComponent(other.username) %>" method="POST" class="mb-0"
                       onsubmit="return confirm('Block this user? You will stop being friends and they cannot message you.')">
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <input type="hidden" name="ret" value="/friends?tab=blocked">
-                  <button class="dropdown-item text-danger">⛔ Block user</button>
+                  <button class="dropdown-item text-danger"><span class="mi bad">⛔</span>Block user</button>
                 </form>
               </li>
             </ul>

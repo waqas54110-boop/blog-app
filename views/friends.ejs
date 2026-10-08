@@ -9,125 +9,223 @@
     <button class="btn btn-sm ${cls}">${label}</button>
   </form>`; %>
 
+<style>
+  .fr { --acc: #0a6b4d; --acc2: #12a37f; --line: color-mix(in srgb, var(--bs-body-color) 10%, transparent); }
+  [data-bs-theme="dark"] .fr { --line: rgba(255,255,255,.1); }
+  body:has(.fr) { background: radial-gradient(900px 480px at 100% -8%, color-mix(in srgb, #0a6b4d 12%, transparent), transparent 62%), radial-gradient(800px 440px at 0% 0%, color-mix(in srgb, #7c3aed 9%, transparent), transparent 60%), var(--bs-tertiary-bg); background-attachment: fixed; }
+
+  /* ===== Hero ===== */
+  .fr-hero { position: relative; isolation: isolate; overflow: hidden; color: #fff; border-radius: 1.6rem; padding: clamp(1.2rem, 3.5vw, 2rem); margin-bottom: 1rem;
+    background: radial-gradient(420px 220px at 100% 0%, rgba(245,158,11,.36), transparent 62%), radial-gradient(420px 240px at 0% 130%, rgba(124,58,237,.45), transparent 62%), linear-gradient(120deg, #0b1f35 0%, #0a4a43 58%, #0a6b4d 100%);
+    box-shadow: 0 22px 44px -22px rgba(10,74,67,.8); }
+  .fr-hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(rgba(255,255,255,.15) 1px, transparent 1.3px); background-size: 20px 20px; -webkit-mask-image: linear-gradient(115deg, #000, transparent 72%); mask-image: linear-gradient(115deg, #000, transparent 72%); }
+  .fr-orbit { position: absolute; right: -60px; top: -60px; width: 240px; height: 240px; z-index: -1; border-radius: 50%; border: 1px dashed rgba(255,255,255,.28); animation: spin 38s linear infinite; }
+  .fr-orbit::before, .fr-orbit::after { content: ""; position: absolute; border-radius: 50%; }
+  .fr-orbit::before { width: 16px; height: 16px; top: 18px; left: 50%; background: #fbbf24; box-shadow: 0 0 18px #fbbf24; }
+  .fr-orbit::after { inset: 38px; border: 1px dashed rgba(255,255,255,.2); }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .fr-hero h1 { margin: 0; font: 800 clamp(1.6rem, 4vw, 2.2rem)/1.05 var(--kz-serif, Georgia, serif); letter-spacing: -.02em; }
+  .fr-hero p { margin: .35rem 0 0; opacity: .82; font: 500 .95rem var(--kz-sans, system-ui); }
+  .fr-stats { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1rem; }
+  .fr-stat { display: inline-flex; align-items: baseline; gap: .4rem; padding: .35rem .8rem; border-radius: 2rem; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.22); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); font: 600 .8rem var(--kz-sans, system-ui); }
+  .fr-stat b { font: 800 1.05rem var(--kz-sans, system-ui); }
+
+  /* ===== Tabs ===== */
+  .fr-tabs { display: flex; gap: .3rem; padding: .3rem; margin-bottom: 1rem; overflow-x: auto; scrollbar-width: none; border-radius: 2rem; background: var(--bs-body-bg); border: 1px solid var(--line); box-shadow: 0 8px 24px -16px rgba(0,0,0,.35); }
+  .fr-tabs::-webkit-scrollbar { display: none; }
+  .fr-tab { flex: 1 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: .4rem; padding: .55rem 1rem; border-radius: 2rem; white-space: nowrap; text-decoration: none; color: var(--bs-secondary-color); font: 700 .88rem var(--kz-sans, system-ui); transition: background .18s, color .18s, transform .18s; }
+  .fr-tab:hover { color: var(--bs-body-color); background: color-mix(in srgb, var(--acc) 8%, transparent); }
+  .fr-tab.on { color: #fff; background: linear-gradient(135deg, #0a6b4d, #12a37f); box-shadow: 0 8px 18px -8px rgba(10,107,77,.85); }
+  .fr-tab .n { min-width: 1.4rem; padding: .02rem .4rem; border-radius: 1rem; text-align: center; font-size: .72rem; background: color-mix(in srgb, currentColor 16%, transparent); }
+  .fr-tab .n.hot { color: #fff; background: #ef4444; animation: pulse 1.8s infinite; }
+  @keyframes pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,.55); } 60% { box-shadow: 0 0 0 7px rgba(239,68,68,0); } }
+
+  /* ===== Search ===== */
+  .fr-search { position: relative; display: flex; gap: .5rem; margin-bottom: 1.1rem; }
+  .fr-search .ico { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: .6; }
+  .fr-search input { flex: 1; min-width: 0; padding: .8rem 1rem .8rem 2.6rem; border-radius: 2rem; border: 1px solid var(--line); background: var(--bs-body-bg); color: var(--bs-body-color); font: 500 1rem var(--kz-sans, system-ui); outline: 0; box-shadow: 0 8px 24px -16px rgba(0,0,0,.35); transition: border-color .15s, box-shadow .15s; }
+  .fr-search input:focus { border-color: var(--acc); box-shadow: 0 0 0 4px color-mix(in srgb, var(--acc) 16%, transparent); }
+  .fr-search button { border: 0; padding: 0 1.3rem; border-radius: 2rem; color: #fff; font: 800 .9rem var(--kz-sans, system-ui); background: linear-gradient(135deg, #0a6b4d, #12a37f); box-shadow: 0 8px 18px -8px rgba(10,107,77,.85); transition: transform .15s; }
+  .fr-search button:hover { transform: translateY(-1px); }
+
+  .fr-h { display: flex; align-items: center; gap: .6rem; margin: 1.3rem .3rem .7rem; font: 800 .74rem var(--kz-sans, system-ui); letter-spacing: .12em; text-transform: uppercase; color: var(--bs-secondary-color); }
+  .fr-h::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
+  .fr-note { margin: 0 .3rem .8rem; font: 500 .85rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); }
+
+  /* ===== Cards (orbit ring + cursor spotlight) ===== */
+  .fr-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+  .fr-card { --mx: 50%; --my: 0%; position: relative; isolation: isolate; overflow: hidden; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .3rem .9rem; padding: .95rem 1rem;
+    border-radius: 1.3rem; background: var(--bs-body-bg); border: 1px solid var(--line); box-shadow: 0 1px 2px rgba(16,24,40,.05), 0 14px 30px -22px rgba(16,24,40,.45);
+    transition: transform .22s cubic-bezier(.2,.7,.2,1), box-shadow .22s, border-color .22s; animation: cardIn .45s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--i) * 45ms); }
+  .fr-card::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: 0; transition: opacity .25s; background: radial-gradient(240px circle at var(--mx) var(--my), hsl(var(--h) 85% 55% / .16), transparent 70%); }
+  .fr-card:hover { transform: translateY(-4px); border-color: hsl(var(--h) 70% 55% / .45); box-shadow: 0 2px 4px rgba(16,24,40,.06), 0 26px 44px -22px hsl(var(--h) 70% 40% / .55); }
+  .fr-card:hover::before { opacity: 1; }
+  @keyframes cardIn { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+
+  .fr-ring { position: relative; flex: none; display: grid; place-items: center; width: 62px; height: 62px; border-radius: 50%; text-decoration: none; padding: 3px;
+    background: conic-gradient(from 0deg, hsl(var(--h) 85% 55%), hsl(calc(var(--h) + 70) 85% 60%), hsl(calc(var(--h) + 140) 85% 55%), hsl(var(--h) 85% 55%)); transition: transform .35s; }
+  .fr-card:hover .fr-ring { transform: rotate(18deg) scale(1.05); }
+  .fr-card:hover .fr-ring .avatar { transform: rotate(-18deg); }
+  .fr-ring::after { content: ""; position: absolute; right: 2px; bottom: 2px; width: 13px; height: 13px; border-radius: 50%; background: #22c55e; border: 2.5px solid var(--bs-body-bg); opacity: 0; }
+  .fr-ring .avatar { width: 100%; height: 100%; font: 800 1.4rem var(--kz-serif, Georgia, serif); border: 3px solid var(--bs-body-bg); background: linear-gradient(135deg, hsl(var(--h) 75% 46%), hsl(calc(var(--h) + 45) 80% 56%)); transition: transform .35s; }
+  .fr-info { min-width: 0; }
+  .fr-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 1.05rem/1.2 var(--kz-sans, system-ui); color: var(--bs-body-color); text-decoration: none; }
+  .fr-name:hover { color: hsl(var(--h) 70% 42%); }
+  .fr-sub { margin-top: .25rem; font: 500 .78rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); }
+  .fr-chip { display: inline-flex; align-items: center; gap: .25rem; padding: .12rem .55rem; border-radius: 2rem; font: 700 .72rem var(--kz-sans, system-ui); color: hsl(var(--h) 65% 34%); background: hsl(var(--h) 80% 55% / .14); }
+  [data-bs-theme="dark"] .fr-chip { color: hsl(var(--h) 85% 76%); }
+  .fr-chip.ghost { color: var(--bs-secondary-color); background: color-mix(in srgb, var(--bs-body-color) 7%, transparent); }
+  .fr-badge { justify-self: end; align-self: start; }
+  .fr-state { display: inline-block; padding: .2rem .65rem; border-radius: 2rem; font: 800 .72rem var(--kz-sans, system-ui); color: #92400e; background: #fef3c7; border: 1px solid #fcd34d; }
+  [data-bs-theme="dark"] .fr-state { color: #fde68a; background: rgba(245,158,11,.14); border-color: rgba(245,158,11,.4); }
+  .fr-state.ok { color: #065f46; background: #d1fae5; border-color: #6ee7b7; }
+  [data-bs-theme="dark"] .fr-state.ok { color: #6ee7b7; background: rgba(16,185,129,.14); border-color: rgba(16,185,129,.4); }
+  .fr-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .55rem; }
+  .fr-actions:empty { display: none; }
+  .fr-actions form { flex: 1 1 0; display: flex; }
+  .fr-actions a.fr-b { flex: 1 1 0; }
+
+  .btn.fr-b, a.fr-b { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: .3rem; padding: .5rem .9rem; border-radius: 2rem; border: 1px solid transparent; font: 800 .82rem var(--kz-sans, system-ui); text-decoration: none; white-space: nowrap; transition: transform .15s, box-shadow .15s, background .15s; }
+  .btn.fr-b:hover, a.fr-b:hover { transform: translateY(-2px); }
+  .fr-go { color: #fff !important; background: linear-gradient(135deg, #0a6b4d, #12a37f); box-shadow: 0 8px 16px -8px rgba(10,107,77,.9); }
+  .fr-go:hover { box-shadow: 0 12px 20px -8px rgba(10,107,77,.95); }
+  .fr-msg { color: #fff !important; background: linear-gradient(135deg, hsl(var(--h) 75% 42%), hsl(calc(var(--h) + 40) 80% 52%)); box-shadow: 0 8px 16px -8px hsl(var(--h) 75% 35% / .9); }
+  .fr-soft { color: var(--bs-body-color); background: color-mix(in srgb, var(--bs-body-color) 7%, transparent); }
+  .fr-soft:hover { background: color-mix(in srgb, var(--bs-body-color) 13%, transparent); }
+  .fr-danger { color: #dc2626; background: rgba(220,38,38,.08); }
+  .fr-danger:hover { color: #fff; background: #dc2626; }
+  .fr-actions form:has(.fr-danger), .fr-actions form:has(.fr-soft) { flex: 0 1 auto; }
+
+  .fr-empty { text-align: center; padding: 2.6rem 1rem; border-radius: 1.4rem; border: 1.5px dashed var(--line); background: color-mix(in srgb, var(--bs-body-bg) 70%, transparent); color: var(--bs-secondary-color); font: 600 .95rem var(--kz-sans, system-ui); }
+  .fr-empty .em { display: block; font-size: 2.6rem; margin-bottom: .4rem; }
+  .fr-empty a { color: var(--acc); font-weight: 800; }
+  .fr-flash { margin-bottom: 1rem; padding: .75rem 1rem; border-radius: 1rem; font: 700 .9rem var(--kz-sans, system-ui); color: #065f46; background: #d1fae5; border: 1px solid #6ee7b7; animation: cardIn .3s ease; }
+  [data-bs-theme="dark"] .fr-flash { color: #6ee7b7; background: rgba(16,185,129,.14); border-color: rgba(16,185,129,.4); }
+
+  @media (max-width: 767.98px) { .fr-grid { grid-template-columns: 1fr; } .fr-orbit { width: 180px; height: 180px; } }
+  @media (prefers-reduced-motion: reduce) { .fr-card, .fr-orbit, .fr-tab .n.hot, .fr-flash { animation: none; } .fr-card, .fr-ring, .fr-ring .avatar { transition: none; } }
+</style>
+
+<%
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+%>
+
 <div class="row justify-content-center">
-  <div class="col-12 col-lg-8">
+  <div class="col-12 col-lg-10 col-xl-9">
+    <div class="fr">
 
-    <% if (msg) { %><div class="alert alert-success"><%= msg %></div><% } %>
+      <% if (msg) { %><div class="fr-flash" role="status">✨ <%= msg %></div><% } %>
 
-    <div class="card border-0 shadow-sm">
-      <div class="card-body p-4">
-        <h1 class="h3 fw-bold mb-3">👫 Friends</h1>
+      <header class="fr-hero">
+        <div class="fr-orbit" aria-hidden="true"></div>
+        <h1>👫 Friends</h1>
+        <p>Apne log dhundo, jodo aur baat karo.</p>
+        <div class="fr-stats">
+          <span class="fr-stat"><b><%= friends.length %></b> friends</span>
+          <span class="fr-stat"><b><%= incoming.length %></b> requests</span>
+          <span class="fr-stat"><b><%= outgoing.length %></b> sent</span>
+        </div>
+      </header>
 
-        <ul class="nav nav-pills mb-4 gap-1">
-          <li class="nav-item"><a class="nav-link <%= tab === 'people' ? 'active' : '' %>" href="/friends?tab=people">People</a></li>
-          <li class="nav-item">
-            <a class="nav-link <%= tab === 'requests' ? 'active' : '' %>" href="/friends?tab=requests">
-              Requests <% if (incoming.length) { %><span class="badge rounded-pill bg-danger"><%= incoming.length %></span><% } %>
-            </a>
-          </li>
-          <li class="nav-item"><a class="nav-link <%= tab === 'friends' ? 'active' : '' %>" href="/friends?tab=friends">My friends (<%= friends.length %>)</a></li>
-          <% if (blocked.length || tab === 'blocked') { %><li class="nav-item"><a class="nav-link <%= tab === 'blocked' ? 'active' : '' %>" href="/friends?tab=blocked">Blocked (<%= blocked.length %>)</a></li><% } %>
-        </ul>
+      <nav class="fr-tabs" aria-label="Friends sections">
+        <a class="fr-tab <%= tab === 'people' ? 'on' : '' %>" href="/friends?tab=people">🌍 People</a>
+        <a class="fr-tab <%= tab === 'requests' ? 'on' : '' %>" href="/friends?tab=requests">📨 Requests <% if (incoming.length) { %><span class="n hot"><%= incoming.length %></span><% } %></a>
+        <a class="fr-tab <%= tab === 'friends' ? 'on' : '' %>" href="/friends?tab=friends">💚 My friends <span class="n"><%= friends.length %></span></a>
+        <% if (blocked.length || tab === 'blocked') { %><a class="fr-tab <%= tab === 'blocked' ? 'on' : '' %>" href="/friends?tab=blocked">⛔ Blocked <span class="n"><%= blocked.length %></span></a><% } %>
+      </nav>
 
-        <% if (tab === 'people') { %>
-          <form action="/friends" method="GET" class="d-flex gap-2 mb-3">
-            <input type="hidden" name="tab" value="people">
-            <input class="form-control" type="search" name="q" value="<%= q %>" maxlength="50" placeholder="Search by username...">
-            <button class="btn btn-outline-primary" type="submit">Search</button>
-          </form>
+      <% if (tab === 'people') { %>
+        <form action="/friends" method="GET" class="fr-search" role="search">
+          <input type="hidden" name="tab" value="people">
+          <span class="ico">🔍</span>
+          <input type="search" name="q" value="<%= q %>" maxlength="50" placeholder="Username se dhundo..." aria-label="Search by username">
+          <button type="submit">Search</button>
+        </form>
 
-          <% const qs = q ? '&q=' + encodeURIComponent(q) : ''; %>
+        <% const qs = q ? '&q=' + encodeURIComponent(q) : ''; %>
 
-          <% if (suggestions.length) { %>
-            <h2 class="h6 text-uppercase text-body-secondary">People you may know</h2>
-            <div class="list-group mb-4">
-              <% suggestions.forEach(p => { %><%- include('partials/person-row', { p, act, here, qs }) %><% }) %>
-            </div>
-            <h2 class="h6 text-uppercase text-body-secondary">Everyone</h2>
-          <% } %>
-
-          <% if (people.length === 0) { %>
-            <p class="text-body-secondary mb-0"><%= suggestions.length ? 'No other users.' : 'No users found.' %></p>
-          <% } else { %>
-            <div class="list-group">
-              <% people.forEach(p => { %><%- include('partials/person-row', { p, act, here, qs }) %><% }) %>
-            </div>
-          <% } %>
-
-        <% } else if (tab === 'requests') { %>
-          <h2 class="h6 text-uppercase text-body-secondary">Received</h2>
-          <% if (incoming.length === 0) { %>
-            <p class="text-body-secondary">No pending requests.</p>
-          <% } else { %>
-            <div class="list-group mb-4">
-              <% incoming.forEach(p => { %>
-                <div class="list-group-item d-flex align-items-center gap-3">
-                  <span class="avatar"><%= p.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(p.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
-                  <div class="flex-grow-1">
-                    <a href="/u/<%= encodeURIComponent(p.username) %>" class="fw-semibold text-reset text-decoration-none"><%= p.username %></a>
-                    <div class="small text-body-secondary"><%= fmt(p.created_at) %><% if (p.mutual > 0) { %> · 👥 <%= p.mutual %> mutual friend<%= p.mutual === 1 ? '' : 's' %><% } %></div>
-                  </div>
-                  <%- act('accept', p.username, 'Accept', 'btn-success') %>
-                  <%- act('decline', p.username, 'Decline', 'btn-outline-secondary') %>
-                </div>
-              <% }) %>
-            </div>
-          <% } %>
-
-          <h2 class="h6 text-uppercase text-body-secondary">Sent</h2>
-          <% if (outgoing.length === 0) { %>
-            <p class="text-body-secondary mb-0">You have no pending sent requests.</p>
-          <% } else { %>
-            <div class="list-group">
-              <% outgoing.forEach(p => { %>
-                <div class="list-group-item d-flex align-items-center gap-3">
-                  <span class="avatar"><%= p.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(p.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
-                  <a href="/u/<%= encodeURIComponent(p.username) %>" class="fw-semibold flex-grow-1 text-reset text-decoration-none"><%= p.username %></a>
-                  <%- act('decline', p.username, 'Cancel request', 'btn-outline-secondary') %>
-                </div>
-              <% }) %>
-            </div>
-          <% } %>
-
-        <% } else if (tab === 'blocked') { %>
-          <% if (blocked.length === 0) { %>
-            <p class="text-body-secondary mb-0">You have not blocked anyone.</p>
-          <% } else { %>
-            <p class="small text-body-secondary">Blocked users cannot send you friend requests or messages, and you do not see each other in People.</p>
-            <div class="list-group">
-              <% blocked.forEach(p => { %>
-                <div class="list-group-item d-flex align-items-center gap-3">
-                  <span class="avatar"><%= p.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(p.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
-                  <a href="/u/<%= encodeURIComponent(p.username) %>" class="fw-semibold flex-grow-1 text-reset text-decoration-none"><%= p.username %></a>
-                  <%- act('unblock', p.username, 'Unblock', 'btn-outline-secondary') %>
-                </div>
-              <% }) %>
-            </div>
-          <% } %>
-
-        <% } else { %>
-          <% if (friends.length === 0) { %>
-            <p class="text-body-secondary mb-0">No friends yet. Go to <a href="/friends?tab=people">People</a> and send a request.</p>
-          <% } else { %>
-            <div class="list-group">
-              <% friends.forEach(p => { %>
-                <div class="list-group-item d-flex align-items-center gap-3">
-                  <span class="avatar"><%= p.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(p.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
-                  <div class="flex-grow-1">
-                    <a href="/u/<%= encodeURIComponent(p.username) %>" class="fw-semibold text-reset text-decoration-none"><%= p.username %></a>
-                    <div class="small text-body-secondary">Friends since <%= fmt(p.since) %></div>
-                  </div>
-                  <a href="/messages/<%= encodeURIComponent(p.username) %>" class="btn btn-sm btn-primary">💬 Message</a>
-                  <%- act('remove', p.username, 'Unfriend', 'btn-outline-danger') %>
-                </div>
-              <% }) %>
-            </div>
-          <% } %>
+        <% if (suggestions.length) { %>
+          <div class="fr-h">✨ People you may know</div>
+          <div class="fr-grid">
+            <% suggestions.forEach((p, i) => { %><%- include('partials/person-row', { p, act, here, qs, i }) %><% }) %>
+          </div>
+          <div class="fr-h">Everyone</div>
         <% } %>
 
-      </div>
+        <% if (people.length === 0) { %>
+          <div class="fr-empty"><span class="em">🔭</span><%= suggestions.length ? 'No other users.' : 'No users found.' %></div>
+        <% } else { %>
+          <div class="fr-grid">
+            <% people.forEach((p, i) => { %><%- include('partials/person-row', { p, act, here, qs, i }) %><% }) %>
+          </div>
+        <% } %>
+
+      <% } else if (tab === 'requests') { %>
+        <div class="fr-h">Received</div>
+        <% if (incoming.length === 0) { %>
+          <div class="fr-empty"><span class="em">📭</span>No pending requests.</div>
+        <% } else { %>
+          <div class="fr-grid">
+            <% incoming.forEach((p, i) => {
+              const sub = `<span class="fr-chip">${esc(fmt(p.created_at))}</span>` + (p.mutual > 0 ? ` <span class="fr-chip">👥 ${p.mutual} mutual</span>` : '');
+              const actions = act('accept', p.username, '✓ Accept', 'fr-b fr-go') + act('decline', p.username, 'Decline', 'fr-b fr-soft');
+            %><%- include('partials/fr-card', { p, sub, actions, i }) %><% }) %>
+          </div>
+        <% } %>
+
+        <div class="fr-h">Sent</div>
+        <% if (outgoing.length === 0) { %>
+          <div class="fr-empty"><span class="em">📤</span>You have no pending sent requests.</div>
+        <% } else { %>
+          <div class="fr-grid">
+            <% outgoing.forEach((p, i) => {
+              const sub = '<span class="fr-chip ghost">⏳ Waiting for reply</span>';
+              const actions = act('decline', p.username, 'Cancel request', 'fr-b fr-soft');
+            %><%- include('partials/fr-card', { p, sub, actions, i }) %><% }) %>
+          </div>
+        <% } %>
+
+      <% } else if (tab === 'blocked') { %>
+        <% if (blocked.length === 0) { %>
+          <div class="fr-empty"><span class="em">🕊️</span>You have not blocked anyone.</div>
+        <% } else { %>
+          <p class="fr-note">Blocked users cannot send you friend requests or messages, and you do not see each other in People.</p>
+          <div class="fr-grid">
+            <% blocked.forEach((p, i) => {
+              const sub = '<span class="fr-chip ghost">⛔ Blocked</span>';
+              const actions = act('unblock', p.username, 'Unblock', 'fr-b fr-soft');
+            %><%- include('partials/fr-card', { p, sub, actions, i }) %><% }) %>
+          </div>
+        <% } %>
+
+      <% } else { %>
+        <% if (friends.length === 0) { %>
+          <div class="fr-empty"><span class="em">🌱</span>No friends yet. Go to <a href="/friends?tab=people">People</a> and send a request.</div>
+        <% } else { %>
+          <div class="fr-grid">
+            <% friends.forEach((p, i) => {
+              const sub = `<span class="fr-chip">💚 Since ${esc(fmt(p.since))}</span>`;
+              const actions = `<a href="/messages/${encodeURIComponent(p.username)}" class="fr-b fr-msg">💬 Message</a>` + act('remove', p.username, 'Unfriend', 'fr-b fr-danger');
+            %><%- include('partials/fr-card', { p, sub, actions, i }) %><% }) %>
+          </div>
+        <% } %>
+      <% } %>
+
     </div>
   </div>
 </div>
+
+<script>
+  // Cursor spotlight: card ke andar mouse ke peeche rang ki roshni chalti hai
+  document.querySelectorAll('.fr-card').forEach(function (c) {
+    c.addEventListener('pointermove', function (e) {
+      var r = c.getBoundingClientRect();
+      c.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+      c.style.setProperty('--my', (e.clientY - r.top) + 'px');
+    });
+  });
+  var on = document.querySelector('.fr-tab.on');
+  if (on && on.scrollIntoView) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+</script>
 
 <%- include('partials/footer') %>

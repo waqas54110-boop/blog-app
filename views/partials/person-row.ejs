@@ -1,19 +1,19 @@
-<%# People tab / suggestions ki ek row. Locals: p, act, here, qs %>
-<div class="list-group-item d-flex align-items-center gap-3">
-  <span class="avatar"><%= p.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(p.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
-  <div class="flex-grow-1">
-    <a href="/u/<%= encodeURIComponent(p.username) %>" class="fw-semibold text-reset text-decoration-none"><%= p.username %></a>
-    <% if (p.mutual > 0) { %><div class="small text-body-secondary">👥 <%= p.mutual %> mutual friend<%= p.mutual === 1 ? '' : 's' %></div><% } %>
-  </div>
-  <% if (p.state === 'sent') { %>
-    <span class="text-body-secondary small">Request sent</span>
-    <%- act('decline', p.username, 'Cancel', 'btn-outline-secondary', here + qs) %>
-  <% } else if (p.state === 'received') { %>
-    <%- act('accept', p.username, 'Accept', 'btn-success', here + qs) %>
-    <%- act('decline', p.username, 'Decline', 'btn-outline-secondary', here + qs) %>
-  <% } else if (p.state === 'friends') { %>
-    <span class="badge text-bg-success">✓ Friends</span>
-  <% } else { %>
-    <%- act('request', p.username, '➕ Add friend', 'btn-primary', here + qs) %>
-  <% } %>
-</div>
+<%# People tab / suggestions ki ek card. Locals: p, act, here, qs, i %>
+<%
+  const _sub = p.mutual > 0
+    ? `<span class="fr-chip">👥 ${p.mutual} mutual friend${p.mutual === 1 ? '' : 's'}</span>`
+    : '<span class="fr-chip ghost">New to you</span>';
+  let _actions = '';
+  let _badge = '';
+  if (p.state === 'sent') {
+    _badge = '<span class="fr-state">⏳ Request sent</span>';
+    _actions = act('decline', p.username, 'Cancel', 'fr-b fr-soft', here + qs);
+  } else if (p.state === 'received') {
+    _actions = act('accept', p.username, '✓ Accept', 'fr-b fr-go', here + qs) + act('decline', p.username, 'Decline', 'fr-b fr-soft', here + qs);
+  } else if (p.state === 'friends') {
+    _badge = '<span class="fr-state ok">✓ Friends</span>';
+  } else {
+    _actions = act('request', p.username, '＋ Add friend', 'fr-b fr-go', here + qs);
+  }
+%>
+<%- include('fr-card', { p, sub: _sub, actions: _actions, badge: _badge, i: locals.i || 0 }) %>

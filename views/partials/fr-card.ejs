@@ -1,0 +1,15 @@
+<%# Friends page ka ek card. Locals: p (user), sub (pehle se escaped HTML), actions (HTML), badge (optional HTML), i (animation index) %>
+<%
+  const _h = (() => { let h = 0; for (const c of String(p.username)) h = (h * 31 + c.charCodeAt(0)) % 360; return h; })();
+%>
+<article class="fr-card" style="--h: <%= _h %>; --i: <%= locals.i || 0 %>;">
+  <a class="fr-ring" href="/u/<%= encodeURIComponent(p.username) %>" aria-label="Open <%= p.username %> profile">
+    <span class="avatar"><%= p.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(p.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
+  </a>
+  <div class="fr-info">
+    <a href="/u/<%= encodeURIComponent(p.username) %>" class="fr-name"><%= p.username %></a>
+    <div class="fr-sub"><%- sub || '' %></div>
+  </div>
+  <% if (locals.badge) { %><div class="fr-badge"><%- badge %></div><% } %>
+  <div class="fr-actions"><%- actions %></div>
+</article>
