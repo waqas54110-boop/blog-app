@@ -242,6 +242,9 @@ app.post(
   express.raw({ type: ['image/jpeg', 'audio/webm', 'audio/ogg', 'audio/mp4'], limit: '3mb' })
 );
 
+// Private message reaction / delete: JSON (CSRF token header x-csrf-token mein). Ye bhi csrf se pehle.
+app.use('/messages', express.json({ limit: '4kb' }));
+
 // Push subscribe/unsubscribe JSON bhejte hain (CSRF token header x-csrf-token mein)
 app.use('/push', express.json({ limit: '8kb' }));
 

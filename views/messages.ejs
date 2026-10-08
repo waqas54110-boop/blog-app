@@ -1,39 +1,142 @@
 <%- include('partials/header') %>
 
-<% const when = (d) => { const t = new Date(d), n = new Date(); return t.toDateString() === n.toDateString()
-     ? t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-     : t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }; %>
+<%
+  const when = (d) => { const t = new Date(d), n = new Date(); return t.toDateString() === n.toDateString()
+    ? t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+    : t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); };
+  const PALETTE = ['#0a6b4d', '#2563eb', '#c2410c', '#7c3aed', '#be185d', '#0e7490', '#a16207', '#4d7c0f'];
+  const colorOf = (name) => { let h = 0; for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PALETTE[h % PALETTE.length]; };
+  const unreadAll = list.reduce((a, c) => a + (c.unread || 0), 0);
+  const unreadChats = list.filter(c => c.unread > 0).length;
+%>
+
+<style>
+  .ms { --ms-line: color-mix(in srgb, var(--bs-body-color) 10%, transparent); --ms-shadow: 0 1px 2px rgba(16,24,40,.05), 0 12px 30px -16px rgba(16,24,40,.25); --ms-acc: var(--kz-accent, #0a6b4d); }
+  [data-bs-theme="dark"] .ms { --ms-line: rgba(255,255,255,.09); --ms-shadow: 0 1px 2px rgba(0,0,0,.5), 0 14px 32px -16px rgba(0,0,0,.8); }
+  body:has(.ms) { background: radial-gradient(900px 480px at 100% -8%, color-mix(in srgb, #0a6b4d 12%, transparent), transparent 62%), radial-gradient(800px 440px at 0% 0%, color-mix(in srgb, #2563eb 8%, transparent), transparent 60%), var(--bs-tertiary-bg); background-attachment: fixed; }
+  @keyframes msUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
+  .ms-hero { position: relative; overflow: hidden; isolation: isolate; color: #fff; border-radius: 1.5rem 1.5rem 0 0; padding: clamp(1.2rem, 3.5vw, 2rem);
+    background: radial-gradient(420px 220px at 95% 0%, rgba(245,158,11,.38), transparent 62%), radial-gradient(460px 260px at 0% 120%, rgba(20,184,166,.42), transparent 62%), linear-gradient(120deg, #0b1f35 0%, #0a4a43 58%, #0a6b4d 100%); }
+  .ms-hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(rgba(255,255,255,.15) 1px, transparent 1.3px); background-size: 22px 22px; -webkit-mask-image: linear-gradient(115deg, #000, transparent 70%); mask-image: linear-gradient(115deg, #000, transparent 70%); }
+  .ms-hero h1 { font: 800 clamp(1.6rem, 4vw, 2.3rem)/1.05 var(--kz-serif, Georgia, serif); letter-spacing: -.02em; margin: 0 0 .25rem; }
+  .ms-hero p { margin: 0; font: 400 .95rem var(--kz-sans, system-ui); opacity: .85; }
+  .ms-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+  .ms-chips { display: flex; gap: .5rem; flex-wrap: wrap; }
+  .ms-chip { padding: .4rem .9rem; border-radius: 2rem; font: 700 .78rem var(--kz-sans, system-ui); background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.26); }
+  .ms-chip b { font-size: 1rem; margin-right: .25rem; }
+  .ms-find { position: relative; margin-top: 1.1rem; }
+  .ms-find input { width: 100%; border: 1px solid rgba(255,255,255,.3); background: rgba(255,255,255,.14); color: #fff; border-radius: 2rem; padding: .65rem 1.1rem .65rem 2.6rem; font: 500 1rem var(--kz-sans, system-ui); outline: 0; -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+  .ms-find input::placeholder { color: rgba(255,255,255,.72); }
+  .ms-find input:focus { background: rgba(255,255,255,.22); }
+  .ms-find::before { content: "🔎"; position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); font-size: .95rem; }
+
+  .ms-card { background: var(--bs-body-bg); border: 1px solid var(--ms-line); border-top: 0; border-radius: 0 0 1.5rem 1.5rem; box-shadow: var(--ms-shadow); overflow: hidden; }
+  .ms-tabs { display: flex; gap: .3rem; padding: .8rem 1rem .4rem; }
+  .ms-tabs button { border: 0; background: transparent; padding: .38rem .95rem; border-radius: 2rem; font: 700 .82rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); transition: background .15s, color .15s; }
+  .ms-tabs button.on { background: color-mix(in srgb, var(--ms-acc) 13%, transparent); color: var(--ms-acc); }
+  .ms-list { display: flex; flex-direction: column; padding: .3rem .6rem .8rem; }
+  .ms-item { position: relative; display: flex; align-items: center; gap: .9rem; padding: .8rem .8rem; border-radius: 1rem; text-decoration: none; color: inherit; transition: background .15s, transform .15s; animation: msUp .45s cubic-bezier(.2,.7,.2,1) backwards; }
+  .ms-item:hover { background: color-mix(in srgb, var(--ms-acc) 7%, transparent); transform: translateX(3px); color: inherit; }
+  .ms-item.unread { background: color-mix(in srgb, var(--ms-acc) 8%, transparent); }
+  .ms-item.unread::before { content: ""; position: absolute; left: 0; top: 18%; bottom: 18%; width: 4px; border-radius: 4px; background: var(--ms-acc); }
+  .ms-av { position: relative; flex: none; }
+  .ms-av .avatar { width: 52px; height: 52px; font-size: 1.3rem; background: var(--c); box-shadow: 0 0 0 3px var(--bs-body-bg), 0 0 0 5px color-mix(in srgb, var(--c) 55%, transparent); }
+  .ms-main { flex: 1; min-width: 0; }
+  .ms-name { font: 800 1.02rem var(--kz-sans, system-ui); }
+  .ms-prev { font: 400 .9rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: .1rem; }
+  .ms-item.unread .ms-prev { color: var(--bs-body-color); font-weight: 700; }
+  .ms-side { text-align: right; flex: none; font: 600 .75rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); }
+  .ms-badge { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0 .4rem; margin-top: .3rem; border-radius: 2rem; font: 800 .72rem var(--kz-sans, system-ui); color: #fff; background: linear-gradient(135deg, #0a6b4d, #12a37f); box-shadow: 0 4px 10px rgba(10,107,77,.4); }
+  .ms-empty { text-align: center; padding: 3rem 1.2rem; }
+  .ms-empty .em { font-size: 3.2rem; }
+  .ms-empty h2 { font: 800 1.35rem var(--kz-serif, Georgia, serif); margin: .5rem 0 .3rem; }
+  .ms-empty p { color: var(--bs-secondary-color); margin-bottom: 1rem; }
+  .ms-btn { display: inline-block; padding: .55rem 1.4rem; border-radius: 2rem; font: 800 .88rem var(--kz-sans, system-ui); text-decoration: none; color: #fff; background: linear-gradient(135deg, #0a6b4d, #12a37f); transition: transform .15s, box-shadow .15s; }
+  .ms-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 22px -10px rgba(10,107,77,.7); color: #fff; }
+  .ms-foot { padding: .8rem 1.2rem 1.1rem; text-align: center; font: 500 .8rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); border-top: 1px dashed var(--ms-line); }
+  .ms-foot a { color: var(--ms-acc); font-weight: 700; text-decoration: none; }
+  @media (prefers-reduced-motion: reduce) { .ms-item { animation: none; transition: none; } }
+</style>
 
 <div class="row justify-content-center">
-  <div class="col-12 col-lg-8">
-    <div class="card border-0 shadow-sm">
-      <div class="card-body p-4">
-        <h1 class="h3 fw-bold mb-3">💬 Messages</h1>
+  <div class="col-12 col-lg-8 col-xl-7">
+    <div class="ms">
+      <section class="ms-hero">
+        <div class="ms-top">
+          <div>
+            <h1>💬 Messages</h1>
+            <p>Private chats with your friends</p>
+          </div>
+          <div class="ms-chips">
+            <span class="ms-chip"><b><%= list.length %></b>chat<%= list.length === 1 ? '' : 's' %></span>
+            <% if (unreadAll > 0) { %><span class="ms-chip"><b><%= unreadAll %></b>unread</span><% } %>
+          </div>
+        </div>
+        <% if (list.length > 0) { %>
+          <div class="ms-find"><input type="search" id="msSearch" placeholder="Search your chats..." aria-label="Search your chats" autocomplete="off"></div>
+        <% } %>
+      </section>
 
+      <div class="ms-card">
         <% if (list.length === 0) { %>
-          <p class="text-body-secondary mb-0">You can message your friends here. <a href="/friends?tab=people">Add a friend</a> to start.</p>
+          <div class="ms-empty">
+            <div class="em">👋</div>
+            <h2>No chats yet</h2>
+            <p>You can message your friends here. Add a friend to start a conversation.</p>
+            <a href="/friends?tab=people" class="ms-btn">Find friends</a>
+          </div>
         <% } else { %>
-          <div class="list-group">
-            <% list.forEach(c => { %>
-              <a href="/messages/<%= encodeURIComponent(c.username) %>" class="list-group-item list-group-item-action d-flex align-items-center gap-3">
-                <span class="avatar"><%= c.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(c.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
-                <div class="flex-grow-1 overflow-hidden">
-                  <div class="fw-semibold"><%= c.username %></div>
-                  <div class="small text-body-secondary text-truncate <%= c.unread > 0 ? 'fw-semibold text-body' : '' %>">
-                    <% if (c.media_kind) { %><%= c.last_sender === user.id ? 'You: ' : '' %><%= c.media_kind === 'voice' ? '🎤 Voice message' : '📷 Photo' %><% } else if (c.body) { %><%= c.last_sender === user.id ? 'You: ' : '' %><%= c.body %><% } else { %>Say hello 👋<% } %>
+          <div class="ms-tabs" role="tablist" aria-label="Filter chats">
+            <button type="button" class="on" data-f="all">All</button>
+            <button type="button" data-f="unread">Unread<% if (unreadChats > 0) { %> (<%= unreadChats %>)<% } %></button>
+          </div>
+          <div class="ms-list" id="msList">
+            <% list.forEach((c, i) => { %>
+              <a href="/messages/<%= encodeURIComponent(c.username) %>" class="ms-item <%= c.unread > 0 ? 'unread' : '' %>" data-name="<%= c.username.toLowerCase() %>" data-unread="<%= c.unread > 0 ? 1 : 0 %>" style="--c: <%= colorOf(c.username) %>; animation-delay: <%= Math.min(i, 10) * 0.04 %>s;">
+                <span class="ms-av"><span class="avatar"><%= c.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(c.username) %>" alt="" width="52" height="52" loading="lazy" onerror="this.remove()"></span></span>
+                <span class="ms-main">
+                  <div class="ms-name"><%= c.username %></div>
+                  <div class="ms-prev">
+                    <% if (c.last_deleted) { %>🚫 Message deleted<% } else if (c.media_kind) { %><%= c.last_sender === user.id ? 'You: ' : '' %><%= c.media_kind === 'voice' ? '🎤 Voice message' : '📷 Photo' %><% } else if (c.body) { %><%= c.last_sender === user.id ? 'You: ' : '' %><%= c.body %><% } else { %>Say hello 👋<% } %>
                   </div>
-                </div>
-                <div class="text-end small text-body-secondary">
+                </span>
+                <span class="ms-side">
                   <% if (c.created_at) { %><div><%= when(c.created_at) %></div><% } %>
-                  <% if (c.unread > 0) { %><span class="badge rounded-pill bg-danger"><%= c.unread %></span><% } %>
-                </div>
+                  <% if (c.unread > 0) { %><span class="ms-badge"><%= c.unread %></span><% } %>
+                </span>
               </a>
             <% }) %>
+            <div class="ms-empty d-none" id="msNone"><div class="em">🔍</div><p class="mb-0">No chats match.</p></div>
           </div>
+          <div class="ms-foot">Only friends can message each other. <a href="/friends?tab=people">Add more friends</a></div>
         <% } %>
       </div>
     </div>
   </div>
 </div>
+
+<script>
+  (function () {
+    var items = Array.prototype.slice.call(document.querySelectorAll('.ms-item'));
+    if (!items.length) return;
+    var input = document.getElementById('msSearch');
+    var none = document.getElementById('msNone');
+    var tabs = document.querySelectorAll('.ms-tabs button');
+    var f = 'all';
+    function apply() {
+      var q = (input && input.value || '').trim().toLowerCase(), n = 0;
+      items.forEach(function (it) {
+        var ok = (f === 'all' || it.dataset.unread === '1') && (!q || it.dataset.name.indexOf(q) !== -1);
+        it.style.display = ok ? '' : 'none'; if (ok) n++;
+      });
+      none.classList.toggle('d-none', n !== 0);
+    }
+    tabs.forEach(function (b) { b.addEventListener('click', function () {
+      tabs.forEach(function (x) { x.classList.remove('on'); }); b.classList.add('on'); f = b.dataset.f; apply();
+    }); });
+    if (input) input.addEventListener('input', apply);
+  })();
+</script>
 
 <%- include('partials/footer') %>

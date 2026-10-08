@@ -24,10 +24,17 @@ const findUser = async (name) => {
 };
 const chatLink = (u) => `/messages/${encodeURIComponent(u.username)}`;
 
-// Browser ko jaane wala message (poll aur media upload dono isi shakal mein jawab dete hain)
+// Browser ko jaane wala message (poll, media upload aur pehla page load sab isi shakal mein)
+const MEDIA_LABEL = { voice: '🎤 Voice message', image: '📷 Photo' };
 const toJson = (m, meId) => ({
-  id: m.id, mine: m.sender_id === meId, body: m.body, at: m.created_at,
+  id: m.id, mine: m.sender_id === meId, body: m.deleted_at ? '' : m.body, at: m.created_at,
   kind: m.media_kind || null, secs: m.media_secs || null, media: m.media_id || null,
+  deleted: !!m.deleted_at,
+  reply: m.reply_to ? {
+    id: m.reply_to, mine: m.r_sender === meId, deleted: !!m.r_deleted,
+    text: m.r_deleted ? '' : (m.r_kind ? MEDIA_LABEL[m.r_kind] : String(m.r_body || '').slice(0, 120)),
+  } : null,
+  reactions: m.reactions || [],
 });
 
 router.get('/messages', requireLogin, async (req, res, next) => {
@@ -98,13 +105,16 @@ router.get('/messages/:username', requireLogin, async (req, res, next) => {
     }
     if (can === 'blocked') {
       // Kis ne block kiya ye nahi batate; purani chat bhi nahi dikhate
-      return res.render('chat', { title: 'Messages', other, blocked: true, messages: [], lastId: 0, seenUpTo: 0, maxLen: Msg.MAX_LEN, maxVoiceSecs: Msg.VOICE_MAX_SECS, err: null });
+      return res.render('chat', { title: 'Messages', other, blocked: true, messages: [], initial: [], features: false, reactions: [], lastId: 0, seenUpTo: 0, maxLen: Msg.MAX_LEN, maxVoiceSecs: Msg.VOICE_MAX_SECS, err: null });
     }
     await Msg.markRead(me.id, other.id);
     const messages = await Msg.thread(me.id, other.id);
     res.render('chat', {
       title: `Chat with ${other.username}`,
       other, blocked: false, messages,
+      initial: messages.map((m) => toJson(m, me.id)),
+      features: await Msg.features(),
+      reactions: Msg.REACTIONS,
       lastId: messages.length ? messages[messages.length - 1].id : 0,
       seenUpTo: await Msg.seenUpTo(me.id, other.id),
       maxLen: Msg.MAX_LEN,
@@ -120,12 +130,15 @@ router.post('/messages/:username', requireLogin, async (req, res, next) => {
     const other = await findUser(req.params.username);
     if (!other || other.id === me.id) return res.redirect('/messages');
     const back = chatLink(other);
-    if ((await Msg.canChat(me.id, other.id)) !== 'ok') return res.redirect(back);
+    const wantsJson0 = req.get('x-requested-with') === 'fetch';
+    if ((await Msg.canChat(me.id, other.id)) !== 'ok') return wantsJson0 ? res.status(403).json({ error: 'You can\'t message this user.' }) : res.redirect(back);
 
+    const wantsJson = req.get('x-requested-with') === 'fetch';
     const c = Msg.clean(req.body.body);
-    if (c.error) return res.redirect(back + '?err=' + encodeURIComponent(c.error));
-    const m = await Msg.send(me, other, c.body);
+    if (c.error) return wantsJson ? res.status(400).json({ error: c.error }) : res.redirect(back + '?err=' + encodeURIComponent(c.error));
+    const m = await Msg.send(me, other, c.body, req.body.reply_to);
     Typing.clear(Typing.dmScope(me.id, other.id), me.id).catch(() => {});
+    if (wantsJson) return res.json({ ok: true, id: m.id });
     res.redirect(back + '#m' + m.id);
   } catch (err) { next(err); }
 });
@@ -147,7 +160,7 @@ router.post('/messages/:username/media', requireLoginJson, async (req, res) => {
     if (media.kind === 'voice' && buf.length > Msg.VOICE_MAX) return res.status(413).json({ error: 'Voice message is too long.' });
 
     const duration = /^\d{1,4}$/.test(String(req.get('x-duration') || '')) ? parseInt(req.get('x-duration'), 10) : 0;
-    const m = await Msg.sendMedia(me, other, { buf, kind: media.kind, mime: media.mime, duration });
+    const m = await Msg.sendMedia(me, other, { buf, kind: media.kind, mime: media.mime, duration, replyTo: req.get('x-reply-to') });
     Typing.clear(Typing.dmScope(me.id, other.id), me.id).catch(() => {});
     res.json({ ok: true, message: toJson({ ...m, sender_id: me.id, body: '' }, me.id) });
   } catch (err) {
@@ -170,14 +183,49 @@ router.get('/messages/:username/poll', requireLoginJson, async (req, res) => {
     const rows = await Msg.thread(me.id, other.id, after, 50);
     if (rows.some((m) => m.sender_id === other.id)) await Msg.markRead(me.id, other.id);
     const [seen, typers] = await Promise.all([Msg.seenUpTo(me.id, other.id), Typing.who(scope, me.id)]);
+    const state = await Msg.syncState(me.id, other.id);
     res.json({
       messages: rows.map((m) => toJson(m, me.id)),
       seen,
       typing: typers.length > 0,
+      ...(state ? { deleted: state.deleted, reactions: state.reactions, winMin: state.winMin } : {}),
     });
   } catch (err) {
     console.error('[messages poll]', err.message);
     res.status(500).json({ error: 'server' });
+  }
+});
+
+// ---------- V41: REACTION + DELETE (JSON) ----------
+async function chatPeer(req, res) {
+  const me = req.session.user;
+  const other = await findUser(req.params.username);
+  if (!other || other.id === me.id) { res.status(404).json({ error: 'User not found.' }); return null; }
+  if ((await Msg.canChat(me.id, other.id)) !== 'ok') { res.status(403).json({ error: 'You can\'t message this user.' }); return null; }
+  return { me, other };
+}
+
+router.post('/messages/:username/react', requireLoginJson, async (req, res) => {
+  try {
+    const p = await chatPeer(req, res); if (!p) return;
+    const r = await Msg.react(p.me, p.other, req.body && req.body.id, req.body && req.body.emoji);
+    if (r.error) return res.status(400).json({ error: r.error });
+    res.json({ ok: true, reactions: r.reactions });
+  } catch (err) {
+    console.error('[message react] (migration_v41.sql chali?):', err.message);
+    res.status(500).json({ error: 'Could not react. Please try again.' });
+  }
+});
+
+router.post('/messages/:username/delete', requireLoginJson, async (req, res) => {
+  try {
+    const p = await chatPeer(req, res); if (!p) return;
+    const r = await Msg.unsend(p.me, p.other, req.body && req.body.id);
+    if (r.error) return res.status(400).json({ error: r.error });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('[message delete] (migration_v41.sql chali?):', err.message);
+    res.status(500).json({ error: 'Could not delete. Please try again.' });
   }
 });
 
