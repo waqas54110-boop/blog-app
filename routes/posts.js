@@ -228,7 +228,7 @@ router.get('/blog', async (req, res) => {
       ))`;
 
   try {
-    const [postsResult, countResult, catResult, popularResult, tagsResult] = await Promise.all([
+    const [postsResult, countResult, catResult, popularResult, tagsResult, totalViewsR] = await Promise.all([
       pool.query(
         `SELECT p.id, p.slug, p.title, p.excerpt, p.content, p.category, p.cover_url, p.views,
                 p.publish_at AS created_at,
@@ -255,6 +255,7 @@ router.get('/blog', async (req, res) => {
          WHERE ${LIVE}
          GROUP BY t.name ORDER BY total DESC, t.name ASC LIMIT 15`
       ),
+      pool.query(`SELECT COALESCE(SUM(p.views), 0)::int AS v FROM posts p WHERE ${LIVE}`),
     ]);
 
     const totalPosts = countResult.rows[0].total;
@@ -292,12 +293,41 @@ router.get('/blog', async (req, res) => {
     seoTitle += pageSfx;
     const listUrl = baseUrlOf(req) + homeUrl({ category, tag }, page);
 
+    // SEO: prev/next links for paginated lists + a share image (cover of the newest post on this page)
+    const prevUrl = page > 1 ? baseUrlOf(req) + homeUrl({ q, category, tag }, page - 1) : null;
+    const nextUrl = page < totalPages ? baseUrlOf(req) + homeUrl({ q, category, tag }, page + 1) : null;
+    const firstCover = posts.find((p) => p.cover_url);
+    const listImage = firstCover ? absUrl(baseUrlOf(req), firstCover.cover_url) : (config.defaultOgImage || null);
+    const blogLd = q ? [] : [{
+      '@context': 'https://schema.org',
+      '@type': 'Blog',
+      '@id': baseUrlOf(req) + '/blog#blog',
+      name: `${site} Blog`,
+      url: baseUrlOf(req) + '/blog',
+      description: seoDesc,
+      inLanguage: 'en',
+      publisher: { '@type': 'Organization', name: site, url: baseUrlOf(req) + '/' },
+      blogPost: posts.slice(0, 10).map((p) => ({
+        '@type': 'BlogPosting',
+        headline: String(p.title).slice(0, 110),
+        url: `${baseUrlOf(req)}/posts/${p.slug}`,
+        datePublished: new Date(p.created_at).toISOString(),
+        author: { '@type': 'Person', name: p.username },
+        ...(p.cover_url ? { image: absUrl(baseUrlOf(req), p.cover_url) } : {}),
+      })),
+    }];
+
     res.render('index', {
       title: seoTitle,
       metaDescription: seoDesc,
+      prevUrl,
+      nextUrl,
+      ogImage: listImage,
+      ogImageAlt: seoTitle,
+      totalViews: totalViewsR.rows[0].v,
       // Search results patli content hoti hain: Google index na kare, par links follow kare
       robots: q ? 'noindex,follow' : null,
-      jsonLd: q ? [] : listLd({ base: baseUrlOf(req), name: seoTitle, url: listUrl, description: seoDesc, posts, crumbs }),
+      jsonLd: q ? [] : listLd({ base: baseUrlOf(req), name: seoTitle, url: listUrl, description: seoDesc, posts, crumbs }).concat(blogLd),
       liveContest,
       posts,
       categories: catResult.rows,
@@ -563,7 +593,7 @@ router.get('/bookmarks', requireLogin, async (req, res) => {
 // ---------- DASHBOARD (admin) ----------
 router.get('/dashboard', requireAdmin, async (req, res) => {
   try {
-    const [stats, list] = await Promise.all([
+    const [stats, list, visitsR, catsR] = await Promise.all([
       pool.query(`SELECT
         (SELECT COUNT(*) FROM posts)::int AS posts,
         (SELECT COALESCE(SUM(views), 0) FROM posts)::int AS views,
@@ -576,11 +606,22 @@ router.get('/dashboard', requireAdmin, async (req, res) => {
         (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id)::int AS likes,
         (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id)::int AS comments
         FROM posts p ORDER BY p.publish_at DESC`),
+      // Visits per day for the last 14 days (days with no visits show as 0)
+      pool.query(`SELECT to_char(d::date, 'YYYY-MM-DD') AS day, COALESCE(c.n, 0)::int AS n
+        FROM generate_series(current_date - 13, current_date, interval '1 day') d
+        LEFT JOIN (SELECT created_at::date AS day, COUNT(*) AS n FROM post_visits
+                   WHERE created_at >= current_date - 13 GROUP BY 1) c ON c.day = d::date
+        ORDER BY d`),
+      pool.query(`SELECT category, COUNT(*)::int AS n, COALESCE(SUM(views), 0)::int AS v
+        FROM posts GROUP BY category ORDER BY n DESC, category ASC`),
     ]);
     const posts = list.rows.map((p) => ({ ...p, preview: makePreview(p) }));
     res.render('dashboard', {
       title: 'Dashboard',
+      robots: 'noindex,nofollow',
       stats: stats.rows[0],
+      visitSeries: visitsR.rows,
+      catStats: catsR.rows,
       posts,
       baseUrl: baseUrlOf(req),
     });

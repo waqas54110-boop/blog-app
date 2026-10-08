@@ -1,92 +1,292 @@
 <%- include('partials/header') %>
 
-<div class="d-flex justify-content-between align-items-center mb-4">
-  <h2 class="mb-0">Dashboard</h2>
-  <div class="d-flex gap-2">
-    <a href="/inbox" class="btn btn-outline-primary">📥 Inbox<% if (locals.newInquiries > 0) { %> <span class="badge bg-danger"><%= newInquiries %></span><% } %></a>
-    <a href="/analytics" class="btn btn-outline-primary">📊 Analytics</a>
-    <a href="/admin/moderation" class="btn btn-outline-primary">🛡️ Moderation<% if (locals.openReports > 0) { %> <span class="badge bg-danger"><%= openReports %></span><% } %></a>
-    <a href="/posts/new" class="btn btn-primary">+ Write Post</a>
-  </div>
-</div>
+<%
+  const PALETTE = ['#0a6b4d', '#2563eb', '#c2410c', '#7c3aed', '#be185d', '#0e7490', '#a16207', '#4d7c0f'];
+  const catColor = (name) => { let h = 0; for (const ch of String(name || '')) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return PALETTE[h % PALETTE.length]; };
+  const nf = (n) => Number(n || 0).toLocaleString('en-US');
+  const fmtDate = (d) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-<div class="row g-3 mb-4">
-  <% [
-    ['Posts', stats.posts],
-    ['Total views', stats.views],
-    ['Comments', stats.comments],
-    ['Registered users', stats.users],
-    ['Subscribers', stats.subscribers],
-    ['Visits (7 days)', stats.visits7]
-  ].forEach(s => { %>
-    <div class="col-6 col-lg-2">
-      <div class="card border-0 shadow-sm text-center">
-        <div class="card-body">
-          <div class="display-6 fw-bold text-primary"><%= s[1] %></div>
-          <div class="text-body-secondary"><%= s[0] %></div>
-        </div>
-      </div>
+  const series = locals.visitSeries || [];
+  const cats = locals.catStats || [];
+  const nDraft = posts.filter(p => p.is_draft).length;
+  const nSched = posts.filter(p => !p.is_draft && p.is_scheduled).length;
+  const nLive = posts.length - nDraft - nSched;
+  const maxViews = Math.max(1, ...posts.map(p => p.views || 0));
+  const topPosts = posts.filter(p => !p.is_draft && !p.is_scheduled).slice().sort((a, b) => b.views - a.views).slice(0, 5);
+  const maxCat = Math.max(1, ...cats.map(c => c.n));
+
+  // 14-day visits chart (pure SVG, no library)
+  const W = 640, H = 200, PAD = 28;
+  const maxV = Math.max(1, ...series.map(s => s.n));
+  const stepX = series.length > 1 ? (W - PAD * 2) / (series.length - 1) : 0;
+  const pts = series.map((s, i) => [PAD + i * stepX, H - PAD - (s.n / maxV) * (H - PAD * 2)]);
+  const line = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+  const area = pts.length ? line + ' L' + pts[pts.length - 1][0].toFixed(1) + ' ' + (H - PAD) + ' L' + pts[0][0].toFixed(1) + ' ' + (H - PAD) + ' Z' : '';
+  const total14 = series.reduce((a, s) => a + s.n, 0);
+  const dayLabel = (s) => new Date(s.day + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+  const cards = [
+    { label: 'Posts', val: stats.posts, icon: '📝', c: '#2563eb', sub: nLive + ' live · ' + nDraft + ' draft · ' + nSched + ' scheduled' },
+    { label: 'Total views', val: stats.views, icon: '👁️', c: '#0a6b4d', sub: 'All time' },
+    { label: 'Comments', val: stats.comments, icon: '💬', c: '#c2410c', sub: 'On all posts' },
+    { label: 'Registered users', val: stats.users, icon: '👥', c: '#7c3aed', sub: 'Accounts' },
+    { label: 'Subscribers', val: stats.subscribers, icon: '📬', c: '#be185d', sub: 'Email list' },
+    { label: 'Visits (7 days)', val: stats.visits7, icon: '📈', c: '#0e7490', sub: 'Last week' }
+  ];
+  const hour = new Date().getHours();
+  const greet = hour < 12 ? 'Good morning' : (hour < 18 ? 'Good afternoon' : 'Good evening');
+%>
+
+<style>
+  .db { --db-line: color-mix(in srgb, var(--bs-body-color) 10%, transparent); --db-shadow: 0 1px 2px rgba(16,24,40,.05), 0 12px 30px -16px rgba(16,24,40,.25); --db-acc: var(--kz-accent, #0a6b4d); }
+  [data-bs-theme="dark"] .db { --db-line: rgba(255,255,255,.09); --db-shadow: 0 1px 2px rgba(0,0,0,.5), 0 14px 32px -16px rgba(0,0,0,.8); }
+  body:has(.db) { background: radial-gradient(900px 480px at 100% -8%, color-mix(in srgb, #0a6b4d 12%, transparent), transparent 62%), radial-gradient(800px 440px at 0% 0%, color-mix(in srgb, #7c3aed 8%, transparent), transparent 60%), var(--bs-tertiary-bg); background-attachment: fixed; }
+  @keyframes dbUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @keyframes dbDraw { from { stroke-dashoffset: 1400; } to { stroke-dashoffset: 0; } }
+
+  .db-hero { position: relative; overflow: hidden; isolation: isolate; color: #fff; border-radius: 1.5rem; padding: clamp(1.3rem, 3.5vw, 2.4rem); margin-bottom: 1.4rem;
+    background: radial-gradient(500px 260px at 95% 0%, rgba(245,158,11,.38), transparent 62%), radial-gradient(520px 300px at 0% 120%, rgba(20,184,166,.42), transparent 62%), linear-gradient(120deg, #0b1f35 0%, #0a4a43 58%, #0a6b4d 100%);
+    box-shadow: 0 26px 50px -28px rgba(10,60,60,.7); }
+  .db-hero::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(rgba(255,255,255,.15) 1px, transparent 1.3px); background-size: 22px 22px; -webkit-mask-image: linear-gradient(115deg, #000, transparent 70%); mask-image: linear-gradient(115deg, #000, transparent 70%); }
+  .db-eyebrow { display: inline-flex; align-items: center; gap: .5rem; padding: .3rem .8rem; border-radius: 2rem; font: 700 .7rem var(--kz-sans, system-ui); letter-spacing: .14em; text-transform: uppercase; background: rgba(255,255,255,.13); border: 1px solid rgba(255,255,255,.26); }
+  .db-eyebrow i { width: 8px; height: 8px; border-radius: 50%; background: #5eead4; box-shadow: 0 0 0 3px rgba(94,234,212,.25); }
+  .db-hero h1 { font: 800 clamp(1.7rem, 4.4vw, 2.7rem)/1.08 var(--kz-serif, Georgia, serif); letter-spacing: -.025em; margin: .8rem 0 .35rem; }
+  .db-hero h1 em { font-style: italic; color: #ffd479; }
+  .db-hero p { margin: 0; opacity: .85; font: 400 1rem var(--kz-sans, system-ui); }
+  .db-actions { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1.2rem; }
+  .db-btn { display: inline-flex; align-items: center; gap: .45rem; padding: .55rem 1.05rem; border-radius: 2rem; font: 700 .86rem var(--kz-sans, system-ui); text-decoration: none; color: #fff; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); transition: transform .15s, background .15s, box-shadow .15s; }
+  .db-btn:hover { transform: translateY(-2px); background: rgba(255,255,255,.24); color: #fff; }
+  .db-btn.solid { background: #fff; color: #0a4a43; border-color: #fff; }
+  .db-btn.solid:hover { background: #fff; color: #0a4a43; box-shadow: 0 12px 22px -10px rgba(0,0,0,.55); }
+  .db-btn .badge { font-size: .7rem; }
+
+  .db-stats { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1rem; margin-bottom: 1.4rem; }
+  .db-stat { position: relative; overflow: hidden; padding: 1.05rem 1.1rem; border-radius: 1.1rem; background: var(--bs-body-bg); border: 1px solid var(--db-line); box-shadow: var(--db-shadow); animation: dbUp .55s cubic-bezier(.2,.7,.2,1) backwards; transition: transform .25s, box-shadow .25s; }
+  .db-stat:hover { transform: translateY(-4px); }
+  .db-stat::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; background: var(--c); }
+  .db-stat::after { content: ""; position: absolute; width: 110px; height: 110px; right: -40px; bottom: -50px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, var(--c) 22%, transparent), transparent 70%); }
+  .db-stat:nth-child(2) { animation-delay: .05s; } .db-stat:nth-child(3) { animation-delay: .1s; } .db-stat:nth-child(4) { animation-delay: .15s; } .db-stat:nth-child(5) { animation-delay: .2s; } .db-stat:nth-child(6) { animation-delay: .25s; }
+  .db-ico { width: 40px; height: 40px; display: grid; place-items: center; border-radius: .85rem; font-size: 1.2rem; background: color-mix(in srgb, var(--c) 14%, transparent); margin-bottom: .7rem; }
+  .db-num { font: 800 clamp(1.5rem, 2.6vw, 2rem)/1 var(--kz-serif, Georgia, serif); letter-spacing: -.02em; }
+  .db-lab { font: 700 .8rem var(--kz-sans, system-ui); margin-top: .3rem; }
+  .db-sub { font: 400 .72rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); margin-top: .15rem; }
+
+  .db-panel { position: relative; background: var(--bs-body-bg); border: 1px solid var(--db-line); border-radius: 1.2rem; box-shadow: var(--db-shadow); padding: 1.2rem 1.3rem; height: 100%; animation: dbUp .6s .1s cubic-bezier(.2,.7,.2,1) backwards; }
+  .db-ph { display: flex; align-items: center; justify-content: space-between; gap: .6rem; margin: 0 0 .9rem; font: 800 1.15rem var(--kz-serif, Georgia, serif); }
+  .db-ph::before { content: ""; width: 5px; height: 20px; border-radius: 3px; background: var(--db-acc); margin-right: .1rem; }
+  .db-ph span { margin-right: auto; }
+  .db-ph small { font: 700 .75rem var(--kz-sans, system-ui); padding: .25rem .65rem; border-radius: 2rem; background: color-mix(in srgb, var(--db-acc) 12%, transparent); color: var(--db-acc); }
+  .db-chart { width: 100%; height: auto; display: block; overflow: visible; }
+  .db-chart .ln { fill: none; stroke: var(--db-acc); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 1400; animation: dbDraw 1.6s ease forwards; }
+  .db-chart .ar { fill: url(#dbGrad); }
+  .db-chart .gl { stroke: var(--db-line); stroke-width: 1; stroke-dasharray: 4 5; }
+  .db-chart text { font: 600 11px var(--kz-sans, system-ui); fill: var(--bs-secondary-color); }
+  .db-chart circle { fill: var(--bs-body-bg); stroke: var(--db-acc); stroke-width: 2.5; }
+  .db-chart .hit { fill: transparent; stroke: none; cursor: pointer; }
+
+  .db-top { list-style: none; margin: 0; padding: 0; counter-reset: n; }
+  .db-top li { counter-increment: n; border-top: 1px solid var(--db-line); }
+  .db-top li:first-child { border-top: 0; }
+  .db-top a { display: grid; grid-template-columns: 34px 1fr auto; gap: .6rem; align-items: center; padding: .65rem 0; text-decoration: none; color: inherit; }
+  .db-top a::before { content: counter(n); font: 800 1.6rem/1 var(--kz-serif, Georgia, serif); background: linear-gradient(160deg, var(--db-acc), color-mix(in srgb, var(--db-acc) 20%, transparent)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .db-top b { display: block; font: 600 .92rem/1.25 var(--kz-serif, Georgia, serif); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .db-top a:hover b { color: var(--db-acc); }
+  .db-top span { font: 700 .78rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); white-space: nowrap; }
+
+  .db-cat { display: grid; grid-template-columns: 1fr auto; gap: .2rem .6rem; margin-bottom: .75rem; font: 600 .85rem var(--kz-sans, system-ui); }
+  .db-cat .bar { grid-column: 1 / -1; height: 8px; border-radius: 8px; background: var(--bs-tertiary-bg); overflow: hidden; }
+  .db-cat .bar i { display: block; height: 100%; border-radius: 8px; background: var(--c); }
+  .db-cat small { color: var(--bs-secondary-color); font-weight: 600; }
+
+  .db-tools { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-bottom: 1rem; }
+  .db-tabs { display: inline-flex; gap: .3rem; padding: .25rem; border-radius: 2rem; background: var(--bs-tertiary-bg); }
+  .db-tabs button { border: 0; background: transparent; padding: .38rem .85rem; border-radius: 2rem; font: 700 .8rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); transition: background .15s, color .15s; }
+  .db-tabs button small { opacity: .75; }
+  .db-tabs button.on { background: var(--bs-body-bg); color: var(--db-acc); box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+  .db-find { flex: 1 1 220px; max-width: 340px; margin-left: auto; position: relative; }
+  .db-find input { width: 100%; border-radius: 2rem; padding: .5rem 1rem .5rem 2.3rem; border: 1px solid var(--db-line); background: var(--bs-body-bg); color: var(--bs-body-color); font: 500 .9rem var(--kz-sans, system-ui); outline: 0; }
+  .db-find input:focus { border-color: var(--db-acc); box-shadow: 0 0 0 3px color-mix(in srgb, var(--db-acc) 18%, transparent); }
+  .db-find::before { content: "🔎"; position: absolute; left: .85rem; top: 50%; transform: translateY(-50%); font-size: .85rem; }
+
+  .db-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+  .db-table th { font: 800 .7rem var(--kz-sans, system-ui); letter-spacing: .1em; text-transform: uppercase; color: var(--bs-secondary-color); padding: .6rem .8rem; border-bottom: 1px solid var(--db-line); white-space: nowrap; }
+  .db-table td { padding: .85rem .8rem; border-bottom: 1px solid var(--db-line); vertical-align: middle; }
+  .db-table tbody tr { transition: background .15s; }
+  .db-table tbody tr:hover { background: color-mix(in srgb, var(--db-acc) 5%, transparent); }
+  .db-table tbody tr:last-child td { border-bottom: 0; }
+  .db-ttl { font: 700 .98rem/1.3 var(--kz-serif, Georgia, serif); color: inherit; text-decoration: none; }
+  .db-ttl:hover { color: var(--db-acc); }
+  .db-pill { display: inline-flex; align-items: center; gap: .35rem; font: 700 .72rem var(--kz-sans, system-ui); padding: .25rem .65rem; border-radius: 2rem; color: var(--c); background: color-mix(in srgb, var(--c) 12%, transparent); white-space: nowrap; }
+  [data-bs-theme="dark"] .db-pill { color: color-mix(in srgb, var(--c) 55%, #fff); }
+  .db-pill.st-live { --c: #16a34a; } .db-pill.st-draft { --c: #64748b; } .db-pill.st-sched { --c: #d97706; }
+  .db-views { min-width: 110px; }
+  .db-views b { font: 700 .88rem var(--kz-sans, system-ui); }
+  .db-views .bar { height: 5px; border-radius: 5px; background: var(--bs-tertiary-bg); margin-top: .3rem; overflow: hidden; }
+  .db-views .bar i { display: block; height: 100%; border-radius: 5px; background: linear-gradient(90deg, #0a6b4d, #14b8a6); }
+  .db-num2 { font: 600 .88rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); white-space: nowrap; }
+  .db-row-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; }
+  .db-ib { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--db-line); background: var(--bs-body-bg); color: var(--bs-body-color); border-radius: 2rem; padding: .3rem .75rem; font: 700 .76rem var(--kz-sans, system-ui); text-decoration: none; cursor: pointer; transition: background .15s, color .15s, border-color .15s, transform .15s; }
+  .db-ib:hover { transform: translateY(-1px); background: var(--bs-tertiary-bg); color: var(--bs-body-color); }
+  .db-ib.wa:hover { background: #16a34a; border-color: #16a34a; color: #fff; }
+  .db-ib.fb:hover { background: #2563eb; border-color: #2563eb; color: #fff; }
+  .db-ib.ed:hover { background: var(--db-acc); border-color: var(--db-acc); color: #fff; }
+  .db-ib.rm:hover { background: #dc2626; border-color: #dc2626; color: #fff; }
+  .db-empty { text-align: center; padding: 2.5rem 1rem; color: var(--bs-secondary-color); }
+
+  @media (max-width: 1199.98px) { .db-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 575.98px) { .db-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; } .db-find { max-width: none; margin-left: 0; } .db-hero { border-radius: 1.2rem; } }
+  @media (prefers-reduced-motion: reduce) { .db-stat, .db-panel { animation: none !important; } .db-chart .ln { animation: none; stroke-dashoffset: 0; } }
+</style>
+
+<div class="db">
+
+  <section class="db-hero" aria-labelledby="dbTitle">
+    <span class="db-eyebrow"><i></i>Admin dashboard</span>
+    <h1 id="dbTitle"><%= greet %>, <em><%= user ? user.username : 'Admin' %></em></h1>
+    <p><%= new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) %> &middot; <%= nf(stats.visits7) %> visits this week &middot; <%= nLive %> live post<%= nLive === 1 ? '' : 's' %></p>
+    <div class="db-actions">
+      <a href="/posts/new" class="db-btn solid">✍️ Write post</a>
+      <a href="/inbox" class="db-btn">📥 Inbox<% if (locals.newInquiries > 0) { %> <span class="badge bg-danger"><%= newInquiries %></span><% } %></a>
+      <a href="/analytics" class="db-btn">📊 Analytics</a>
+      <a href="/admin/moderation" class="db-btn">🛡️ Moderation<% if (locals.openReports > 0) { %> <span class="badge bg-danger"><%= openReports %></span><% } %></a>
     </div>
-  <% }) %>
-</div>
+  </section>
 
-<div class="card border-0 shadow-sm">
-  <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Category</th>
-          <th class="text-end">Views</th>
-          <th class="text-end">Likes</th>
-          <th class="text-end">Comments</th>
-          <th>Date</th>
-          <th class="text-end">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% if (posts.length === 0) { %>
-          <tr><td colspan="7" class="text-center text-body-secondary py-4">No posts yet.</td></tr>
+  <section class="db-stats" aria-label="Site statistics">
+    <% cards.forEach(s => { %>
+      <div class="db-stat" style="--c: <%= s.c %>;">
+        <div class="db-ico" aria-hidden="true"><%= s.icon %></div>
+        <div class="db-num"><%= nf(s.val) %></div>
+        <div class="db-lab"><%= s.label %></div>
+        <div class="db-sub"><%= s.sub %></div>
+      </div>
+    <% }) %>
+  </section>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-7">
+      <section class="db-panel">
+        <h2 class="db-ph"><span>Visits &mdash; last 14 days</span><small><%= nf(total14) %> total</small></h2>
+        <% if (pts.length) { %>
+        <svg class="db-chart" viewBox="0 0 <%= W %> <%= H %>" role="img" aria-label="Visits per day for the last 14 days">
+          <defs>
+            <linearGradient id="dbGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#0a6b4d" stop-opacity=".35"/>
+              <stop offset="1" stop-color="#0a6b4d" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <% [0, .5, 1].forEach(f => { const y = (H - PAD) - f * (H - PAD * 2); %>
+            <line class="gl" x1="<%= PAD %>" x2="<%= W - PAD %>" y1="<%= y.toFixed(1) %>" y2="<%= y.toFixed(1) %>"/>
+            <text x="0" y="<%= (y + 4).toFixed(1) %>"><%= Math.round(maxV * f) %></text>
+          <% }) %>
+          <path class="ar" d="<%= area %>"/>
+          <path class="ln" d="<%= line %>"/>
+          <% pts.forEach((p, i) => { %>
+            <circle cx="<%= p[0].toFixed(1) %>" cy="<%= p[1].toFixed(1) %>" r="4"><title><%= dayLabel(series[i]) %>: <%= series[i].n %> visits</title></circle>
+            <% if (i % 2 === 0 || i === pts.length - 1) { %><text x="<%= p[0].toFixed(1) %>" y="<%= H - 6 %>" text-anchor="middle"><%= dayLabel(series[i]) %></text><% } %>
+          <% }) %>
+        </svg>
+        <% } else { %>
+          <div class="db-empty">No visit data yet.</div>
         <% } %>
-        <% posts.forEach(p => { %>
-          <tr>
-            <td>
-              <a href="/posts/<%= p.slug %>" class="text-decoration-none"><%= p.title %></a>
-              <% if (p.is_draft) { %><span class="badge text-bg-secondary ms-1">Draft</span><% } %>
-              <% if (p.is_scheduled) { %><span class="badge text-bg-warning ms-1">Scheduled</span><% } %>
-            </td>
-            <td><span class="badge text-bg-primary"><%= p.category %></span></td>
-            <td class="text-end"><%= p.views %></td>
-            <td class="text-end"><%= p.likes %></td>
-            <td class="text-end"><%= p.comments %></td>
-            <td><%= new Date(p.publish_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %></td>
-            <td class="text-end text-nowrap">
-              <% if (!p.is_draft && !p.is_scheduled) { %>
-                <div class="btn-group btn-group-sm" role="group">
-                  <button type="button" class="btn btn-outline-success copy-msg"
-                          data-channel="whatsapp" data-title="<%= p.title %>" data-preview="<%= p.preview %>"
-                          data-url="<%= baseUrl %>/posts/<%= p.slug %>">Copy WhatsApp msg</button>
-                  <button type="button" class="btn btn-outline-primary copy-msg"
-                          data-channel="facebook" data-title="<%= p.title %>" data-preview="<%= p.preview %>"
-                          data-url="<%= baseUrl %>/posts/<%= p.slug %>">Copy FB msg</button>
-                </div>
-              <% } %>
-              <a href="/posts/<%= p.id %>/edit" class="btn btn-sm btn-outline-primary">Edit</a>
-              <form action="/posts/<%= p.id %>/delete" method="POST" class="d-inline"
-                    onsubmit="return confirm('Delete this post permanently?')">
-<input type="hidden" name="_csrf" value="<%= csrfToken %>">
-                <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
-              </form>
-            </td>
-          </tr>
+      </section>
+    </div>
+    <div class="col-lg-5">
+      <section class="db-panel">
+        <h2 class="db-ph"><span>Top posts</span><small>by views</small></h2>
+        <% if (!topPosts.length) { %><div class="db-empty">No published posts yet.</div><% } else { %>
+          <ol class="db-top">
+            <% topPosts.forEach(p => { %>
+              <li><a href="/posts/<%= p.slug %>"><b><%= p.title %></b><span><%= nf(p.views) %> views</span></a></li>
+            <% }) %>
+          </ol>
+        <% } %>
+      </section>
+    </div>
+  </div>
+
+  <div class="row g-4 mb-4">
+    <div class="col-lg-4">
+      <section class="db-panel">
+        <h2 class="db-ph"><span>Categories</span><small><%= cats.length %></small></h2>
+        <% if (!cats.length) { %><div class="db-empty">No categories yet.</div><% } %>
+        <% cats.forEach(c => { %>
+          <div class="db-cat" style="--c: <%= catColor(c.category) %>;">
+            <span><%= c.category %></span><small><%= c.n %> post<%= c.n === 1 ? '' : 's' %> &middot; <%= nf(c.v) %> views</small>
+            <div class="bar"><i style="width: <%= Math.max(6, Math.round(c.n / maxCat * 100)) %>%;"></i></div>
+          </div>
         <% }) %>
-      </tbody>
-    </table>
+      </section>
+    </div>
+
+    <div class="col-lg-8">
+      <section class="db-panel" id="postsPanel">
+        <h2 class="db-ph"><span>All posts</span><small><%= posts.length %></small></h2>
+
+        <div class="db-tools">
+          <div class="db-tabs" role="tablist" aria-label="Filter by status">
+            <button type="button" class="on" data-f="all">All <small><%= posts.length %></small></button>
+            <button type="button" data-f="live">Published <small><%= nLive %></small></button>
+            <button type="button" data-f="draft">Drafts <small><%= nDraft %></small></button>
+            <button type="button" data-f="sched">Scheduled <small><%= nSched %></small></button>
+          </div>
+          <div class="db-find"><input type="search" id="dbSearch" placeholder="Search posts..." aria-label="Search posts"></div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="db-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Views</th>
+                <th>♥</th>
+                <th>💬</th>
+                <th>Date</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="dbRows">
+              <% if (posts.length === 0) { %>
+                <tr><td colspan="7" class="db-empty">No posts yet. <a href="/posts/new">Write your first one →</a></td></tr>
+              <% } %>
+              <% posts.forEach(p => { const st = p.is_draft ? 'draft' : (p.is_scheduled ? 'sched' : 'live'); %>
+                <tr data-st="<%= st %>" data-t="<%= String(p.title).toLowerCase() %> <%= String(p.category).toLowerCase() %>">
+                  <td>
+                    <a href="/posts/<%= p.slug %>" class="db-ttl"><%= p.title %></a>
+                    <div class="mt-1"><span class="db-pill st-<%= st %>"><%= st === 'live' ? 'Published' : (st === 'draft' ? 'Draft' : 'Scheduled') %></span></div>
+                  </td>
+                  <td><span class="db-pill" style="--c: <%= catColor(p.category) %>;"><%= p.category %></span></td>
+                  <td class="db-views"><b><%= nf(p.views) %></b><div class="bar"><i style="width: <%= Math.max(2, Math.round((p.views || 0) / maxViews * 100)) %>%;"></i></div></td>
+                  <td class="db-num2"><%= p.likes %></td>
+                  <td class="db-num2"><%= p.comments %></td>
+                  <td class="db-num2"><%= fmtDate(p.publish_at) %></td>
+                  <td>
+                    <div class="db-row-actions">
+                      <% if (st === 'live') { %>
+                        <button type="button" class="db-ib wa copy-msg" data-channel="whatsapp" data-title="<%= p.title %>" data-preview="<%= p.preview %>" data-url="<%= baseUrl %>/posts/<%= p.slug %>">WhatsApp</button>
+                        <button type="button" class="db-ib fb copy-msg" data-channel="facebook" data-title="<%= p.title %>" data-preview="<%= p.preview %>" data-url="<%= baseUrl %>/posts/<%= p.slug %>">Facebook</button>
+                      <% } %>
+                      <a href="/posts/<%= p.id %>/edit" class="db-ib ed">Edit</a>
+                      <form action="/posts/<%= p.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Delete this post permanently?')">
+                        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                        <button type="submit" class="db-ib rm">Delete</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+              <tr id="dbNone" hidden><td colspan="7" class="db-empty">No posts match your filter.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
   </div>
 </div>
 
 <script>
-  // Group mein paste karne ke liye ready message (UTM ke saath, taake analytics mein source dikhe)
+  // Copy a ready-to-paste group message (with UTM so analytics shows the source)
   document.querySelectorAll('.copy-msg').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const d = btn.dataset;
@@ -104,6 +304,30 @@
       setTimeout(() => { btn.textContent = old; }, 1500);
     });
   });
+
+  // Status tabs + live search for the posts table
+  (function () {
+    var rows = Array.prototype.slice.call(document.querySelectorAll('#dbRows tr[data-st]'));
+    var none = document.getElementById('dbNone');
+    var tabs = document.querySelectorAll('.db-tabs button');
+    var input = document.getElementById('dbSearch');
+    var f = 'all';
+    function apply() {
+      var q = (input.value || '').trim().toLowerCase(), shown = 0;
+      rows.forEach(function (r) {
+        var ok = (f === 'all' || r.dataset.st === f) && (!q || r.dataset.t.indexOf(q) !== -1);
+        r.hidden = !ok; if (ok) shown++;
+      });
+      if (none) none.hidden = shown !== 0 || rows.length === 0;
+    }
+    tabs.forEach(function (b) {
+      b.addEventListener('click', function () {
+        tabs.forEach(function (x) { x.classList.remove('on'); });
+        b.classList.add('on'); f = b.dataset.f; apply();
+      });
+    });
+    if (input) input.addEventListener('input', apply);
+  })();
 </script>
 
 <%- include('partials/footer') %>

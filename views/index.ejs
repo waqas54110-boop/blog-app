@@ -97,8 +97,8 @@
   [data-bs-theme="dark"] .bl-card:hover .bl-title a { color: color-mix(in srgb, var(--c) 50%, #fff); }
   .bl-ex { font: 400 1rem/1.55 var(--kz-serif, Georgia, serif); color: var(--bs-secondary-color); margin: 0 0 .85rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .bl-tags { display: flex; flex-wrap: wrap; gap: .35rem; margin-bottom: .9rem; }
-  .bl-tags span { font: 600 .72rem var(--kz-sans, system-ui); padding: .22rem .6rem; border-radius: 2rem; color: var(--c); background: color-mix(in srgb, var(--c) 11%, transparent); }
-  [data-bs-theme="dark"] .bl-tags span { color: color-mix(in srgb, var(--c) 50%, #fff); }
+  .bl-tags a { position: relative; z-index: 3; text-decoration: none; font: 600 .72rem var(--kz-sans, system-ui); padding: .22rem .6rem; border-radius: 2rem; color: var(--c); background: color-mix(in srgb, var(--c) 11%, transparent); }
+  [data-bs-theme="dark"] .bl-tags a { color: color-mix(in srgb, var(--c) 50%, #fff); }
   .bl-by { display: flex; align-items: center; gap: .6rem; margin-top: auto; }
   .bl-by .avatar { width: 32px; height: 32px; font-size: .85rem; background: var(--c); }
   .bl-by-n { font: 700 .85rem var(--kz-sans, system-ui); }
@@ -177,14 +177,70 @@
     .bl-card, .bl-hero::after { animation: none !important; }
     .bl-card, .bl-cover img, .bl-ph b { transition: none !important; }
   }
+
+  /* ===== V40 extras: stats strip, breadcrumb, badges, newsletter, topics, reveal ===== */
+  .bl-crumb { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; list-style: none; margin: 0 0 1rem; padding: 0; font: 600 .82rem var(--kz-sans, system-ui); color: var(--bs-secondary-color); }
+  .bl-crumb li + li::before { content: "›"; margin-right: .4rem; opacity: .6; }
+  .bl-crumb a { color: inherit; text-decoration: none; } .bl-crumb a:hover { color: var(--bl-acc); }
+  .bl-crumb [aria-current] { color: var(--bs-body-color); font-weight: 700; }
+  .bl-stats { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.1rem; }
+  .bl-stats div { padding: .5rem 1rem; border-radius: 1rem; background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  .bl-stats b { display: block; font: 800 1.25rem/1.1 var(--kz-serif, Georgia, serif); }
+  .bl-stats span { font: 600 .7rem var(--kz-sans, system-ui); letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
+  .bl-chip { text-decoration: none; transition: transform .15s; position: absolute; z-index: 3; }
+  .bl-chip:hover { transform: translateY(-1px); color: #fff; }
+  .bl-new { position: absolute; right: .85rem; top: 1rem; z-index: 2; font: 800 .68rem/1 var(--kz-sans, system-ui); letter-spacing: .12em; text-transform: uppercase; padding: .42rem .7rem; border-radius: 2rem; background: #f59e0b; color: #1f1300; box-shadow: 0 6px 16px rgba(245,158,11,.5); animation: blPulse 2.2s ease-in-out infinite; }
+  @keyframes blPulse { 0%, 100% { box-shadow: 0 6px 16px rgba(245,158,11,.5); } 50% { box-shadow: 0 6px 26px rgba(245,158,11,.9); } }
+  .bl-reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s cubic-bezier(.2,.7,.2,1), box-shadow .3s ease; animation: none; }
+  .bl-reveal.in { opacity: 1; transform: none; }
+  .bl-reveal.in:hover { transform: translateY(-5px); }
+  .no-js .bl-reveal { opacity: 1; transform: none; }
+  .bl-nl { position: relative; overflow: hidden; isolation: isolate; color: #fff; text-align: center; padding: 1.5rem 1.3rem; background: radial-gradient(240px 140px at 100% 0%, rgba(245,158,11,.45), transparent 65%), linear-gradient(135deg, #0b1f35, #0a4a43 60%, #0a6b4d); }
+  .bl-nl::before { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(rgba(255,255,255,.16) 1px, transparent 1.3px); background-size: 16px 16px; -webkit-mask-image: linear-gradient(135deg, #000, transparent 75%); mask-image: linear-gradient(135deg, #000, transparent 75%); }
+  .bl-nl h3 { font: 800 1.3rem var(--kz-serif, Georgia, serif); margin: 0 0 .3rem; }
+  .bl-nl p { font: 400 .9rem/1.45 var(--kz-sans, system-ui); opacity: .85; margin: 0 0 1rem; }
+  .bl-nl input[type=email] { width: 100%; border: 0; border-radius: 2rem; padding: .65rem 1rem; margin-bottom: .6rem; font: 500 .95rem var(--kz-sans, system-ui); outline: 0; }
+  .bl-nl button { width: 100%; border: 0; border-radius: 2rem; padding: .62rem 1rem; font: 800 .9rem var(--kz-sans, system-ui); background: #fff; color: #0a4a43; transition: transform .15s, box-shadow .15s; }
+  .bl-nl button:hover { transform: translateY(-1px); box-shadow: 0 12px 22px -10px rgba(0,0,0,.6); }
+  .bl-topics { margin-top: 2.2rem; padding: 1.4rem 1.5rem; border-radius: 1.2rem; background: var(--bs-body-bg); border: 1px solid var(--bl-line); box-shadow: var(--bl-shadow); }
+  .bl-topics h2 { font: 800 1.3rem var(--kz-serif, Georgia, serif); margin: 0 0 .5rem; }
+  .bl-topics p { font: 400 .98rem/1.65 var(--kz-serif, Georgia, serif); color: var(--bs-secondary-color); margin: 0 0 .9rem; }
+  .bl-topics nav { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .bl-topics nav a { padding: .4rem .9rem; border-radius: 2rem; font: 700 .82rem var(--kz-sans, system-ui); text-decoration: none; color: var(--c); background: color-mix(in srgb, var(--c) 11%, transparent); border: 1px solid color-mix(in srgb, var(--c) 25%, transparent); transition: transform .15s, background .15s, color .15s; }
+  .bl-topics nav a:hover { background: var(--c); color: #fff; transform: translateY(-1px); }
+  .bl-wrap a:focus-visible, .bl-wrap button:focus-visible, .bl-wrap input:focus-visible { outline: 3px solid color-mix(in srgb, var(--bl-acc) 60%, #fff); outline-offset: 2px; }
+  .bl-wrap .bl-chips a:hover { color: #fff; }
+  @media (prefers-reduced-motion: reduce) { .bl-reveal { opacity: 1; transform: none; transition: none; } .bl-new { animation: none; } }
 </style>
 
+
+<noscript><style>.bl-reveal{opacity:1!important;transform:none!important}</style></noscript>
 <div class="bl-wrap">
+
+<nav aria-label="Breadcrumb"><ol class="bl-crumb">
+  <li><a href="/">Home</a></li>
+  <% if (category || tag || q) { %>
+    <li><a href="/blog">Blog</a></li>
+    <li aria-current="page"><%= q ? 'Search: ' + q : (category ? category : '#' + tag) %></li>
+  <% } else { %>
+    <li aria-current="page">Blog</li>
+  <% } %>
+</ol></nav>
 
 <section class="bl-hero" aria-labelledby="blogTitle">
   <% if (!filtered) { %><span class="bl-eyebrow"><i></i>The Blog &middot; <%= totalPosts %> article<%= totalPosts === 1 ? '' : 's' %></span><% } else { %><span class="bl-eyebrow"><i></i>The Blog</span><% } %>
-  <h1 id="blogTitle">Cricket, Code, <em>Creativity &amp; AI</em></h1>
+  <% if (category) { %><h1 id="blogTitle"><em><%= category %></em> articles</h1>
+  <% } else if (tag) { %><h1 id="blogTitle">Posts tagged <em>#<%= tag %></em></h1>
+  <% } else if (q) { %><h1 id="blogTitle">Results for <em><%= q.slice(0, 40) %></em></h1>
+  <% } else { %><h1 id="blogTitle">Cricket, Code, <em>Creativity &amp; AI</em></h1><% } %>
   <p class="bl-lead">Notes and tutorials on cricket, video editing, AI/ML, freelancing and web development.</p>
+  <% if (!filtered) { %>
+  <div class="bl-stats" aria-label="Blog statistics">
+    <div><b><%= totalPosts %></b><span>Articles</span></div>
+    <div><b><%= (locals.totalViews || 0).toLocaleString('en-US') %></b><span>Total reads</span></div>
+    <div><b><%= categories.length %></b><span>Topics</span></div>
+  </div>
+  <% } %>
   <form class="bl-search" action="/blog" method="GET" role="search">
     <input type="search" name="q" value="<%= q %>" placeholder="Search articles..." aria-label="Search articles">
     <button type="submit">Search</button>
@@ -217,7 +273,7 @@
 <div class="row g-4">
 
   <!-- Posts -->
-  <div class="col-lg-8">
+  <div class="col-lg-8" id="articles">
 
     <% if (filtered) { %>
       <div class="bl-filter">
@@ -277,7 +333,7 @@
   </div>
 
   <!-- Sidebar -->
-  <aside class="col-lg-4">
+  <aside class="col-lg-4" aria-label="Sidebar">
 
     <div class="bl-panel">
       <div class="bl-cover2"></div>
@@ -290,7 +346,17 @@
     </div>
 
     <div class="bl-panel">
-      <h3 class="bl-ph2">Popular Posts</h3>
+      <form class="bl-nl" action="/subscribe" method="POST">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <h3>📬 Never miss a story</h3>
+        <p>New articles straight to your inbox. No spam.</p>
+        <input type="email" name="email" required placeholder="you@example.com" aria-label="Your email address" autocomplete="email">
+        <button type="submit">Subscribe free</button>
+      </form>
+    </div>
+
+    <div class="bl-panel">
+      <h2 class="bl-ph2">Popular Posts</h2>
       <% if (popular.length === 0) { %>
         <div class="bl-empty-s">Nothing yet</div>
       <% } else { %>
@@ -303,7 +369,7 @@
     </div>
 
     <div class="bl-panel">
-      <h3 class="bl-ph2">Categories</h3>
+      <h2 class="bl-ph2">Categories</h2>
       <div class="bl-cats mt-2">
         <a href="/blog" class="<%= !category ? 'on' : '' %>"><i></i>All posts</a>
         <% categories.forEach(c => { %>
@@ -314,7 +380,7 @@
 
     <% if (tags && tags.length) { %>
       <div class="bl-panel">
-        <h3 class="bl-ph2">Tags</h3>
+        <h2 class="bl-ph2">Tags</h2>
         <div class="bl-tagcloud">
           <% tags.forEach(t => { %>
             <a href="/blog?tag=<%= encodeURIComponent(t.name) %>" class="<%= tag === t.name ? 'on' : '' %>">#<%= t.name %> <small>(<%= t.total %>)</small></a>
@@ -326,6 +392,32 @@
   </aside>
 </div>
 
+<% if (!filtered && page === 1 && categories && categories.length) { %>
+<section class="bl-topics" aria-labelledby="topicsTitle">
+  <h2 id="topicsTitle">Explore topics on <%= locals.siteName || 'Khabzo' %></h2>
+  <p>Browse in-depth articles, tutorials and notes across <%= categories.length %> topic<%= categories.length === 1 ? '' : 's' %>. Pick a category below or use the search box to find exactly what you need.</p>
+  <nav aria-label="Topics">
+    <% categories.forEach(c => { %><a href="/blog?category=<%= encodeURIComponent(c.category) %>" style="--c: <%= catColor(c.category) %>;"><%= c.category %> (<%= c.total %>)</a><% }) %>
+  </nav>
+</section>
+<% } %>
+
 </div><%# /.bl-wrap %>
+
+<script>
+  // Fade-in cards as they scroll into view (cards stay visible if JS is off or reduced motion is set)
+  (function () {
+    var els = document.querySelectorAll('.bl-reveal');
+    if (!('IntersectionObserver' in window) || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      els.forEach(function (e) { e.classList.add('in'); }); return;
+    }
+    var io = new IntersectionObserver(function (list) {
+      list.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
+    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+    els.forEach(function (e) { io.observe(e); });
+    // Safety net: never leave cards hidden
+    setTimeout(function () { els.forEach(function (e) { e.classList.add('in'); }); }, 2500);
+  })();
+</script>
 
 <%- include('partials/footer') %>

@@ -1,30 +1,32 @@
 <%# One blog post card. Locals: post, big (featured card?), wide (last card alone in a row), catColor, fmtDate %>
 <% const c = catColor(post.category); %>
-<article class="bl-card <%= locals.big ? 'bl-big bl-span' : (locals.wide ? 'bl-wide bl-span' : '') %>" style="--c: <%= c %>;">
+<% const isNew = post.created_at && (Date.now() - new Date(post.created_at).getTime()) < 3 * 24 * 3600 * 1000; %>
+<article class="bl-card bl-reveal <%= locals.big ? 'bl-big bl-span' : (locals.wide ? 'bl-wide bl-span' : '') %>" style="--c: <%= c %>;" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="bl-cover">
     <% if (post.cover_url) { %>
-      <img src="<%= post.cover_url %>" alt="" loading="<%= locals.big ? 'eager' : 'lazy' %>" decoding="async">
+      <img src="<%= post.cover_url %>" alt="<%= post.title %>" width="1200" height="750" loading="<%= locals.big ? 'eager' : 'lazy' %>" <%- locals.big ? 'fetchpriority="high"' : '' %> decoding="async" itemprop="image">
     <% } else { %>
       <span class="bl-ph" aria-hidden="true"><b><%= String(post.category || '?').charAt(0).toUpperCase() %></b></span>
     <% } %>
-    <span class="bl-chip"><%= post.category %></span>
+    <a class="bl-chip" href="/blog?category=<%= encodeURIComponent(post.category) %>" itemprop="articleSection"><%= post.category %></a>
+    <% if (isNew) { %><span class="bl-new">New</span><% } %>
   </div>
   <div class="bl-body">
     <% if (locals.big) { %><div class="bl-kicker">Latest story</div><% } %>
-    <h2 class="bl-title"><a href="/posts/<%= post.slug %>" class="stretched-link"><%= post.title %></a></h2>
-    <p class="bl-ex"><%= post.preview %></p>
+    <h2 class="bl-title" itemprop="headline"><a href="/posts/<%= post.slug %>" class="stretched-link" itemprop="url"><%= post.title %></a></h2>
+    <p class="bl-ex" itemprop="description"><%= post.preview %></p>
 
     <% if (post.tags && post.tags.length) { %>
       <div class="bl-tags">
-        <% post.tags.slice(0, 3).forEach(t => { %><span>#<%= t %></span><% }) %>
+        <% post.tags.slice(0, 3).forEach(t => { %><a href="/blog?tag=<%= encodeURIComponent(t) %>" rel="tag">#<%= t %></a><% }) %>
       </div>
     <% } %>
 
-    <div class="bl-by">
-      <span class="avatar"><%= post.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(post.username) %>" alt="" loading="lazy" onerror="this.remove()"></span>
+    <div class="bl-by" itemprop="author" itemscope itemtype="https://schema.org/Person">
+      <span class="avatar"><%= post.username.charAt(0).toUpperCase() %><img src="/a/<%= encodeURIComponent(post.username) %>" alt="" width="32" height="32" loading="lazy" onerror="this.remove()"></span>
       <div class="lh-sm">
-        <div class="bl-by-n"><%= post.username %></div>
-        <div class="bl-by-d"><%= fmtDate(post.created_at) %></div>
+        <div class="bl-by-n" itemprop="name"><%= post.username %></div>
+        <time class="bl-by-d" datetime="<%= new Date(post.created_at).toISOString() %>" itemprop="datePublished"><%= fmtDate(post.created_at) %></time>
       </div>
     </div>
 

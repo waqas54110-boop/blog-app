@@ -19,6 +19,8 @@
   <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
   <meta name="robots" content="<%= locals.robots || 'index,follow,max-image-preview:large,max-snippet:-1' %>">
   <link rel="canonical" href="<%= locals.ogUrl || '' %>">
+  <% if (locals.prevUrl) { %><link rel="prev" href="<%= prevUrl %>"><% } %>
+  <% if (locals.nextUrl) { %><link rel="next" href="<%= nextUrl %>"><% } %>
   <meta property="og:site_name" content="<%= locals.siteName || 'Khabzo' %>">
   <meta property="og:title" content="<%= locals.title || 'Khabzo' %>">
   <meta property="og:description" content="<%= locals.metaDescription || 'Notes and tutorials on cricket, video editing, AI, freelancing and web development.' %>">
