@@ -147,6 +147,7 @@
     <div class="db-actions">
       <a href="/posts/new" class="db-btn solid">✍️ Write post</a>
       <a href="/inbox" class="db-btn">📥 Inbox<% if (locals.newInquiries > 0) { %> <span class="badge bg-danger"><%= newInquiries %></span><% } %></a>
+      <a href="/poster" class="db-btn">📣 Group Poster</a>
       <a href="/analytics" class="db-btn">📊 Analytics</a>
       <a href="/admin/moderation" class="db-btn">🛡️ Moderation<% if (locals.openReports > 0) { %> <span class="badge bg-danger"><%= openReports %></span><% } %></a>
     </div>
@@ -267,6 +268,7 @@
                         <button type="button" class="db-ib wa copy-msg" data-channel="whatsapp" data-title="<%= p.title %>" data-preview="<%= p.preview %>" data-url="<%= baseUrl %>/posts/<%= p.slug %>">WhatsApp</button>
                         <button type="button" class="db-ib fb copy-msg" data-channel="facebook" data-title="<%= p.title %>" data-preview="<%= p.preview %>" data-url="<%= baseUrl %>/posts/<%= p.slug %>">Facebook</button>
                       <% } %>
+                      <% if (st === 'live') { %><a href="/poster/<%= p.id %>" class="db-ib wa">📣 Groups</a><% } %>
                       <a href="/posts/<%= p.id %>/edit" class="db-ib ed">Edit</a>
                       <form action="/posts/<%= p.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Delete this post permanently?')">
                         <input type="hidden" name="_csrf" value="<%= csrfToken %>">

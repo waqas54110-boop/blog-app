@@ -1,0 +1,192 @@
+<%- include('partials/header') %>
+
+<%
+  const ICON = { whatsapp: '💬', facebook: '📘', telegram: '✈️', instagram: '📸', other: '🔗' };
+  const defaultCaption = '📢 ' + post.title + '\n\n' + preview + '\n\n👉 Read here: {link}';
+  const totalVisits = groups.reduce((a, g) => a + g.visits, 0);
+%>
+
+<style>
+  .gp { max-width: 860px; margin: 0 auto; }
+  .gp-card { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: 1rem; padding: 1rem 1.1rem; margin-bottom: 1rem; box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+  .gp-h { font-weight: 700; font-size: 1rem; margin: 0 0 .5rem; }
+  .gp-cap { font-size: .9rem; min-height: 120px; }
+  .gp-bar { height: 8px; border-radius: 99px; background: var(--bs-tertiary-bg); overflow: hidden; }
+  .gp-bar i { display: block; height: 100%; background: #12a37f; width: 0; transition: width .25s; }
+  .gp-row { display: flex; align-items: center; gap: .6rem; padding: .65rem 0; border-top: 1px solid var(--bs-border-color); flex-wrap: wrap; }
+  .gp-row:first-child { border-top: 0; }
+  .gp-row.is-done .gp-name { text-decoration: line-through; opacity: .55; }
+  .gp-ico { font-size: 1.3rem; width: 1.8rem; text-align: center; }
+  .gp-info { flex: 1 1 160px; min-width: 0; }
+  .gp-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gp-stat { font-size: .78rem; color: var(--bs-secondary-color); }
+  .gp-btns { display: flex; gap: .4rem; align-items: center; }
+  .gp-tick { width: 2.4rem; height: 2.4rem; border-radius: 50%; border: 2px solid var(--bs-border-color); background: transparent; color: transparent; font-size: 1.2rem; font-weight: 700; line-height: 1; cursor: pointer; transition: all .15s; }
+  .gp-tick:hover { border-color: #12a37f; }
+  .gp-row.is-done .gp-tick { background: #12a37f; border-color: #12a37f; color: #fff; }
+  .gp-next { margin-left: .25rem; }
+  .gp-del { background: none; border: 0; color: var(--bs-secondary-color); font-size: .8rem; }
+  .gp-del:hover { color: #dc3545; }
+</style>
+
+<div class="gp">
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h1 class="fs-4 fw-bold mb-0">📣 Group Poster</h1>
+    <a href="/dashboard" class="btn btn-sm btn-outline-secondary rounded-pill">← Dashboard</a>
+  </div>
+
+  <% if (flash) { %><div class="alert alert-success py-2"><%= flash %></div><% } %>
+  <% if (setupNeeded) { %>
+    <div class="alert alert-warning">Pehle <code>migration_v42.sql</code> Neon SQL Editor mein Run karo, phir ye page chalega.</div>
+  <% } %>
+
+  <!-- Post chunno -->
+  <div class="gp-card">
+    <label class="gp-h" for="gpPost">Konsi post share karni hai?</label>
+    <select id="gpPost" class="form-select" onchange="location.href='/poster/' + this.value">
+      <% recent.forEach(r => { %>
+        <option value="<%= r.id %>" <%= r.id === post.id ? 'selected' : '' %>><%= r.title %></option>
+      <% }) %>
+    </select>
+  </div>
+
+  <!-- Caption -->
+  <div class="gp-card">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <h2 class="gp-h mb-0">✍️ Caption</h2>
+    </div>
+    <textarea id="gpCaption" class="form-control gp-cap" rows="5"><%= defaultCaption %></textarea>
+    <div class="gp-stat mt-1"><code>{link}</code> ki jagah har group ka apna UTM link khud lag jata hai. Group ke saamne wala 📋 / ↗ button usi group ke liye caption copy karta hai.</div>
+  </div>
+
+  <!-- Groups -->
+  <div class="gp-card">
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+      <h2 class="gp-h mb-0">👥 Groups</h2>
+      <span class="gp-stat"><b id="gpDone"><%= doneCount %></b> / <%= groups.length %> mein aaj post ho chuki &nbsp;·&nbsp; is post ke <b><%= totalVisits %></b> visits groups se</span>
+    </div>
+    <div class="gp-bar mb-2"><i id="gpProg" style="width:<%= groups.length ? Math.round(doneCount * 100 / groups.length) : 0 %>%"></i></div>
+
+    <% if (groups.length === 0 && !setupNeeded) { %>
+      <p class="text-body-secondary mb-0">Abhi koi group save nahi. Neeche "Groups add karo" se apni list ek dafa daal do.</p>
+    <% } %>
+
+    <% groups.forEach(g => { %>
+      <div class="gp-row <%= g.done ? 'is-done' : '' %>" data-gid="<%= g.id %>" data-url="<%= g.url %>">
+        <div class="gp-ico" title="<%= g.platform %>"><%= ICON[g.platform] || '🔗' %></div>
+        <div class="gp-info">
+          <div class="gp-name"><%= g.name %></div>
+          <div class="gp-stat">👁 <%= g.visits %> visits &middot; <%= g.people %> log (is post ke)</div>
+        </div>
+        <div class="gp-btns">
+          <button type="button" class="btn btn-sm btn-outline-primary rounded-pill gp-copy" title="Is group ka caption copy karo">📋</button>
+          <% if (g.link) { %>
+            <a href="<%= g.link %>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-success rounded-pill gp-open">↗ Open group</a>
+          <% } else { %>
+            <span class="btn btn-sm btn-outline-secondary rounded-pill disabled" title="Is group ka link save nahi">No link</span>
+          <% } %>
+          <button type="button" class="gp-tick" aria-label="Aaj is group mein post ho gayi" title="Aaj post ho gayi">✓</button>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+
+  <!-- Add / manage -->
+  <div class="gp-card">
+    <details <%= groups.length === 0 ? 'open' : '' %>>
+      <summary class="gp-h" style="cursor:pointer;">➕ Groups add karo</summary>
+      <form action="/poster/groups" method="POST" class="mt-2">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="back" value="/poster/<%= post.id %>">
+        <label class="form-label small mb-1" for="gpList">Har line mein ek group: <code>Naam | link</code></label>
+        <textarea id="gpList" name="groups" class="form-control mb-2" rows="5" placeholder="Cricket Fans Lahore | https://chat.whatsapp.com/xxxx&#10;Lahore News FB | https://www.facebook.com/groups/12345&#10;Sirf naam bhi chalega"></textarea>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <select name="platform" class="form-select form-select-sm" style="width:auto;" aria-label="Platform">
+            <% PLATFORMS.forEach(p => { %><option value="<%= p %>"><%= p %></option><% }) %>
+          </select>
+          <span class="gp-stat">Link se platform khud pehchan liya jata hai; link na ho to ye wala lagega.</span>
+          <button class="btn btn-sm btn-primary rounded-pill ms-auto">Save</button>
+        </div>
+      </form>
+
+      <% if (groups.length) { %>
+        <hr>
+        <div class="gp-stat mb-1">Group hatana ho to (uski purani analytics bhi us group ke saath hat jati hai):</div>
+        <% groups.forEach(g => { %>
+          <form action="/poster/groups/<%= g.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Group hataen: <%= g.name.replace(/['\\\n\r]/g, ' ') %> ?')">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="back" value="/poster/<%= post.id %>">
+            <button class="gp-del">✕ <%= g.name %></button>
+          </form>
+        <% }) %>
+      <% } %>
+    </details>
+  </div>
+
+  <p class="gp-stat">
+    Note: visit tab ginti mein aata hai jab koi member link par click kare. Jo sirf message dekh kar guzar jaye wo count nahi hota.
+    Bots aur aap (admin) ke visits count nahi hote. Group-wise poori report <a href="/analytics#groups">Analytics</a> mein hai.
+  </p>
+</div>
+
+<script>
+(function () {
+  var csrf = <%- JSON.stringify(csrfToken) %>;
+  var postId = <%- post.id %>;
+  var total = <%- groups.length %>;
+  var cap = document.getElementById('gpCaption');
+  var doneEl = document.getElementById('gpDone');
+  var prog = document.getElementById('gpProg');
+
+  function captionFor(url) {
+    var t = cap.value || '';
+    return /\{link\}/.test(t) ? t.replace(/\{link\}/g, url) : (t + '\n\n' + url).trim();
+  }
+  // Click ke andar hi (bina await) copy: taake saath wala link bhi khul sake
+  function copyNow(text, done) {
+    var ok = false;
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      ok = document.execCommand('copy'); ta.remove();
+    } catch (e) {}
+    if (!ok && navigator.clipboard) { navigator.clipboard.writeText(text).then(done, function () {}); return; }
+    if (ok && done) done();
+  }
+  function flash(btn, txt) {
+    var old = btn.dataset.old || btn.textContent; btn.dataset.old = old;
+    btn.textContent = txt; setTimeout(function () { btn.textContent = old; }, 1400);
+  }
+  function recount() {
+    var n = document.querySelectorAll('.gp-row.is-done').length;
+    doneEl.textContent = n;
+    prog.style.width = (total ? Math.round(n * 100 / total) : 0) + '%';
+  }
+
+  document.querySelectorAll('.gp-row').forEach(function (row) {
+    var url = row.dataset.url, gid = row.dataset.gid;
+    var copyBtn = row.querySelector('.gp-copy');
+    copyBtn.addEventListener('click', function () {
+      copyNow(captionFor(url), function () { flash(copyBtn, '✓'); });
+      flash(copyBtn, '✓');
+    });
+    var open = row.querySelector('.gp-open');
+    if (open) open.addEventListener('click', function () {
+      copyNow(captionFor(url)); // link khulne ke saath caption bhi copy: wahan bas paste karo
+      flash(open, 'Copied ✓');
+    });
+    row.querySelector('.gp-tick').addEventListener('click', function () {
+      var body = new URLSearchParams(); body.set('_csrf', csrf);
+      row.style.opacity = '.6';
+      fetch('/poster/' + postId + '/tick/' + gid, { method: 'POST', headers: { 'x-csrf-token': csrf, 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+        .then(function (r) { return r.json(); })
+        .then(function (j) { if (typeof j.done === 'boolean') row.classList.toggle('is-done', j.done); recount(); })
+        .catch(function () { alert('Tick save nahi hua, dobara try karo.'); })
+        .then(function () { row.style.opacity = ''; });
+    });
+  });
+})();
+</script>
+
+<%- include('partials/footer') %>

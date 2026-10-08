@@ -366,6 +366,28 @@ router.get('/analytics', requireAdmin, async (req, res) => {
       console.error('[analytics] audience (migration_v23.sql chali?):', err.message);
     }
 
+    // Group-wise performance (alag try: migration_v42 na chali ho to baaqi analytics phir bhi chale)
+    let groupStats = [];
+    try {
+      groupStats = (await pool.query(
+        `SELECT g.id, g.name, g.platform,
+                COALESCE(s.shared, 0)::int AS shared,
+                COALESCE(v.visits, 0)::int AS visits,
+                COALESCE(v.people, 0)::int AS people,
+                v.last_visit, tp.title AS top_title, tp.slug AS top_slug
+         FROM share_groups g
+         LEFT JOIN (SELECT campaign, COUNT(*) AS visits, COUNT(DISTINCT visitor) AS people, MAX(created_at) AS last_visit
+                    FROM post_visits WHERE campaign IS NOT NULL AND created_at > ${since} GROUP BY campaign) v ON v.campaign = g.utm
+         LEFT JOIN (SELECT group_id, COUNT(*) AS shared FROM share_posted
+                    WHERE created_at > ${since} GROUP BY group_id) s ON s.group_id = g.id
+         LEFT JOIN LATERAL (SELECT p.title, p.slug FROM post_visits v2 JOIN posts p ON p.id = v2.post_id
+                            WHERE v2.campaign = g.utm AND v2.created_at > ${since}
+                            GROUP BY p.id, p.title, p.slug ORDER BY COUNT(*) DESC LIMIT 1) tp ON true
+         ORDER BY visits DESC, lower(g.name)`, [days])).rows;
+    } catch (err) {
+      console.error('[analytics] groups (migration_v42.sql chali?):', err.message);
+    }
+
     res.render('analytics', {
       title: 'Analytics',
       days,
@@ -378,6 +400,7 @@ router.get('/analytics', requireAdmin, async (req, res) => {
       pollStats,
       audience,
       extra,
+      groupStats,
     });
   } catch (err) {
     console.error(err);
@@ -411,12 +434,21 @@ router.get('/analytics/export.csv', requireAdmin, async (req, res) => {
          FROM post_visits v JOIN posts p ON p.id = v.post_id WHERE v.created_at > ${since}
          GROUP BY p.id, p.slug, p.title ORDER BY visits DESC LIMIT 50`, [days]),
     ]);
+    let groupRows = [];
+    try {
+      groupRows = (await pool.query(
+        `SELECT g.name, g.platform, COUNT(v.id)::int AS visits, COUNT(DISTINCT v.visitor)::int AS people
+         FROM share_groups g
+         LEFT JOIN post_visits v ON v.campaign = g.utm AND v.created_at > ${since}
+         GROUP BY g.id ORDER BY visits DESC`, [days])).rows;
+    } catch (e) { /* migration_v42 baaqi */ }
     const line = (a) => a.map(csvCell).join(',');
     const out = [
       line(['Report', `Last ${days} days`]), '',
       'DAILY VISITS', line(['Date', 'Visits']), ...daily.rows.map((r) => line([r.day, r.visits])), '',
       'TRAFFIC SOURCES', line(['Source', 'Visits']), ...sources.rows.map((r) => line([r.source, r.visits])), '',
       'TOP POSTS', line(['Title', 'Slug', 'Visits', 'WhatsApp', 'Facebook']), ...posts.rows.map((r) => line([r.title, r.slug, r.visits, r.whatsapp, r.facebook])),
+      ...(groupRows.length ? ['', 'GROUPS', line(['Group', 'Platform', 'Visits', 'People']), ...groupRows.map((r) => line([r.name, r.platform, r.visits, r.people]))] : []),
     ].join('\r\n');
     res.set('Content-Type', 'text/csv; charset=utf-8');
     res.set('Content-Disposition', `attachment; filename="analytics-${days}d.csv"`);

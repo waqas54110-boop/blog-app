@@ -188,6 +188,7 @@
       <a class="an-chip" href="#overview">📈 Overview</a>
       <% if (ex) { %><a class="an-chip" href="#timing">⏰ Best time</a><% } %>
       <a class="an-chip" href="#sources">🧭 Sources</a>
+      <a class="an-chip" href="#groups">📣 Groups</a>
       <a class="an-chip" href="#posts">📰 Top posts</a>
       <% if (locals.audience) { %><a class="an-chip" href="#audience">👥 Audience</a><% } %>
       <% if (locals.pollStats) { %><a class="an-chip" href="#contests">🗳️ Contests</a><% } %>
@@ -311,6 +312,41 @@
             </tbody>
           </table>
         </div>
+      <% } %>
+    </div>
+  </section>
+
+  <!-- ================= GROUPS ================= -->
+  <section id="groups">
+    <div class="an-card mb-3">
+      <h5 class="an-h">👥 Group-wise performance <a href="/poster" class="small ms-2">📣 Group Poster</a></h5>
+      <% const gs = locals.groupStats || []; %>
+      <% if (gs.length === 0) { %>
+        <p class="an-empty">Abhi koi group save nahi. <a href="/poster">Group Poster</a> mein apne groups daalo; har group ke link par alag UTM lagta hai aur yahan us group ke views alag dikhenge.</p>
+      <% } else { const gmax = Math.max(1, ...gs.map(g => g.visits)); %>
+        <div class="table-responsive">
+          <table class="an-tbl">
+            <thead><tr><th>Group</th><th class="r">Posted</th><th class="r">Visits</th><th class="r">People</th><th class="r">Visits / post</th><th>Best post</th><th>Last visit</th></tr></thead>
+            <tbody>
+              <% gs.forEach(g => { %>
+                <tr>
+                  <td style="min-width:200px;">
+                    <span class="pill unknown" style="color:<%= srcCol(g.platform) %>"><%= g.platform %></span>
+                    <b><%= g.name %></b>
+                    <div class="an-minibar"><span style="width:<%= g.visits ? Math.max(3, Math.round(g.visits * 100 / gmax)) : 0 %>%"></span></div>
+                  </td>
+                  <td class="r"><%= g.shared %>x</td>
+                  <td class="r"><b><%= g.visits %></b></td>
+                  <td class="r"><%= g.people %></td>
+                  <td class="r"><%= g.shared ? (g.visits / g.shared).toFixed(1) : '-' %></td>
+                  <td style="max-width:220px;"><% if (g.top_slug) { %><a href="/posts/<%= g.top_slug %>" class="text-truncate d-inline-block" style="max-width:210px;"><%= g.top_title %></a><% } else { %>-<% } %></td>
+                  <td><%= g.last_visit ? new Date(g.last_visit).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '-' %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <p class="an-empty mb-0 mt-2">Posted = is muddat mein kitni dafa ✓ lagaya. Visits = link par click karke aaye log (member ne sirf message dekha ho to count nahi hota).</p>
       <% } %>
     </div>
   </section>

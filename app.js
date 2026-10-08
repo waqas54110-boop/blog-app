@@ -41,6 +41,7 @@ const feedRouter = require('./routes/feed');
 const homeRouter = require('./routes/home');
 const storiesRouter = require('./routes/stories');
 const groupsRouter = require('./routes/groups');
+const posterRouter = require('./routes/poster');
 const earningsRouter = require('./routes/earnings');
 const earningsLib = require('./lib/earnings');
 const adsRouter = require('./routes/ads');
@@ -458,6 +459,7 @@ app.use('/', homeRouter); // akhbar jaisa home page; feed ke query params aayein
 app.use('/', feedRouter);
 app.use('/', storiesRouter);
 app.use('/', groupsRouter);
+app.use('/', posterRouter);
 app.use('/', earningsRouter);
 app.use('/', adsRouter);
 app.use('/', authRouter);

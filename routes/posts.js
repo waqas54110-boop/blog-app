@@ -513,7 +513,7 @@ router.get('/robots.txt', (req, res) => {
   const baseUrl = baseUrlOf(req);
   const blocked = [
     '/login', '/signup', '/forgot-password', '/reset-password', '/verify-email', '/resend-verification',
-    '/messages', '/inbox', '/notifications', '/settings', '/dashboard', '/bookmarks', '/analytics', '/admin',
+    '/messages', '/poster', '/inbox', '/notifications', '/settings', '/dashboard', '/bookmarks', '/analytics', '/admin',
     '/friends', '/push', '/stories', '/upload-', '/auth', '/report', '/unsubscribe', '/r/',
     '/groups/join/', '/groups/new', '/votes/new', '/court/new', '/petitions/new', '/posts/new', '/invite', '/offline', '/feed/views',
     '/earnings', '/advertise/', '/ads/', '/posts/*/edit', '/groups/*/manage', '/groups/*/chat', '/votes/*/go', '/votes/*/state.json', '/cricket/m/*/score', '/cricket/bar/', '/cricket/m/*/state.json',
