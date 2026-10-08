@@ -16,6 +16,7 @@ const spam = require('../lib/spam');
 const moderation = require('../lib/moderation');
 const earnings = require('../lib/earnings');
 const fbwall = require('../lib/fbwall');
+const crypto = require('crypto');
 
 const router = express.Router();
 const PER_PAGE = Math.min(Math.max(parseInt(process.env.POSTS_PER_PAGE, 10) || 6, 1), 30);
@@ -649,6 +650,17 @@ router.get('/posts/new', requireAdmin, async (req, res) => {
   });
 });
 
+// Facebook hook (migration_v44): social preview ka alag headline/description. Column na ho to chup-chap chhor do.
+async function saveFbHook(id, body) {
+  const t = String(body.fb_title || '').replace(/\s+/g, ' ').trim().slice(0, 90);
+  const d = String(body.fb_desc || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  try {
+    await pool.query('UPDATE posts SET fb_title = $1, fb_desc = $2 WHERE id = $3', [t || null, d || null, id]);
+  } catch (err) {
+    if (err.code !== '42703') console.error('[fb hook]', err.message);
+  }
+}
+
 const formFromBody = (body) => ({
   ...body,
   status: body.status === 'draft' ? 'draft' : 'publish',
@@ -688,6 +700,7 @@ router.post('/posts', requireAdmin, async (req, res) => {
       ]
     );
     await saveTagsForPost(result.rows[0].id, parseTags(req.body.tags));
+    await saveFbHook(result.rows[0].id, req.body);
     await savePostPoll(result.rows[0].id, req.body.poll_id);
     res.redirect('/posts/' + slug);
   } catch (err) {
@@ -780,6 +793,7 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
        data.is_draft, data.publish_at, TZ, data.send_newsletter, id, slug]
     );
     await saveTagsForPost(id, parseTags(req.body.tags));
+    await saveFbHook(id, req.body);
     await savePostPoll(id, req.body.poll_id);
 
     // Live post edit hui to Bing/Yandex ko batao (await nahi: redirect slow na ho).
@@ -909,8 +923,10 @@ router.get('/posts/:ref', async (req, res) => {
 
     // Share image: cover ho to wahi; na ho to title wala auto card (OG_CARD_ALWAYS=true se hamesha card)
     const cover = absUrl(base, post.cover_url);
-    const useCard = card.isAvailable() && (!cover || process.env.OG_CARD_ALWAYS === 'true');
-    const ogImage = useCard ? `${base}/og/${post.slug}.png` : (cover || config.defaultOgImage || null);
+    const useCard = card.isAvailable() && (!cover || process.env.OG_CARD_ALWAYS === 'true' || !!post.fb_title);
+    // ?h=... : hook badle to image ka URL badle (Facebook purani image cache na rakhe)
+    const hookTag = post.fb_title ? '?h=' + crypto.createHash('md5').update(post.fb_title).digest('hex').slice(0, 8) : '';
+    const ogImage = useCard ? `${base}/og/${post.slug}.png${hookTag}` : (cover || config.defaultOgImage || null);
 
     // Post ke andar vote widget (agar admin ne contest lagaya ho)
     let pollState = null;
@@ -944,6 +960,8 @@ router.get('/posts/:ref', async (req, res) => {
       title: post.title,
       metaDescription: description,
       ogImage,
+      ogTitle: post.fb_title || null,
+      ogDescription: post.fb_desc || null,
       ogImageCard: useCard,
       ogUrl: shareUrl,
       ogType: 'article',

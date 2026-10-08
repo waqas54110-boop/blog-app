@@ -49,13 +49,41 @@ router.get('/og/site.png', async (req, res) => {
 router.get(/^\/og\/([a-z0-9-]{1,120})\.png$/, async (req, res) => {
   if (!card.isAvailable()) return res.status(404).end();
   try {
-    const r = await pool.query(
-      `SELECT p.title, p.category, p.content FROM posts p
-       WHERE p.slug = $1 AND p.is_draft = false AND p.publish_at <= now()`,
-      [req.params[0]]
-    );
-    const p = r.rows[0];
+    let p;
+    try {
+      // fb_title / comments: migration_v44 ke baad. Na chali ho to neeche purani query chalti hai.
+      p = (await pool.query(
+        `SELECT p.title, p.category, p.content, p.fb_title, p.views,
+                (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id AND NOT COALESCE(c.is_hidden, false))::int AS comment_count
+         FROM posts p
+         WHERE p.slug = $1 AND p.is_draft = false AND p.publish_at <= now()`,
+        [req.params[0]]
+      )).rows[0];
+    } catch (e) {
+      if (e.code !== '42703') throw e;
+      p = (await pool.query(
+        `SELECT p.title, p.category, p.content FROM posts p
+         WHERE p.slug = $1 AND p.is_draft = false AND p.publish_at <= now()`,
+        [req.params[0]]
+      )).rows[0];
+    }
     if (!p) return res.status(404).end();
+
+    if (p.fb_title) {
+      // Sirf asli numbers, aur sirf jab itne ho chuke hon ke achhe lagein
+      const fmt = (n) => (n >= 10000 ? (n / 1000).toFixed(0) + 'K' : n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K' : String(n));
+      const stats = [];
+      if ((p.views || 0) >= 100) stats.push(fmt(p.views) + ' reads');
+      if ((p.comment_count || 0) >= 5) stats.push(fmt(p.comment_count) + ' comments');
+      return sendPng(res, await card.renderHookCard({
+        hook: p.fb_title,
+        category: p.category,
+        siteName: config.siteName,
+        stats,
+        cta: 'Read the full story',
+      }), 600);
+    }
+
     const mins = Math.max(Math.ceil(p.content.trim().split(/\s+/).length / 200), 1);
     sendPng(res, await card.renderCard({
       title: p.title,

@@ -78,6 +78,18 @@
                    value="<%= form.excerpt || '' %>" placeholder="One or two lines shown on the home page">
           </div>
 
+          <div class="card border-0 bg-body-tertiary mb-3">
+            <div class="card-body">
+              <div class="fw-semibold mb-1">📣 Facebook hook <span class="text-body-secondary fw-normal">(optional)</span></div>
+              <div class="form-text mb-2">Sirf share preview ke liye: Facebook/WhatsApp par yehi headline aur card dikhega. Google wala title nahi badlega. Hook post ke asli content se milta ho, warna log wapas chale jate hain aur Facebook reach kam kar deta hai.</div>
+              <input type="text" class="form-control mb-2" id="fb_title" name="fb_title" maxlength="90"
+                     value="<%= form.fb_title || '' %>" placeholder="e.g. Long march Islamabad pohanch gaya: ab agla qadam kya hoga?">
+              <input type="text" class="form-control" id="fb_desc" name="fb_desc" maxlength="200"
+                     value="<%= form.fb_desc || '' %>" placeholder="Ek adhoori baat: e.g. Teesri baat sab se zyada hairan karne wali hai...">
+              <div class="form-text mt-2">Tips: sawal poochho, number do ("3 wajohat"), ya baat adhoori chhor do. Card par asli reads/comments ke numbers khud aate hain.</div>
+            </div>
+          </div>
+
           <div class="mb-3">
             <label for="tags" class="form-label">Tags <span class="text-body-secondary">(comma separated, up to 8)</span></label>
             <input type="text" class="form-control" id="tags" name="tags"
