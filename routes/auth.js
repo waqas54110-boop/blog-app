@@ -11,6 +11,9 @@ const referral = require('../lib/referral');
 
 const router = express.Router();
 
+// Facebook wall se aaya ho to signup/login page par "is post ke liye account banao" dikhane ke liye
+router.use((req, res, next) => { res.locals.fbWallPost = (req.session && req.session.fbWallPost) || null; next(); });
+
 const RESET_TTL_MINUTES = 60;
 const VERIFY_TTL_HOURS = 24;
 const EMAIL_RE = /^\S+@\S+\.\S+$/;
@@ -31,6 +34,7 @@ function startSession(req, res, user) {
   req.session.user = { id: user.id, username: user.username, role: user.role };
   const back = req.session.returnTo;
   delete req.session.returnTo;
+  delete req.session.fbWallPost;
   res.redirect(/^\/(votes\/\d{1,9}|posts\/[a-z0-9-]{1,120}|groups\/join\/[a-f0-9]{32})$/.test(back || '') ? back : '/');
 }
 

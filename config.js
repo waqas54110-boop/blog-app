@@ -44,6 +44,10 @@ module.exports = {
   liveRecordMaxMb: Math.min(Math.max(isNaN(parseInt(process.env.LIVE_RECORD_MAX_MB, 10)) ? 60 : parseInt(process.env.LIVE_RECORD_MAX_MB, 10), 0), 200),
   // V29: Creators ki kamayi. EARN_ENABLED=1 likhne par hi chalti hai (default band)
   earnEnabled: process.env.EARN_ENABLED === '1',
+  // Facebook wall: Facebook se aane wale bina-login visitor ko post ka shuru ka hissa dikhta hai, baqi ke liye account banana parta hai.
+  // FB_WALL=0 likhein to band. FB_WALL_BLOCKS = kitne paragraph/blocks free dikhein (default 3)
+  fbWall: process.env.FB_WALL !== '0',
+  fbWallBlocks: Math.min(Math.max(parseInt(process.env.FB_WALL_BLOCKS, 10) || 3, 1), 15),
   // Ek view ke kitne paisa. 1 paisa = 100 views par Rs 1 (default)
   earnPaisaPerView: Math.min(Math.max(parseInt(process.env.EARN_PAISA_PER_VIEW, 10) || 1, 1), 100),
   // Kam az kam withdraw (rupees)

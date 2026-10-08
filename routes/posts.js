@@ -15,6 +15,7 @@ const indexnow = require('../lib/indexnow');
 const spam = require('../lib/spam');
 const moderation = require('../lib/moderation');
 const earnings = require('../lib/earnings');
+const fbwall = require('../lib/fbwall');
 
 const router = express.Router();
 const PER_PAGE = Math.min(Math.max(parseInt(process.env.POSTS_PER_PAGE, 10) || 6, 1), 30);
@@ -924,7 +925,20 @@ router.get('/posts/:ref', async (req, res) => {
       }
     }
 
-    const { html: contentHtml, toc } = addToc(renderMarkdown(post.content));
+    let { html: contentHtml, toc } = addToc(renderMarkdown(post.content));
+
+    // Facebook wall: Facebook se aaya bina-login visitor -> sirf shuru ka hissa, baqi ke liye signup
+    let fbWall = false;
+    if (post.is_live && fbwall.shouldWall(req, res, isBot)) {
+      const t = fbwall.teaser(contentHtml, config.fbWallBlocks);
+      if (t.cut) {
+        fbWall = true;
+        contentHtml = t.html;
+        toc = [];
+        req.session.returnTo = `/posts/${post.slug}`;   // signup/login ke baad isi post par wapas
+        req.session.fbWallPost = post.title;
+      }
+    }
 
     res.render('post', {
       title: post.title,
@@ -965,6 +979,7 @@ router.get('/posts/:ref', async (req, res) => {
       },
       pollState,
       pollNotice,
+      fbWall,
       readingTime: readingTimeOf(post.content),
       tz: TZ,
       commentError: req.query.commentError || null,

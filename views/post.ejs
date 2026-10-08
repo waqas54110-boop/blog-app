@@ -65,7 +65,7 @@
           <hr>
         <% } %>
 
-        <% if (locals.toc && toc.length >= 3) { %>
+        <% if (locals.toc && toc.length >= 3 && !locals.fbWall) { %>
           <details class="toc card card-body bg-body-tertiary border-0 mb-4" open>
             <summary class="fw-semibold" style="cursor:pointer;">📑 In this post</summary>
             <ul class="list-unstyled mb-0 mt-2">
@@ -79,6 +79,25 @@
         <% } %>
 
         <div class="post-body"><%- contentHtml %></div>
+
+        <% if (locals.fbWall) { %>
+          <div class="fb-wall position-relative">
+            <div class="fb-wall-fade"></div>
+            <div class="card border-0 shadow-lg text-center p-4 mx-auto" style="max-width:520px;margin-top:-60px;position:relative;">
+              <div class="fs-1 mb-1">🔒</div>
+              <h4 class="fw-bold mb-2">Poori story parhne ke liye free account banao</h4>
+              <p class="text-body-secondary mb-3">Sirf 30 second. Account banate hi yehi post poori khul jayegi, aur comments, likes aur save karne ki facility bhi mil jayegi.</p>
+              <a href="/signup" class="btn btn-primary btn-lg w-100 mb-2">✨ Free account banao</a>
+              <% if (locals.googleEnabled) { %>
+                <a href="/auth/google" class="btn btn-outline-secondary w-100 mb-2">Google se foran join karo</a>
+              <% } %>
+              <div class="small text-body-secondary">Pehle se account hai? <a href="/login">Login karo</a></div>
+            </div>
+          </div>
+          <style>
+            .fb-wall-fade{height:140px;margin-top:-140px;position:relative;pointer-events:none;background:linear-gradient(to bottom,rgba(255,255,255,0),var(--bs-body-bg) 92%);}
+          </style>
+        <% } else { %>
 
         <hr class="my-4">
 
@@ -162,9 +181,11 @@
               </form>
             </div>
           <% } %>
+        <% } /* fbWall else */ %>
         </div>
       </div>
     </article>
+    <% if (!locals.fbWall) { %>
 
     <% if (locals.pollState) { %>
       <section class="card border-0 shadow-sm mt-4" id="poll-widget">
@@ -263,6 +284,7 @@
         <% }) %>
       </div>
     </section>
+    <% } /* !fbWall */ %>
 
     <% if (related.length) { %>
       <h5 class="mt-5 mb-3">Related posts</h5>
