@@ -164,7 +164,7 @@ router.get('/rates/petrol-price-today', safe(async (req, res) => {
 }));
 
 // ---------- NAMAZ ----------
-router.get('/rates/prayer-times/:city?', safe(async (req, res) => {
+router.get('/rates/prayer-times{/:city}', safe(async (req, res) => {
   const key = String(req.params.city || 'lahore').toLowerCase();
   if (!R.CITIES[key]) return res.status(404).render('404', { title: 'Not Found' });
   const data = await R.prayerTimes(key);
