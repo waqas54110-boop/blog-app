@@ -66,13 +66,17 @@
       <span class="gp-stat"><b id="gpDone"><%= doneCount %></b> / <%= groups.length %> mein aaj post ho chuki &nbsp;·&nbsp; is post ke <b><%= totalVisits %></b> visits groups se</span>
     </div>
     <div class="gp-bar mb-2"><i id="gpProg" style="width:<%= groups.length ? Math.round(doneCount * 100 / groups.length) : 0 %>%"></i></div>
+    <% if (groups.length) { %>
+      <button type="button" class="btn btn-success w-100 rounded-pill fw-semibold mb-2 py-2" id="gpNext">Next group ➜</button>
+      <div class="gp-stat mb-2" id="gpNextHint">Dabane par agla group khulta hai, caption copy hota hai aur ✓ khud lag jata hai. Wahan paste karke send karo, phir wapas aa kar dobara dabao.</div>
+    <% } %>
 
     <% if (groups.length === 0 && !setupNeeded) { %>
       <p class="text-body-secondary mb-0">Abhi koi group save nahi. Neeche "Groups add karo" se apni list ek dafa daal do.</p>
     <% } %>
 
     <% groups.forEach(g => { %>
-      <div class="gp-row <%= g.done ? 'is-done' : '' %>" data-gid="<%= g.id %>" data-url="<%= g.url %>">
+      <div class="gp-row <%= g.done ? 'is-done' : '' %>" data-gid="<%= g.id %>" data-url="<%= g.url %>" data-name="<%= g.name %>" data-link="<%= g.link || '' %>">
         <div class="gp-ico" title="<%= g.platform %>"><%= ICON[g.platform] || '🔗' %></div>
         <div class="gp-info">
           <div class="gp-name"><%= g.name %></div>
@@ -162,6 +166,38 @@
     var n = document.querySelectorAll('.gp-row.is-done').length;
     doneEl.textContent = n;
     prog.style.width = (total ? Math.round(n * 100 / total) : 0) + '%';
+    if (typeof refreshNext === 'function') refreshNext();
+  }
+
+  function toggleTick(row, after) {
+    var body = new URLSearchParams(); body.set('_csrf', csrf);
+    row.style.opacity = '.6';
+    return fetch('/poster/' + postId + '/tick/' + row.dataset.gid, { method: 'POST', headers: { 'x-csrf-token': csrf, 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (typeof j.done === 'boolean') row.classList.toggle('is-done', j.done); recount(); })
+      .catch(function () { alert('Tick save nahi hua, dobara try karo.'); })
+      .then(function () { row.style.opacity = ''; });
+  }
+  var nextBtn = document.getElementById('gpNext');
+  function nextRow() {
+    var rows = document.querySelectorAll('.gp-row:not(.is-done)');
+    for (var i = 0; i < rows.length; i++) if (rows[i].dataset.link) return rows[i];
+    return null;
+  }
+  function refreshNext() {
+    if (!nextBtn) return;
+    var r = nextRow();
+    nextBtn.textContent = r ? 'Next group ➜ ' + r.dataset.name : '✓ Sab groups ho gaye';
+    nextBtn.disabled = !r;
+  }
+  if (nextBtn) {
+    nextBtn.addEventListener('click', function () {
+      var r = nextRow();
+      if (!r) return;
+      copyNow(captionFor(r.dataset.url));            // pehle copy (click ke andar)
+      window.open(r.dataset.link, '_blank', 'noopener'); // phir group kholo
+      toggleTick(r).then(refreshNext);                // ✓ khud
+    });
   }
 
   document.querySelectorAll('.gp-row').forEach(function (row) {
@@ -176,16 +212,9 @@
       copyNow(captionFor(url)); // link khulne ke saath caption bhi copy: wahan bas paste karo
       flash(open, 'Copied ✓');
     });
-    row.querySelector('.gp-tick').addEventListener('click', function () {
-      var body = new URLSearchParams(); body.set('_csrf', csrf);
-      row.style.opacity = '.6';
-      fetch('/poster/' + postId + '/tick/' + gid, { method: 'POST', headers: { 'x-csrf-token': csrf, 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
-        .then(function (r) { return r.json(); })
-        .then(function (j) { if (typeof j.done === 'boolean') row.classList.toggle('is-done', j.done); recount(); })
-        .catch(function () { alert('Tick save nahi hua, dobara try karo.'); })
-        .then(function () { row.style.opacity = ''; });
-    });
+    row.querySelector('.gp-tick').addEventListener('click', function () { toggleTick(row); });
   });
+  refreshNext();
 })();
 </script>
 

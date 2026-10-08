@@ -30,6 +30,7 @@ Jab tak SQL nahi chalta, site normal chalti rahegi; bas /poster par "migration c
 4. Group ke saamne:
    - 📋  = us group ka caption copy
    - ↗ Open group = group kholta hai AUR caption khud copy ho jata hai (wahan bas paste karo)
+   - ➜ "Next group" (upar bara button) = agla bacha hua group kholta hai, caption copy karta hai aur ✓ khud laga deta hai. Paste+send karo, wapas aao, phir dabao.
    - ✓  = "aaj is group mein post ho gayi" (har din naye sire se shuru; kal tick khud hat jata hai)
 5. Analytics -> "Group-wise performance": har group ke visits, log, kitni dafa post hui, best post.
 
