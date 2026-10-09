@@ -45,6 +45,43 @@
       <div class="col-12 col-md-7">
         <div class="card border-0 shadow-sm mb-3">
           <div class="card-body">
+            <h6 class="fw-bold mb-1">🎙️ Funny voice (optional)</h6>
+            <p class="small text-body-secondary mb-2">Pick a funny script, make the voice file (free, see the command), upload it here. The voice is mixed into the video and the script shows as subtitles.</p>
+            <div class="d-flex flex-wrap gap-2 mb-2" id="ttPresets">
+              <% presets.forEach(function (p) { %><button type="button" class="btn btn-outline-dark btn-sm" data-preset="<%= p.key %>"><%= p.label %></button><% }) %>
+            </div>
+            <textarea class="form-control mb-2" id="ttScript" rows="4" dir="auto" placeholder="Script (Urdu script works best with voice generators)"></textarea>
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <select class="form-select form-select-sm" id="ttVoice">
+                  <option value="ur-PK-AsadNeural">Male (Asad)</option>
+                  <option value="ur-PK-UzmaNeural">Female (Uzma)</option>
+                </select>
+              </div>
+              <div class="col-6">
+                <select class="form-select form-select-sm" id="ttRate">
+                  <option value="+0%">Normal speed</option>
+                  <option value="+10%" selected>A bit faster</option>
+                  <option value="+20%">Fast</option>
+                </select>
+              </div>
+            </div>
+            <label class="small fw-semibold mb-1">1. Free voice command (run in terminal, needs <code>pip install --break-system-packages edge-tts</code> once)</label>
+            <textarea class="form-control form-control-sm font-monospace mb-1" id="ttCmd" rows="3" readonly></textarea>
+            <button class="btn btn-outline-secondary btn-sm mb-3" type="button" data-copy="ttCmd">Copy command</button>
+            <label class="small fw-semibold d-block mb-1">2. Upload the voice file (mp3 / wav / m4a)</label>
+            <input type="file" class="form-control form-control-sm" id="ttAudio" accept="audio/*">
+            <audio id="ttAudioPrev" class="w-100 mt-2 d-none" controls></audio>
+            <div class="small text-body-secondary mt-1" id="ttAudioInfo"></div>
+            <div class="form-check mt-2">
+              <input class="form-check-input" type="checkbox" id="ttFunny" checked>
+              <label class="form-check-label" for="ttFunny">😂 Funny mode (wobbling cards, floating emojis, subtitles)</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body">
             <h6 class="fw-bold mb-3">How to get TikTok traffic to this vote</h6>
             <div class="tt-step mb-2"><span class="n">1</span><div>Press <strong>Create video</strong>. Keep this tab open until it finishes.</div></div>
             <div class="tt-step mb-2"><span class="n">2</span><div>Press <strong>Share video to TikTok</strong> (phone) or <strong>Download</strong>, then upload it on TikTok. Add a trending sound there.</div></div>
@@ -80,7 +117,9 @@
 (function () {
   var D = <%- JSON.stringify(studio).replace(/</g, '\\u003c') %>;
   var CSRF = <%- JSON.stringify(csrfToken) %>;
-  var W = 720, H = 1280, DUR = 12;
+  var W = 720, H = 1280, BASE = 12, DUR = 12, VOICE_AT = 0.6;
+  var PRESETS = <%- JSON.stringify(presets).replace(/</g, '\\u003c') %>;
+  var funny = true, audioBuf = null, audioCtx = null, subs = [];
   var FONT = "'Segoe UI', Roboto, 'Noto Sans', Arial, sans-serif";
   var cv = document.getElementById('ttCanvas'), ctx = cv.getContext('2d');
   var $ = function (id) { return document.getElementById(id); };
@@ -89,7 +128,7 @@
   // ---- images ----
   var imgs = D.options.map(function (o) {
     var im = new Image(); im.crossOrigin = 'anonymous';
-    im.onload = function () { if (!recording) draw(7.5); };
+    im.onload = function () { if (!recording) draw(previewT()); };
     im.onerror = function () { im.failed = true; };
     im.src = o.image;
     return im;
@@ -145,6 +184,18 @@
       ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
     }
 
+    // floating emojis (funny mode), behind the cards
+    if (funny) {
+      var em = ['😂', '🤣', '🔥', '🏏', '🍵', '🗳️'];
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.font = '46px ' + FONT;
+      for (var e = 0; e < 8; e++) {
+        var ph = (t * 0.22 + e * 0.125) % 1;
+        ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.9;
+        ctx.fillText(em[e % em.length], 70 + ((e * 89) % 580) + Math.sin(t * 2 + e) * 18, H - 60 - ph * (H - 220));
+      }
+      ctx.globalAlpha = 1;
+    }
+
     // progress bar
     ctx.fillStyle = 'rgba(255,255,255,.18)'; rr(40, 34, W - 80, 8, 4); ctx.fill();
     ctx.fillStyle = '#fe2c55'; rr(40, 34, Math.max(8, (W - 80) * c01(t / DUR)), 8, 4); ctx.fill();
@@ -153,29 +204,35 @@
     var a0 = easeOut(t / 0.4);
     ctx.save(); ctx.globalAlpha = a0;
     ctx.fillStyle = '#fe2c55'; rr(W / 2 - 110, 70, 220, 56, 28); ctx.fill();
-    text('🗳️ VOTE NOW', W / 2, 109, 30, '#fff');
+    text(funny ? '😂 VOTE NOW' : '🗳️ VOTE NOW', W / 2, 109, 30, '#fff');
     ctx.restore();
 
     // title
     var ta = easeOut((t - 0.3) / 0.6);
     ctx.save(); ctx.globalAlpha = ta; ctx.translate(0, (1 - ta) * 30);
-    ctx.font = '800 54px ' + FONT;
+    var tsz = funny ? 46 : 54, tlh = funny ? 54 : 64;
+    ctx.font = '800 ' + tsz + 'px ' + FONT;
     var tl = wrap(D.title, W - 120).slice(0, 4);
     var ty = 200;
-    tl.forEach(function (ln, i) { text(ln, W / 2, ty + i * 64, 54, '#fff'); });
+    tl.forEach(function (ln, i) { text(ln, W / 2, ty + i * tlh, tsz, '#fff'); });
     ctx.restore();
-    var areaTop = ty + tl.length * 64 + 10;
+    var areaTop = ty + tl.length * tlh + 10;
 
     // options
-    var n = D.options.length, areaBottom = 900, areaH = areaBottom - areaTop;
+    var n = D.options.length, areaBottom = funny ? 790 : 900, areaH = areaBottom - areaTop;
     if (n === 2) {
-      var cw = 560, gap = 70, ch = Math.min(300, (areaH - gap) / 2), x = (W - cw) / 2;
+      var cw = 560, gap = funny ? 56 : 70, ch = Math.min(300, (areaH - gap) / 2), x = (W - cw) / 2;
       for (var k = 0; k < 2; k++) {
         var p = easeOut((t - 2.0 - k * 0.5) / 0.7);
         if (p <= 0) continue;
         var y = areaTop + k * (ch + gap);
         var off = (1 - p) * (k === 0 ? -W : W);
-        drawCard(k, x + off, y, cw, ch, 24, 46);
+        if (funny && p >= 1) {
+          var mx = x + cw / 2, my = y + ch / 2;
+          ctx.save(); ctx.translate(mx + Math.sin(t * 14 + k * 3) * 2, my); ctx.rotate(Math.sin(t * 5 + k * 2) * 0.03); ctx.translate(-mx, -my);
+          drawCard(k, x, y, cw, ch, 24, 46);
+          ctx.restore();
+        } else drawCard(k, x + off, y, cw, ch, 24, 46);
       }
       var vp = back((t - 3.3) / 0.5);
       if (vp > 0) {
@@ -196,21 +253,60 @@
       }
     }
 
+    // subtitles (funny mode)
+    if (funny) {
+      for (var si = 0; si < subs.length; si++) {
+        if (t >= subs[si].a && t < subs[si].b) { drawSub(subs[si].s, easeOut((t - subs[si].a) / 0.25)); break; }
+      }
+    }
+
     // call to action
-    var ca = easeOut((t - 6.5) / 0.6);
+    var ctaAt = Math.max(6.5, DUR - 5.5);
+    var cy0 = funny ? 985 : 960, ly = cy0 + 90;
+    var ca = easeOut((t - ctaAt) / 0.6);
     if (ca > 0) {
       var pulse = 1 + 0.04 * Math.sin(t * 6);
-      ctx.save(); ctx.globalAlpha = ca; ctx.translate(W / 2, 960); ctx.scale(pulse, pulse);
+      ctx.save(); ctx.globalAlpha = ca; ctx.translate(W / 2, cy0); ctx.scale(pulse, pulse);
       ctx.fillStyle = '#fff'; rr(-290, -50, 580, 100, 50); ctx.fill();
       text('🔗 Link in bio to vote 👆', 0, 15, 40, '#be123c');
       ctx.restore();
-      var la = easeOut((t - 7.3) / 0.6);
+      var la = easeOut((t - ctaAt - 0.8) / 0.6);
       ctx.save(); ctx.globalAlpha = la;
-      text(D.shortUrl.replace(/^https?:\/\//, ''), W / 2, 1050, 30, '#fde68a', 'center', '700');
-      if (D.siteName) text(D.siteName, W / 2, 1095, 26, 'rgba(255,255,255,.7)', 'center', '600');
+      text(D.shortUrl.replace(/^https?:\/\//, ''), W / 2, ly, 30, '#fde68a', 'center', '700');
+      if (D.siteName) text(D.siteName, W / 2, ly + 42, 26, 'rgba(255,255,255,.7)', 'center', '600');
       ctx.restore();
     }
   }
+
+  function drawSub(str, pop) {
+    var rtl = /[\u0600-\u06FF]/.test(str), size = 38;
+    ctx.save();
+    ctx.direction = rtl ? 'rtl' : 'ltr';
+    ctx.font = '800 ' + size + 'px ' + FONT;
+    var lines = wrap(str, W - 170);
+    if (lines.length > 2) { size = 32; ctx.font = '800 ' + size + 'px ' + FONT; lines = wrap(str, W - 170).slice(0, 3); }
+    var lh = size + 12, bh = lines.length * lh + 26, by = 805;
+    ctx.globalAlpha = pop;
+    ctx.fillStyle = 'rgba(0,0,0,.62)'; rr(50, by, W - 100, bh, 22); ctx.fill();
+    lines.forEach(function (ln, i) { text(ln, W / 2, by + 20 + size + i * lh - 6, size, '#fde047'); });
+    ctx.restore();
+  }
+  function computeSubs() {
+    subs = [];
+    var raw = ($('ttScript').value || '').trim();
+    if (!raw) return;
+    var parts = (raw.match(/[^۔!؟?.\n]+[۔!؟?.]?/g) || [raw]).map(function (x) { return x.trim(); }).filter(Boolean);
+    var total = parts.reduce(function (a, x) { return a + x.length; }, 0) || 1;
+    var span = audioBuf ? audioBuf.duration : Math.max(6, DUR - VOICE_AT - 1.5), cur = VOICE_AT;
+    parts.forEach(function (x) { var d = span * x.length / total; subs.push({ s: x, a: cur, b: cur + d }); cur += d; });
+  }
+  function previewT() { return Math.max(7.5, DUR - 5.5) + 1.5; }
+  function setLabel() { $('ttMake').textContent = '▶ Create video (' + DUR + ' sec)'; }
+  function cmdText() {
+    var txt = ($('ttScript').value || '').replace(/\s*\n\s*/g, ' ').replace(/(["\\$`])/g, '\\$1').trim() || 'اپنا متن یہاں لکھیں';
+    return 'edge-tts --voice ' + $('ttVoice').value + ' --rate=' + $('ttRate').value + ' --text "' + txt + '" --write-media voice.mp3';
+  }
+  function refreshVoiceUi() { $('ttCmd').value = cmdText(); computeSubs(); if (!recording) draw(previewT()); }
 
   function drawCard(k, x, y, w, h, r, nameSize) {
     var o = D.options[k];
@@ -234,8 +330,9 @@
 
   // ---- recording ----
   var recording = false, blobUrl = null;
-  function pickMime() {
-    var list = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+  function pickMime(withAudio) {
+    var list = (withAudio ? ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus'] : [])
+      .concat(['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']);
     if (!window.MediaRecorder) return null;
     for (var i = 0; i < list.length; i++) { if (MediaRecorder.isTypeSupported(list[i])) return list[i]; }
     return '';
@@ -244,10 +341,37 @@
     try { var fd = new URLSearchParams(); fd.set('ch', 'tiktok'); fd.set('_csrf', CSRF); navigator.sendBeacon('/votes/' + D.id + '/share', fd); } catch (e) {}
   }
 
-  $('ttShowPct').addEventListener('change', function () { showPct = this.checked; if (!recording) draw(7.5); });
+  $('ttShowPct').addEventListener('change', function () { showPct = this.checked; if (!recording) draw(previewT()); });
+  $('ttFunny').addEventListener('change', function () { funny = this.checked; if (!recording) draw(previewT()); });
+  document.getElementById('ttPresets').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-preset]'); if (!b) return;
+    var p = PRESETS.filter(function (x) { return x.key === b.dataset.preset; })[0];
+    if (p) { $('ttScript').value = p.ur; refreshVoiceUi(); }
+  });
+  $('ttScript').addEventListener('input', refreshVoiceUi);
+  $('ttVoice').addEventListener('change', refreshVoiceUi);
+  $('ttRate').addEventListener('change', refreshVoiceUi);
+  $('ttAudio').addEventListener('change', function () {
+    var f = this.files && this.files[0], info = $('ttAudioInfo'), prev = $('ttAudioPrev');
+    audioBuf = null; DUR = BASE; setLabel();
+    if (!f) { prev.classList.add('d-none'); info.textContent = ''; refreshVoiceUi(); return; }
+    if (f.size > 15 * 1024 * 1024) { info.textContent = 'File is too big (max 15 MB).'; return; }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { info.textContent = 'This browser cannot mix audio. Use Chrome.'; return; }
+    audioCtx = audioCtx || new AC();
+    prev.src = URL.createObjectURL(f); prev.classList.remove('d-none');
+    info.textContent = 'Reading audio…';
+    f.arrayBuffer().then(function (ab) { return audioCtx.decodeAudioData(ab); }).then(function (buf) {
+      if (buf.duration > 40) { info.textContent = 'Audio is longer than 40 seconds. Please use a shorter one.'; return; }
+      audioBuf = buf;
+      DUR = Math.min(45, Math.max(BASE, Math.ceil(buf.duration + VOICE_AT + 1.5)));
+      info.textContent = 'Voice: ' + buf.duration.toFixed(1) + ' sec. Video will be ' + DUR + ' sec.';
+      setLabel(); refreshVoiceUi();
+    }).catch(function () { info.textContent = 'Could not read this audio file. Try mp3 or wav.'; });
+  });
 
   $('ttMake').addEventListener('click', function () {
-    var btn = this, mime = pickMime();
+    var btn = this, mime = pickMime(!!audioBuf);
     if (mime === null || !cv.captureStream) {
       $('ttMsg').textContent = 'This browser cannot record video. Please open this page in Chrome (Android / desktop) or Safari 14.1+.';
       return;
@@ -256,12 +380,21 @@
     $('ttDone').classList.add('d-none'); $('ttVideo').classList.add('d-none'); cv.classList.remove('d-none');
     $('ttMsg').textContent = 'Keep this tab open and visible…';
     var bar = $('ttProgress'); bar.classList.remove('d-none');
-    var chunks = [], stream = cv.captureStream(30), rec;
+    var chunks = [], stream = cv.captureStream(30), rec, vsrc = null;
+    computeSubs();
+    if (audioBuf) {
+      try {
+        audioCtx.resume();
+        var dest = audioCtx.createMediaStreamDestination();
+        vsrc = audioCtx.createBufferSource(); vsrc.buffer = audioBuf; vsrc.connect(dest); // speakers se nahi chalta
+        dest.stream.getAudioTracks().forEach(function (tr) { stream.addTrack(tr); });
+      } catch (e) { vsrc = null; }
+    }
     try { rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 4000000 } : {}); }
     catch (e) { rec = new MediaRecorder(stream); }
     rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
     rec.onstop = function () {
-      recording = false; btn.disabled = false; btn.textContent = '🔁 Create again'; bar.classList.add('d-none');
+      recording = false; btn.disabled = false; btn.textContent = '🔁 Create again (' + DUR + ' sec)'; bar.classList.add('d-none');
       var type = rec.mimeType || mime || 'video/webm';
       var ext = /mp4/.test(type) ? 'mp4' : 'webm';
       var blob = new Blob(chunks, { type: type });
@@ -286,6 +419,7 @@
     };
     rec.start(250);
     var t0 = performance.now();
+    if (vsrc) vsrc.start(audioCtx.currentTime + VOICE_AT);
     (function loop() {
       var t = (performance.now() - t0) / 1000;
       draw(Math.min(t, DUR));
@@ -304,7 +438,8 @@
     }).catch(function () { el.select(); try { document.execCommand('copy'); } catch (x) {} });
   });
 
-  draw(7.5); // preview
+  setLabel();
+  refreshVoiceUi(); // preview
 })();
 </script>
 

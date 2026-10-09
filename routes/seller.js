@@ -5,6 +5,7 @@ const express = require('express');
 const pool = require('../db');
 const config = require('../config');
 const S = require('../lib/shop');
+const Restricted = require('../lib/restricted');
 const Images = require('../lib/images');
 const { slugify } = require('../lib/slug');
 const { cleanLink } = require('../lib/ads');
@@ -71,7 +72,8 @@ function readShopForm(b) {
     logo: S.toId(b.logo_ids) ? String(S.toId(b.logo_ids)) : '',
   };
 }
-function checkShopForm(f) {
+async function checkShopForm(f) {
+  if (await Restricted.find([f.name, f.tagline, f.description].join('\n'))) return { error: Restricted.MSG_UR };
   if (f.name.length < 3) return { error: 'Shop ka naam likhein (kam az kam 3 huroof).' };
   if (f.city.length < 2) return { error: 'Shehar ka naam likhein.' };
   const wa = S.cleanPhone(f.whatsapp);
@@ -100,7 +102,7 @@ router.post('/seller/open', requireLogin, async (req, res) => {
     if (await S.getMyShop(me.id)) return res.redirect('/seller');
     if (config.shopAdminOnly && me.role !== 'admin') return deny(res, 'Abhi nayi shops sirf site owner bana sakta hai.');
     const f = readShopForm(req.body || {});
-    const c = checkShopForm(f);
+    const c = await checkShopForm(f);
     const fail = (m) => render(res, 'seller-open', { title: 'Apni shop kholo', code: 400, f, error: m, edit: false, approval: config.shopApproval && me.role !== 'admin' });
     if (c.error) return fail(c.error);
     if (f.logo && !(await S.usableImage(parseInt(f.logo, 10), me.id, null))) f.logo = '';
@@ -122,7 +124,7 @@ router.post('/seller/settings', guard, async (req, res) => {
   try {
     const me = req.session.user;
     const f = readShopForm(req.body || {});
-    const c = checkShopForm(f);
+    const c = await checkShopForm(f);
     const fail = (m) => render(res, 'seller-open', { title: 'Shop settings', code: 400, f, error: m, edit: true, approval: false, seller: 'settings' });
     if (c.error) return fail(c.error);
     const oldLogo = req.shop.logo_image_id;
@@ -180,7 +182,8 @@ function readProductForm(b) {
     active: b.is_active === '1', images: [...new Set(ids)].slice(0, S.MAX_PRODUCT_PHOTOS),
   };
 }
-function checkProductForm(f) {
+async function checkProductForm(f) {
+  if (await Restricted.find([f.name, f.description, f.category].join('\n'))) return { error: Restricted.MSG_UR };
   if (f.name.length < 3) return { error: 'Product ka naam likhein (kam az kam 3 huroof).' };
   const price = S.toRs(f.price);
   if (!price || price > 9999999) return { error: 'Qeemat sahi likhein (sirf number, jaise 1500).' };
@@ -226,7 +229,7 @@ router.get('/seller/products/new', guard, (req, res) => renderProductForm(res, r
 router.post('/seller/products', guard, async (req, res) => {
   try {
     const f = readProductForm(req.body || {});
-    const c = checkProductForm(f);
+    const c = await checkProductForm(f);
     if (c.error) return renderProductForm(res, req, { code: 400, f, error: c.error });
     const n = (await pool.query('SELECT COUNT(*)::int AS n FROM products WHERE shop_id = $1', [req.shop.id])).rows[0].n;
     if (n >= config.shopMaxProducts) return renderProductForm(res, req, { code: 400, f, error: `Ek shop mein ${config.shopMaxProducts} products tak ki ijazat hai.` });
@@ -260,7 +263,7 @@ router.post('/seller/products/:id', guard, async (req, res) => {
     const p = await ownProduct(req.shop.id, req.params.id);
     if (!p) return go(res, '/seller/products', 'Product nahi mila.', 'error');
     const f = readProductForm(req.body || {});
-    const c = checkProductForm(f);
+    const c = await checkProductForm(f);
     if (c.error) return renderProductForm(res, req, { code: 400, f, error: c.error, edit: p });
     await pool.query(
       `UPDATE products SET name=$2, category=$3, description=$4, price_rs=$5, compare_price_rs=$6, stock=$7, is_active=$8, updated_at=now() WHERE id=$1`,

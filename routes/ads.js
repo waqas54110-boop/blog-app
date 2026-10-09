@@ -3,6 +3,7 @@
 const express = require('express');
 const pool = require('../db');
 const spam = require('../lib/spam');
+const Restricted = require('../lib/restricted');
 const A = require('../lib/ads');
 const Images = require('../lib/images');
 const { notifyUser } = require('../lib/notify');
@@ -101,6 +102,7 @@ router.post('/advertise', async (req, res, next) => {
     }
 
     const v = await spam.check([f.business_name, f.tagline, f.body].join('\n'), { userId: me.id, isAdmin: me.role === 'admin' });
+    if (me.role !== 'admin' && await Restricted.find([f.business_name, f.tagline, f.body].join('\n'))) return fail(Restricted.MSG_EN);
     if (v.action !== 'ok') return fail('Your text was stopped by the spam filter (spam words, repeated text or too many links). Please rewrite it and try again.');
 
     if (me.role !== 'admin') {

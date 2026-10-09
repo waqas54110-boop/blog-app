@@ -182,7 +182,20 @@ router.get('/votes/:id/tiktok', async (req, res, next) => {
     const names = opts.map((o) => o.name);
     const caption = `${st.title}\n\n${names.join(' vs ')}: who wins? \u{1F525} Vote now, link in bio \u{1F446}`;
     const tags = `#vote #poll #fyp #foryou #viral #${String(config.siteName || 'vote').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+    // Funny voice scripts (Urdu rasm-ul-khat: voice generator Roman Urdu theek nahi bolte). Naam mein se emoji/jhande hata diye.
+    const nm = (o) => String(o.name || '').replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim() || 'Option';
+    const A = nm(opts[0]);
+    const B = nm(opts[1] || opts[0]);
+    const presets = [
+      { key: 'chacha', label: '\u{1F602} Chacha vs Phupho',
+        ur: `چچا نے کہا ${A} ہی جیتے گا۔ پھوپھو نے کہا نہیں، ${B}! دادی بول رہی ہیں، چپ رہو، چائے پلاؤ! اب گھر میں جھگڑا ہے۔ تم فیصلہ کرو، کس کا پلڑا بھاری ہے؟ ابھی ووٹ کرو، لنک بائیو میں!` },
+      { key: 'challenge', label: '\u{1F60F} Challenge',
+        ur: `سب کہتے ہیں ${A} جیتے گا۔ لیکن پکا؟ ${B} والے بھی گھور رہے ہیں! ابھی ووٹ کرو، لنک بائیو میں! پھر مت کہنا بتایا نہیں!` },
+      { key: 'chai', label: '\u{1F375} Chai wali dhamki',
+        ur: `اگر تم نے ووٹ نہیں دیا، تو چائے ٹھنڈی ہو جائے گی! ${A} یا ${B}؟ جلدی بولو، لنک بائیو میں، اور اپنا پلڑا بھاری کرو!` },
+    ];
     res.render('vote-tiktok', {
+      presets,
       title: 'TikTok video: ' + st.title,
       metaDescription: 'Make a TikTok vote video for this contest.',
       st,

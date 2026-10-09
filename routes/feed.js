@@ -5,6 +5,7 @@ const pool = require('../db');
 const config = require('../config');
 const cloud = require('../lib/cloudinary');
 const spam = require('../lib/spam');
+const Restricted = require('../lib/restricted');
 const moderation = require('../lib/moderation');
 const Feed = require('../lib/feed');
 const Friends = require('../lib/friends');
@@ -240,6 +241,7 @@ router.post('/feed', requireLogin, async (req, res) => {
     let held = false;
     let heldReason = '';
     if (body) {
+      if (!res.locals.isAdmin && await Restricted.find(body)) return fail(Restricted.MSG_EN);
       const verdict = await spam.check(body, { userId: me.id, isAdmin: res.locals.isAdmin });
       if (verdict.action === 'block') return fail(verdict.message.replace('comment', 'post'));
       held = verdict.action === 'hold';
