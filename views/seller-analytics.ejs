@@ -1,0 +1,101 @@
+<%- include('partials/header') %>
+<%- include('partials/shop-style') %>
+<%- include('partials/seller-nav') %>
+
+<%
+  const pct = (a, b) => (b > 0 ? (a * 100 / b).toFixed(1) + '%' : '-');
+  const ICON = { whatsapp: '💬', facebook: '📘', telegram: '✈️', instagram: '📸', other: '🔗' };
+  const gmax = Math.max(1, ...byGroup.map(g => g.orders));
+%>
+<style>
+  .an-t { width: 100%; font-size: .88rem; }
+  .an-t th { font-size: .74rem; text-transform: uppercase; letter-spacing: .03em; color: var(--bs-secondary-color); font-weight: 600; padding: .35rem .5rem; border-bottom: 1px solid var(--bs-border-color); white-space: nowrap; }
+  .an-t td { padding: .45rem .5rem; border-bottom: 1px solid var(--bs-border-color); }
+  .an-t .r { text-align: right; }
+  .an-bar { height: 5px; border-radius: 99px; background: var(--bs-tertiary-bg); margin-top: .25rem; overflow: hidden; }
+  .an-bar span { display: block; height: 100%; background: #12a37f; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h1 class="fs-4 fw-bold mb-0">📊 Shop analytics</h1>
+  <div class="btn-group btn-group-sm">
+    <% [7, 30, 90].forEach(d => { %><a class="btn <%= days === d ? 'btn-dark' : 'btn-outline-secondary' %>" href="/seller/analytics?days=<%= d %>"><%= d %> din</a><% }) %>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold"><%= tot.people %></div><div class="sh-stat">Log aaye (<%= tot.visits %> visits)</div></div></div>
+  <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold"><%= tot.orders %></div><div class="sh-stat">Orders</div></div></div>
+  <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold"><%= pct(tot.orders, tot.people) %></div><div class="sh-stat">Order / visitor</div></div></div>
+  <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold" style="color:#12a37f;">Rs <%= rs(tot.revenue) %></div><div class="sh-stat">Sale (wapas ke bina)</div></div></div>
+</div>
+
+<div class="sh-card" id="groups">
+  <h2 class="sh-h">👥 Group-wise sales <a href="/seller/share" class="small ms-2">📣 Share</a></h2>
+  <% if (byGroup.length === 0) { %>
+    <p class="text-body-secondary mb-0">Abhi koi group save nahi. <a href="/seller/share">Share</a> page par groups daalein; har group ke link par alag UTM lagta hai aur yahan us group ke log aur orders alag dikhte hain.</p>
+  <% } else { %>
+    <div class="table-responsive"><table class="an-t">
+      <thead><tr><th>Group</th><th class="r">Log aaye</th><th class="r">Orders</th><th class="r">Order / log</th><th class="r">Saman</th><th class="r">Sale (Rs)</th><th class="r">Wapas</th></tr></thead>
+      <tbody>
+        <% byGroup.forEach(g => { %>
+          <tr>
+            <td style="min-width:190px;"><%= ICON[g.platform] || '🔗' %> <b><%= g.name %></b>
+              <div class="an-bar"><span style="width:<%= g.orders ? Math.max(4, Math.round(g.orders * 100 / gmax)) : 0 %>%"></span></div></td>
+            <td class="r"><%= g.people %><div class="sh-stat"><%= g.visits %> visits</div></td>
+            <td class="r"><b><%= g.orders %></b></td>
+            <td class="r"><%= pct(g.orders, g.people) %></td>
+            <td class="r"><%= g.units %></td>
+            <td class="r"><b><%= rs(g.revenue) %></b></td>
+            <td class="r"><%= g.returned %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+    <p class="sh-stat mb-0 mt-2">"Log aaye" = jinhon ne group ke link par click kiya (sirf message dekhne wale ginti mein nahi). Order us group se gina jata hai jis ke link se customer aaya, 7 din ke andar order karne par.</p>
+  <% } %>
+</div>
+
+<div class="sh-card">
+  <h2 class="sh-h">🌐 Source-wise</h2>
+  <% if (bySource.length === 0) { %><p class="text-body-secondary mb-0">Abhi koi data nahi.</p><% } else { %>
+    <div class="table-responsive"><table class="an-t">
+      <thead><tr><th>Source</th><th class="r">Log</th><th class="r">Orders</th><th class="r">Order / log</th><th class="r">Sale (Rs)</th></tr></thead>
+      <tbody>
+        <% bySource.forEach(s => { %>
+          <tr><td><b><%= s.source %></b></td><td class="r"><%= s.people %></td><td class="r"><b><%= s.orders %></b></td><td class="r"><%= pct(s.orders, s.people) %></td><td class="r"><%= rs(s.revenue) %></td></tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+  <% } %>
+</div>
+
+<% if (byPost.length) { %>
+<div class="sh-card">
+  <h2 class="sh-h">📰 Blog posts ke product card se</h2>
+  <div class="table-responsive"><table class="an-t">
+    <thead><tr><th>Post</th><th class="r">Clicks</th><th class="r">Orders</th></tr></thead>
+    <tbody>
+      <% byPost.forEach(p => { const sl = p.campaign.replace(/^post-/, ''); %>
+        <tr><td><a href="/posts/<%= sl %>"><%= sl %></a></td><td class="r"><%= p.visits %></td><td class="r"><b><%= p.orders %></b></td></tr>
+      <% }) %>
+    </tbody>
+  </table></div>
+</div>
+<% } %>
+
+<div class="sh-card">
+  <h2 class="sh-h">📦 Product-wise</h2>
+  <% if (byProduct.length === 0) { %><p class="text-body-secondary mb-0">Abhi koi product nahi.</p><% } else { %>
+    <div class="table-responsive"><table class="an-t">
+      <thead><tr><th>Product</th><th class="r">Visits</th><th class="r">Orders</th><th class="r">Sale (Rs)</th><th class="r">Stock</th></tr></thead>
+      <tbody>
+        <% byProduct.forEach(p => { %>
+          <tr><td><a class="text-decoration-none" href="/seller/products/<%= p.id %>/edit"><%= p.name %></a></td><td class="r"><%= p.visits %></td><td class="r"><b><%= p.orders %></b></td><td class="r"><%= rs(p.revenue) %></td><td class="r"><%= p.stock <= 0 ? 'Sold out' : p.stock %></td></tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+  <% } %>
+</div>
+
+<%- include('partials/footer') %>

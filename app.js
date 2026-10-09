@@ -42,11 +42,14 @@ const homeRouter = require('./routes/home');
 const storiesRouter = require('./routes/stories');
 const groupsRouter = require('./routes/groups');
 const posterRouter = require('./routes/poster');
+const shopRouter = require('./routes/shop');
+const sellerRouter = require('./routes/seller');
+const shopLib = require('./lib/shop');
+const ratesRouter = require('./routes/rates');
+const { startRates } = require('./lib/rates');
 const earningsRouter = require('./routes/earnings');
 const earningsLib = require('./lib/earnings');
 const adsRouter = require('./routes/ads');
-const ratesRouter = require('./routes/rates');
-const { startRates } = require('./lib/rates');
 const adsLib = require('./lib/ads');
 const { startCleaner: startStoryCleaner } = require('./lib/stories');
 const { startFollowNotifier } = require('./lib/follow');
@@ -219,6 +222,10 @@ app.post('/advertise', limiter(60, 10, 'You are submitting ads too fast. Please 
 app.post('/advertise/topup', limiter(60, 10, 'Too many top-up requests. Please try again later.'));
 app.post('/advertise/:id/:action', limiter(10, 40, 'Too many requests. Please wait a few minutes.'));
 app.get('/ads/:id/go', limiter(5, 60, 'Too many requests. Please try again in a few minutes.'));
+// V46: Shop. Order spam se bachao (galat form 400 count nahi hota); shop kholne par sakht limit
+app.post('/order', limiter(60, 12, 'You are placing orders too fast. Please try again in a little while.', { skipFailedRequests: true }));
+app.post('/seller/open', limiter(60, 5, 'Too many attempts. Please try again later.', { skipFailedRequests: true }));
+app.post('/seller/share/groups', limiter(60, 30, 'Too many requests. Please try again later.'));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
 // Ye csrf middleware se pehle hona chahiye.
@@ -394,6 +401,19 @@ app.use(async (req, res, next) => {
     }
   }
 
+  // Seller ke liye: kitne naye orders (header badge). Alag try: shop tables na hon to site na ruke
+  res.locals.shopNewOrders = 0;
+  if (req.session.user && req.method === 'GET') {
+    try {
+      const n = await pool.query(
+        `SELECT COUNT(*)::int AS c FROM orders o JOIN shops s ON s.id = o.shop_id WHERE s.owner_id = $1 AND o.status = 'new'`,
+        [req.session.user.id]);
+      res.locals.shopNewOrders = n.rows[0].c;
+    } catch (err) {
+      if (err.code !== '42P01') console.error('shop new orders count:', err.message);
+    }
+  }
+
   // Owner ke liye: kitni nayi "Hire Me" inquiries abhi parhi nahi (alag try: migration_v6 na chali ho to baaqi site na ruke)
   res.locals.newInquiries = 0;
   if (res.locals.isAdmin) {
@@ -462,9 +482,11 @@ app.use('/', feedRouter);
 app.use('/', storiesRouter);
 app.use('/', groupsRouter);
 app.use('/', posterRouter);
+app.use('/', shopRouter);
+app.use('/', sellerRouter);
+app.use('/', ratesRouter);
 app.use('/', earningsRouter);
 app.use('/', adsRouter);
-app.use('/', ratesRouter); // Daily Rates: /rates (dollar, gold, petrol, namaz)
 app.use('/', authRouter);
 
 app.use((req, res) => {
@@ -484,7 +506,8 @@ app.use((err, req, res, next) => {
   res.status(500).send('Server error');
 });
 
-app.listen(PORT, (err) => {
+// V46: shop tables (migration_v46.sql) pehle tayyar, phir server start (dobara chalna safe hai)
+shopLib.ensureSchema().finally(() => app.listen(PORT, (err) => {
   if (err) {
     console.error('Server start nahi hua:', err.message);
     process.exit(1);
@@ -492,10 +515,10 @@ app.listen(PORT, (err) => {
   console.log('Server chal raha hai, port ' + PORT);
   startNewsletterScheduler();
   startPublisher();
-  startRates(); // dollar + gold ki qeemat har 30 min baad khud update (rates_history table chahiye)
   startPollScheduler(); // knockout rounds jin ka time ho gaya unhein agle round par le jata hai
   startCourtScheduler(); // People's Court: jury ka waqt khatam hone par faisla + notifications (+ Telegram)
   startTelegramPoster(); // naya contest / result Telegram channel mein (token set ho to)
   startStoryCleaner(); // 24 ghante purani stories (aur un ki photos) hata deta hai
   startFollowNotifier(); // followers ko naya post / contest ki notification (+ email)
-});
+  startRates(); // V45: dollar / gold / silver / namaz timings har 30 minute / roz khud update
+}));

@@ -1,0 +1,81 @@
+<%- include('partials/header') %>
+<%- include('partials/shop-style') %>
+<%- include('partials/seller-nav') %>
+
+<h1 class="fs-4 fw-bold mb-3">🧾 Orders</h1>
+
+<div class="d-flex gap-2 flex-wrap mb-2">
+  <a href="/seller/orders" class="btn btn-sm rounded-pill <%= !status ? 'btn-dark' : 'btn-outline-secondary' %>">Sab (<%= allCount %>)</a>
+  <% STATUSES.forEach(s => { %>
+    <a href="/seller/orders?status=<%= s %>" class="btn btn-sm rounded-pill <%= status === s ? 'btn-dark' : 'btn-outline-secondary' %>"><%= STATUS_LABEL[s] %> (<%= counts[s] || 0 %>)</a>
+  <% }) %>
+</div>
+<form method="GET" action="/seller/orders" class="d-flex gap-2 mb-3" style="max-width:420px;">
+  <% if (status) { %><input type="hidden" name="status" value="<%= status %>"><% } %>
+  <input class="form-control form-control-sm rounded-pill" type="search" name="q" value="<%= q %>" placeholder="Naam / phone / shehar / order #">
+  <button class="btn btn-sm btn-primary rounded-pill">Dhundo</button>
+</form>
+
+<% if (orders.length === 0) { %>
+  <div class="sh-card text-center text-body-secondary">Is filter mein koi order nahi.</div>
+<% } %>
+
+<% orders.forEach(o => {
+  const waCust = 'https://wa.me/' + o.phone + '?text=' + encodeURIComponent('Assalam o Alaikum ' + o.customer_name + '! Aap ka order #' + o.id + ' (' + o.product_name + ') ' + (o.status === 'shipped' ? 'bhej diya gaya hai.' : 'mil gaya hai. Confirm karne ke liye likh rahe hain.'));
+%>
+  <div class="sh-card" style="border-left:5px solid <%= STATUS_COLOR[o.status] %>;">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <div class="fw-bold">#<%= o.id %> · <%= o.product_name %> x <%= o.qty %></div>
+        <div class="sh-stat"><%= new Date(o.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Karachi' }) %> · <%= PAY_LABEL[o.payment_method] || o.payment_method %></div>
+      </div>
+      <div class="text-end">
+        <div class="fw-bold fs-5" style="color:#12a37f;">Rs <%= rs(o.total_rs) %></div>
+        <div class="sh-stat"><%= o.delivery_rs ? 'delivery Rs ' + rs(o.delivery_rs) + ' shamil' : 'delivery free' %></div>
+      </div>
+    </div>
+
+    <div class="mt-2 small">
+      <div><b><%= o.customer_name %></b> · <%= showPhone(o.phone) %></div>
+      <div><%= o.address %>, <b><%= o.city %></b></div>
+      <% if (o.note) { %><div class="text-body-secondary">📝 <%= o.note %></div><% } %>
+      <% if (o.campaign || (o.source && o.source !== 'direct')) { %>
+        <div class="sh-stat mt-1">Kahan se aaya:
+          <% if (o.group_name) { %><b><%= o.group_name %></b> (<%= o.group_platform %> group)<% } else if (o.medium === 'post_card') { %>blog post ka product card<% } else { %><%= o.source %><%= o.campaign ? ' / ' + o.campaign : '' %><% } %>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="d-flex gap-2 flex-wrap mt-2">
+      <a class="btn btn-sm btn-outline-primary rounded-pill" href="tel:+<%= o.phone %>">📞 Call</a>
+      <a class="btn btn-sm btn-outline-success rounded-pill" target="_blank" rel="noopener noreferrer" href="<%= waCust %>">💬 WhatsApp</a>
+    </div>
+
+    <form action="/seller/orders/<%= o.id %>/status" method="POST" class="d-flex gap-1 flex-wrap mt-2 align-items-center">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <input type="hidden" name="back" value="<%= status %>">
+      <span class="sh-stat me-1">Status:</span>
+      <% STATUSES.forEach(s => {
+           const cur = o.status === s;
+           const locked = o.status === 'returned' && !cur;
+      %>
+        <button name="status" value="<%= s %>"
+                style="<%= cur ? 'background:' + STATUS_COLOR[s] + ';border-color:' + STATUS_COLOR[s] + ';color:#fff;' : '' %>"
+                <%= cur || locked ? 'disabled' : '' %>
+                <% if (s === 'returned') { %>onclick="return confirm('Order #<%= o.id %> Wapas mark karein? Stock wapas jur jayega aur phir status badal nahi sakega.')"<% } %>
+                class="btn btn-sm rounded-pill <%= cur ? '' : 'btn-outline-secondary' %>"><%= STATUS_LABEL[s] %></button>
+      <% }) %>
+    </form>
+  </div>
+<% }) %>
+
+<% if (pages > 1) { %>
+  <nav class="d-flex justify-content-center gap-2 my-3">
+    <% const qs = (p) => '/seller/orders?page=' + p + (status ? '&status=' + status : '') + (q ? '&q=' + encodeURIComponent(q) : ''); %>
+    <% if (page > 1) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="<%= qs(page - 1) %>">← Pehla</a><% } %>
+    <span class="align-self-center small text-body-secondary">Page <%= page %> / <%= pages %></span>
+    <% if (page < pages) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="<%= qs(page + 1) %>">Agla →</a><% } %>
+  </nav>
+<% } %>
+
+<%- include('partials/footer') %>

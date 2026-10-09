@@ -1,0 +1,94 @@
+<%
+  // Photo uploader (product: max 4, shop logo: max 1). Params: pf_name (hidden input ka naam), pf_max, pf_ids (array), pf_form (form id)
+  const _pfIds = (locals.pf_ids || []).map(String);
+%>
+<div id="pf" data-max="<%= pf_max %>">
+  <input type="hidden" name="<%= pf_name %>" id="pfIds" value="<%= _pfIds.join(',') %>">
+  <div id="pfList" class="d-flex flex-wrap gap-2 mb-2"></div>
+  <input type="file" id="pfFile" accept="image/*" class="d-none" <%= pf_max > 1 ? 'multiple' : '' %>>
+  <button type="button" class="btn btn-outline-primary btn-sm rounded-pill" id="pfAdd">📷 <%= pf_max > 1 ? 'Photos chunein' : 'Photo chunein' %></button>
+  <span class="small text-body-secondary ms-1" id="pfHint"><%= pf_max > 1 ? 'Pehli photo main hogi (max ' + pf_max + ').' : '' %></span>
+  <div class="small text-danger mt-1" id="pfMsg"></div>
+</div>
+<script>
+(function () {
+  var csrf = <%- JSON.stringify(csrfToken) %>;
+  var wrap = document.getElementById('pf'), max = parseInt(wrap.getAttribute('data-max'), 10) || 1;
+  var input = document.getElementById('pfIds'), list = document.getElementById('pfList');
+  var file = document.getElementById('pfFile'), addBtn = document.getElementById('pfAdd'), msg = document.getElementById('pfMsg');
+  var form = wrap.closest('form');
+  var ids = input.value ? input.value.split(',').filter(Boolean) : [];
+  var uploading = 0;
+  function sync() { input.value = ids.join(','); render(); addBtn.disabled = ids.length + uploading >= max; }
+  function discard(id) {
+    fetch('/feed/image/discard', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'x-csrf-token': csrf, 'X-Requested-With': 'fetch' }, body: 'id=' + encodeURIComponent(id) });
+  }
+  function render() {
+    list.innerHTML = '';
+    ids.forEach(function (id, i) {
+      var box = document.createElement('div');
+      box.style.cssText = 'position:relative;width:92px;height:92px;border-radius:12px;overflow:hidden;border:2px solid ' + (i === 0 && max > 1 ? '#12a37f' : 'var(--bs-border-color)') + ';';
+      var im = document.createElement('img'); im.src = '/img/' + id; im.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+      var x = document.createElement('button'); x.type = 'button'; x.textContent = '✕';
+      x.style.cssText = 'position:absolute;top:3px;right:3px;border:0;background:rgba(0,0,0,.65);color:#fff;border-radius:50%;width:22px;height:22px;line-height:1;font-size:12px;cursor:pointer;';
+      x.addEventListener('click', function () { ids.splice(i, 1); sync(); discard(id); });
+      box.appendChild(im); box.appendChild(x);
+      if (max > 1 && i > 0) {
+        var m = document.createElement('button'); m.type = 'button'; m.textContent = '⭐ main';
+        m.style.cssText = 'position:absolute;bottom:0;left:0;right:0;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:11px;padding:2px 0;cursor:pointer;';
+        m.addEventListener('click', function () { ids.splice(i, 1); ids.unshift(id); sync(); });
+        box.appendChild(m);
+      } else if (max > 1) {
+        var t = document.createElement('div'); t.textContent = 'Main';
+        t.style.cssText = 'position:absolute;bottom:0;left:0;right:0;background:#12a37f;color:#fff;font-size:11px;text-align:center;padding:2px 0;';
+        box.appendChild(t);
+      }
+      list.appendChild(box);
+    });
+    for (var k = 0; k < uploading; k++) {
+      var ph = document.createElement('div');
+      ph.style.cssText = 'width:92px;height:92px;border-radius:12px;background:var(--bs-tertiary-bg);display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--bs-secondary-color);';
+      ph.textContent = 'Upload...'; list.appendChild(ph);
+    }
+  }
+  function toJpeg(f) {
+    return new Promise(function (resolve, reject) {
+      var im = new Image(), url = URL.createObjectURL(f);
+      im.onload = function () {
+        function enc(m, q, cb) { var s = Math.min(1, m / Math.max(im.width, im.height)); var c = document.createElement('canvas');
+          c.width = Math.round(im.width * s); c.height = Math.round(im.height * s); var ctx = c.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(im, 0, 0, c.width, c.height); c.toBlob(cb, 'image/jpeg', q); }
+        enc(1400, 0.85, function (b) {
+          if (b && b.size > 1900000) return enc(1100, 0.65, function (b2) { URL.revokeObjectURL(url); b2 ? resolve(b2) : reject(); });
+          URL.revokeObjectURL(url); b ? resolve(b) : reject();
+        });
+      };
+      im.onerror = function () { URL.revokeObjectURL(url); reject(); };
+      im.src = url;
+    });
+  }
+  function uploadOne(f) {
+    uploading++; sync();
+    return toJpeg(f).then(function (blob) {
+      return fetch('/upload-feed-image', { method: 'POST', headers: { 'Content-Type': 'image/jpeg', 'x-csrf-token': csrf }, body: blob, credentials: 'same-origin' })
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); });
+    }).then(function (x) {
+      uploading--;
+      if (x.ok && x.j.id) { if (max === 1) { var old = ids.slice(); ids = [String(x.j.id)]; old.forEach(discard); } else ids.push(String(x.j.id)); }
+      else msg.textContent = (x.j && x.j.error) || 'Upload nahi hua. Dobara try karein.';
+      sync();
+    }).catch(function () { uploading--; msg.textContent = 'Ye photo nahi parhi ja saki. JPG ya PNG try karein.'; sync(); });
+  }
+  addBtn.addEventListener('click', function () { file.click(); });
+  file.addEventListener('change', function () {
+    msg.textContent = '';
+    var files = Array.prototype.slice.call(file.files || []).filter(function (f) { return /^image\//.test(f.type); });
+    file.value = '';
+    var room = max - ids.length - uploading;
+    if (files.length > room) { msg.textContent = room > 0 ? 'Sirf ' + room + ' photo aur ja sakti hai.' : 'Photos ki hadd poori.'; files = files.slice(0, Math.max(room, 0)); }
+    files.reduce(function (p, f) { return p.then(function () { return uploadOne(f); }); }, Promise.resolve());
+  });
+  if (form) form.addEventListener('submit', function (e) { if (uploading > 0) { e.preventDefault(); msg.textContent = 'Photo abhi upload ho rahi hai, zara ruko...'; } });
+  sync();
+})();
+</script>

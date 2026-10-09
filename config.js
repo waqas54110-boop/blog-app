@@ -6,6 +6,9 @@ module.exports = {
   whatsappChannelUrl: process.env.WHATSAPP_CHANNEL_URL || '', // optional
   siteUrl: (process.env.SITE_URL || '').replace(/\/$/, ''),   // e.g. https://myblog.onrender.com
   siteName: process.env.SITE_NAME || 'Khabzo',
+  // V43: Facebook wall. Facebook se aaya (login na kiya hua) visitor sirf shuru ka hissa parhta hai, baqi ke liye signup
+  fbWall: process.env.FB_WALL !== '0',
+  fbWallBlocks: Math.min(Math.max(parseInt(process.env.FB_WALL_BLOCKS, 10) || 3, 1), 15), // kitne paragraph free
   timezone: process.env.SITE_TIMEZONE || 'Asia/Karachi',      // scheduled posts is timezone mein
   // Google Search Console verification (HTML tag wale tareeqe ka "content" wala hissa)
   googleVerification: (process.env.GOOGLE_SITE_VERIFICATION || '').replace(/[^A-Za-z0-9_-]/g, ''),
@@ -44,10 +47,6 @@ module.exports = {
   liveRecordMaxMb: Math.min(Math.max(isNaN(parseInt(process.env.LIVE_RECORD_MAX_MB, 10)) ? 60 : parseInt(process.env.LIVE_RECORD_MAX_MB, 10), 0), 200),
   // V29: Creators ki kamayi. EARN_ENABLED=1 likhne par hi chalti hai (default band)
   earnEnabled: process.env.EARN_ENABLED === '1',
-  // Facebook wall: Facebook se aane wale bina-login visitor ko post ka shuru ka hissa dikhta hai, baqi ke liye account banana parta hai.
-  // FB_WALL=0 likhein to band. FB_WALL_BLOCKS = kitne paragraph/blocks free dikhein (default 3)
-  fbWall: process.env.FB_WALL !== '0',
-  fbWallBlocks: Math.min(Math.max(parseInt(process.env.FB_WALL_BLOCKS, 10) || 3, 1), 15),
   // Ek view ke kitne paisa. 1 paisa = 100 views par Rs 1 (default)
   earnPaisaPerView: Math.min(Math.max(parseInt(process.env.EARN_PAISA_PER_VIEW, 10) || 1, 1), 100),
   // Kam az kam withdraw (rupees)
@@ -64,4 +63,10 @@ module.exports = {
   earnInvitePaisa: Math.min(Math.max(parseInt(process.env.EARN_INVITE_PAISA, 10) || 100, 1), 10000),
   // Invite se ek user zyada se zyada kitne doston ka inaam le sakta hai
   earnInviteMax: Math.min(Math.max(isNaN(parseInt(process.env.EARN_INVITE_MAX, 10)) ? 100 : parseInt(process.env.EARN_INVITE_MAX, 10), 1), 100000),
+  // V46: Shop. SHOP_APPROVAL=1 likhein to nayi shop pehle "pending" hoti hai, aap manzoor karein tab public hoti hai
+  shopApproval: process.env.SHOP_APPROVAL === '1',
+  // 1 likhein to nayi shop sirf admin bana sakta hai (default: har login user apni shop khol sakta hai)
+  shopAdminOnly: process.env.SHOP_ADMIN_ONLY === '1',
+  // Ek shop mein zyada se zyada kitne products
+  shopMaxProducts: Math.min(Math.max(parseInt(process.env.SHOP_MAX_PRODUCTS, 10) || 200, 1), 5000),
 };

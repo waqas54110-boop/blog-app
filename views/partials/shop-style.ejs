@@ -1,0 +1,21 @@
+<style>
+  .sh-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: .85rem; }
+  @media (min-width: 768px) { .sh-grid { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 1rem; } }
+  .sh-item { display: block; background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: 1rem; overflow: hidden; text-decoration: none; color: inherit; position: relative; transition: box-shadow .15s, transform .15s; height: 100%; }
+  .sh-item:hover { box-shadow: 0 6px 18px rgba(16,24,40,.12); transform: translateY(-2px); color: inherit; }
+  .sh-img { aspect-ratio: 1 / 1; background: var(--bs-tertiary-bg); display: flex; align-items: center; justify-content: center; font-size: 2.4rem; overflow: hidden; }
+  .sh-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .sh-body { padding: .6rem .75rem .75rem; }
+  .sh-name { font-weight: 600; font-size: .92rem; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; min-height: 2.3em; }
+  .sh-price { font-weight: 700; color: #12a37f; }
+  .sh-old { text-decoration: line-through; color: var(--bs-secondary-color); font-size: .8rem; margin-left: .3rem; font-weight: 400; }
+  .sh-meta { font-size: .76rem; color: var(--bs-secondary-color); }
+  .sh-badge { position: absolute; top: .5rem; left: .5rem; background: #dc3545; color: #fff; font-size: .72rem; font-weight: 700; padding: .15rem .5rem; border-radius: 99px; }
+  .sh-badge.off { background: #f59e0b; }
+  .sh-sold .sh-img img { filter: grayscale(1); opacity: .55; }
+  .sh-card { background: var(--bs-body-bg); border: 1px solid var(--bs-border-color); border-radius: 1rem; padding: 1rem 1.1rem; margin-bottom: 1rem; box-shadow: 0 1px 2px rgba(16,24,40,.05); }
+  .sh-h { font-weight: 700; font-size: 1.02rem; margin: 0 0 .6rem; }
+  .sh-stat { font-size: .78rem; color: var(--bs-secondary-color); }
+  .sh-pill { display: inline-block; padding: .12rem .6rem; border-radius: 99px; font-size: .75rem; font-weight: 700; color: #fff; }
+  .sh-logo { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--bs-tertiary-bg); display: inline-flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; }
+</style>

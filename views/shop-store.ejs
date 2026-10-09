@@ -1,0 +1,34 @@
+<%- include('partials/header') %>
+<%- include('partials/shop-style') %>
+
+<% if (shop.status !== 'active') { %><div class="alert alert-warning py-2">Ye shop abhi public nahi (<%= shop.status === 'pending' ? 'manzoori ka intezar' : 'band' %>). Sirf aap ko nazar aa rahi hai.</div><% } %>
+
+<div class="sh-card d-flex gap-3 align-items-center flex-wrap">
+  <% if (shop.logo_image_id) { %><img class="sh-logo" style="width:72px;height:72px;" src="/img/<%= shop.logo_image_id %>" alt="<%= shop.name %>"><% } else { %><span class="sh-logo" style="width:72px;height:72px;font-size:2rem;">🏪</span><% } %>
+  <div class="flex-grow-1" style="min-width:200px;">
+    <h1 class="fs-4 fw-bold mb-0"><%= shop.name %></h1>
+    <% if (shop.tagline) { %><div class="text-body-secondary"><%= shop.tagline %></div><% } %>
+    <div class="sh-stat mt-1">
+      <% if (shop.city) { %>📍 <%= shop.city %> &nbsp;<% } %>
+      <%= shop.cod_enabled ? '🚚 Cash on Delivery' : '' %>
+      <%= (shop.wa_enabled && shop.whatsapp) ? ' 💬 WhatsApp order' : '' %>
+      <% if (shop.delivery_fee_rs > 0) { %> &nbsp;· Delivery Rs <%= rs(shop.delivery_fee_rs) %><% if (shop.free_over_rs) { %> (Rs <%= rs(shop.free_over_rs) %> se upar free)<% } %><% } else { %> &nbsp;· Delivery free<% } %>
+    </div>
+  </div>
+  <% if (shop.whatsapp) { %>
+    <a class="btn btn-outline-success rounded-pill" target="_blank" rel="noopener noreferrer" href="https://wa.me/<%= shop.whatsapp %>?text=<%= encodeURIComponent('Assalam o Alaikum! Mujhe ' + shop.name + ' ke baare mein poochna hai.') %>">💬 WhatsApp</a>
+  <% } %>
+  <% if (mine) { %><a href="/seller" class="btn btn-sm btn-outline-secondary rounded-pill">⚙️ Manage</a><% } %>
+</div>
+<% if (shop.description) { %><p class="text-body-secondary" style="white-space:pre-line;"><%= shop.description %></p><% } %>
+
+<% if (items.length === 0) { %>
+  <p class="text-center text-body-secondary py-5">Abhi is shop mein koi product nahi.</p>
+<% } else { %>
+  <div class="sh-grid mb-4">
+    <% items.forEach(pr => { %><%- include('partials/shop-item', { pr: pr, hideShop: true }) %><% }) %>
+  </div>
+<% } %>
+<p class="text-center"><a href="/shop" class="text-decoration-none">← Sari shops</a></p>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,36 @@
+<%
+  const _tab = locals.seller || '';
+  const _items = [
+    ['home', '/seller', '🏠 Home'],
+    ['products', '/seller/products', '📦 Products'],
+    ['orders', '/seller/orders', '🧾 Orders'],
+    ['share', '/seller/share', '📣 Share'],
+    ['analytics', '/seller/analytics', '📊 Analytics'],
+    ['settings', '/seller/settings', '⚙️ Settings'],
+  ];
+%>
+<% if (locals.shop) { %>
+<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+  <div class="d-flex align-items-center gap-2 min-w-0">
+    <% if (shop.logo_image_id) { %><img class="sh-logo" style="width:40px;height:40px;" src="/img/<%= shop.logo_image_id %>" alt=""><% } else { %><span class="sh-logo" style="width:40px;height:40px;font-size:1.2rem;">🏪</span><% } %>
+    <div class="min-w-0">
+      <div class="fw-bold text-truncate"><%= shop.name %></div>
+      <div class="small text-body-secondary">
+        <% if (shop.status === 'active') { %><span class="text-success">● Public</span><% } else if (shop.status === 'pending') { %><span class="text-warning">● Manzoori ka intezar</span><% } else { %><span class="text-danger">● Band (suspended)</span><% } %>
+        <% if (shop.status === 'active') { %> &middot; <a href="/shop/<%= shop.slug %>">Shop dekho ↗</a><% } %>
+      </div>
+    </div>
+  </div>
+</div>
+<ul class="nav nav-pills mb-3 flex-nowrap overflow-auto pb-1" style="white-space:nowrap;">
+  <% _items.forEach(function (it) { %>
+    <li class="nav-item"><a class="nav-link py-1 px-3 <%= _tab === it[0] ? 'active' : '' %>" href="<%= it[1] %>">
+      <%= it[2] %><% if (it[0] === 'orders' && locals.shopNewOrders > 0) { %> <span class="badge rounded-pill bg-danger"><%= shopNewOrders %></span><% } %>
+    </a></li>
+  <% }) %>
+</ul>
+<% if (shop.status === 'pending') { %><div class="alert alert-warning py-2">Aap ki shop abhi review mein hai. Manzoor hone par public hogi; tab tak products daal sakte hain.</div><% } %>
+<% if (shop.status === 'suspended') { %><div class="alert alert-danger py-2">Aap ki shop band kar di gayi hai, is liye public nahi dikhti. Maloomat ke liye site owner se raabta karein.</div><% } %>
+<% } %>
+<% if (locals.msg) { %><div class="alert alert-success py-2"><%= msg %></div><% } %>
+<% if (locals.error && !locals.f) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>

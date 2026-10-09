@@ -78,16 +78,11 @@
                    value="<%= form.excerpt || '' %>" placeholder="One or two lines shown on the home page">
           </div>
 
-          <div class="card border-0 bg-body-tertiary mb-3">
-            <div class="card-body">
-              <div class="fw-semibold mb-1">📣 Facebook hook <span class="text-body-secondary fw-normal">(optional)</span></div>
-              <div class="form-text mb-2">Sirf share preview ke liye: Facebook/WhatsApp par yehi headline aur card dikhega. Google wala title nahi badlega. Hook post ke asli content se milta ho, warna log wapas chale jate hain aur Facebook reach kam kar deta hai.</div>
-              <input type="text" class="form-control mb-2" id="fb_title" name="fb_title" maxlength="90"
-                     value="<%= form.fb_title || '' %>" placeholder="e.g. Long march Islamabad pohanch gaya: ab agla qadam kya hoga?">
-              <input type="text" class="form-control" id="fb_desc" name="fb_desc" maxlength="200"
-                     value="<%= form.fb_desc || '' %>" placeholder="Ek adhoori baat: e.g. Teesri baat sab se zyada hairan karne wali hai...">
-              <div class="form-text mt-2">Tips: sawal poochho, number do ("3 wajohat"), ya baat adhoori chhor do. Card par asli reads/comments ke numbers khud aate hain.</div>
-            </div>
+          <div class="mb-3 p-3 rounded-3 border" style="background:rgba(24,119,242,.06);">
+            <div class="fw-semibold mb-1">📘 Facebook hook <span class="text-body-secondary fw-normal">(optional)</span></div>
+            <div class="form-text mb-2">Sirf Facebook / WhatsApp share preview ke liye alag headline. Google wala title nahi badalta. Post ke asli content se milta hona chahiye.</div>
+            <input type="text" class="form-control mb-2" name="fb_title" maxlength="90" value="<%= form.fb_title || '' %>" placeholder="Hook headline (max 90): sawal, number ya adhoori baat">
+            <input type="text" class="form-control" name="fb_desc" maxlength="200" value="<%= form.fb_desc || '' %>" placeholder="Hook description (max 200): ek line jo curiosity banaye">
           </div>
 
           <div class="mb-3">
@@ -105,6 +100,17 @@
               <% }) %>
             </select>
             <div class="form-text">Chuna hua contest post ke neeche (comments se pehle) vote widget ban kar nazar aayega, taake blog padhne wale wahin vote kar saken. Pehle 🗳️ Vote mein contest banayein.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="product_id" class="form-label">Product card <span class="text-body-secondary">(optional)</span></label>
+            <select class="form-select" id="product_id" name="product_id">
+              <option value="">— Koi product nahi —</option>
+              <% (locals.products || []).forEach(pr => { %>
+                <option value="<%= pr.id %>" <%= String(form.product_id || '') === String(pr.id) ? 'selected' : '' %>><%= pr.name %> (<%= pr.shop_name %>)</option>
+              <% }) %>
+            </select>
+            <div class="form-text">Chuna hua product post ke neeche "🛍️ Ye product kharido" card ban kar dikhega. Is card se aane wale log aur orders <a href="/seller/analytics" target="_blank">Shop analytics</a> mein alag dikhte hain. Product pehle 🛍️ My Shop mein daalein.</div>
           </div>
 
           <div class="mb-2">

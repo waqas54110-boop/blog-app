@@ -1,0 +1,61 @@
+<%- include('partials/header') %>
+<%- include('partials/shop-style') %>
+
+<div class="text-center py-3 mb-2">
+  <h1 class="fw-bold mb-1">🛍️ Shop</h1>
+  <p class="text-body-secondary mb-3">Pakistani sellers ki shops. Order karein <b>Cash on Delivery</b> ya <b>WhatsApp</b> par.</p>
+  <form action="/shop" method="GET" class="d-flex gap-2 justify-content-center mb-2" style="max-width:520px;margin:0 auto;">
+    <input type="search" name="q" value="<%= q %>" class="form-control rounded-pill" placeholder="Product ya shop dhundo..." maxlength="60">
+    <% if (cat) { %><input type="hidden" name="cat" value="<%= cat %>"><% } %>
+    <button class="btn btn-success rounded-pill px-4">Search</button>
+  </form>
+  <div class="d-flex flex-wrap gap-2 justify-content-center mt-3">
+    <a href="/shop<%= q ? '?q=' + encodeURIComponent(q) : '' %>" class="btn btn-sm rounded-pill <%= !cat ? 'btn-dark' : 'btn-outline-secondary' %>">Sab</a>
+    <% CATEGORIES.forEach(c => { %>
+      <a href="/shop?cat=<%= encodeURIComponent(c) %><%= q ? '&q=' + encodeURIComponent(q) : '' %>" class="btn btn-sm rounded-pill <%= cat === c ? 'btn-dark' : 'btn-outline-secondary' %>"><%= c %></a>
+    <% }) %>
+  </div>
+</div>
+
+<% if (shops.length && !q && !cat && page === 1) { %>
+  <div class="d-flex gap-3 overflow-auto pb-2 mb-3" style="white-space:nowrap;">
+    <% shops.forEach(s => { %>
+      <a href="/shop/<%= s.slug %>" class="text-decoration-none text-body text-center flex-shrink-0" style="width:84px;">
+        <% if (s.logo_image_id) { %><img class="sh-logo" src="/img/<%= s.logo_image_id %>" alt=""><% } else { %><span class="sh-logo">🏪</span><% } %>
+        <div class="small fw-semibold text-truncate mt-1"><%= s.name %></div>
+      </a>
+    <% }) %>
+  </div>
+<% } %>
+
+<% if (items.length === 0) { %>
+  <div class="text-center text-body-secondary py-5">
+    <div style="font-size:3rem;">🛍️</div>
+    <p class="mb-2"><%= (q || cat) ? 'Is search par koi product nahi mila.' : 'Abhi koi product nahi. Pehli shop aap khol sakte hain!' %></p>
+  </div>
+<% } else { %>
+  <div class="sh-stat mb-2"><%= total %> product<%= total === 1 ? '' : 's' %></div>
+  <div class="sh-grid mb-3">
+    <% items.forEach(pr => { %><%- include('partials/shop-item', { pr: pr }) %><% }) %>
+  </div>
+  <% if (pages > 1) { %>
+    <nav class="d-flex justify-content-center gap-2 my-3">
+      <% if (page > 1) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="/shop?page=<%= page - 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %><%= cat ? '&cat=' + encodeURIComponent(cat) : '' %>">← Pehla</a><% } %>
+      <span class="align-self-center small text-body-secondary">Page <%= page %> / <%= pages %></span>
+      <% if (page < pages) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="/shop?page=<%= page + 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %><%= cat ? '&cat=' + encodeURIComponent(cat) : '' %>">Agla →</a><% } %>
+    </nav>
+  <% } %>
+<% } %>
+
+<div class="sh-card text-center mt-4">
+  <div class="fs-3">🏪</div>
+  <div class="fw-bold mb-1">Apna business shuru karein</div>
+  <p class="text-body-secondary small mb-2">Free mein apni shop banayein, products daalein, orders WhatsApp aur dashboard par payein, aur dekhein kis group se kitne log aaye aur kitno ne order kiya.</p>
+  <% if (myShop) { %>
+    <a href="/seller" class="btn btn-success rounded-pill px-4">🛍️ Meri shop</a>
+  <% } else { %>
+    <a href="/seller/open" class="btn btn-success rounded-pill px-4">Apni shop kholo</a>
+  <% } %>
+</div>
+
+<%- include('partials/footer') %>

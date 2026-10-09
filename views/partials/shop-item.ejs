@@ -1,0 +1,14 @@
+<%
+  // pr: products row (CARD_COLS). Listing / shop page / related.
+  const _off = (pr.compare_price_rs && pr.compare_price_rs > pr.price_rs) ? Math.round((pr.compare_price_rs - pr.price_rs) * 100 / pr.compare_price_rs) : 0;
+  const _sold = pr.stock <= 0;
+%>
+<a class="sh-item <%= _sold ? 'sh-sold' : '' %>" href="/shop/<%= pr.shop_slug %>/<%= pr.slug %>">
+  <% if (_sold) { %><span class="sh-badge">Sold out</span><% } else if (_off > 0) { %><span class="sh-badge off"><%= _off %>% off</span><% } %>
+  <div class="sh-img"><% if (pr.image_id) { %><img src="/img/<%= pr.image_id %>" alt="<%= pr.name %>" loading="lazy"><% } else { %>🛍️<% } %></div>
+  <div class="sh-body">
+    <div class="sh-name"><%= pr.name %></div>
+    <div class="sh-price">Rs <%= Number(pr.price_rs).toLocaleString('en-PK') %><% if (_off > 0) { %><span class="sh-old"><%= Number(pr.compare_price_rs).toLocaleString('en-PK') %></span><% } %></div>
+    <% if (!locals.hideShop) { %><div class="sh-meta text-truncate"><%= pr.shop_name %><%= pr.shop_city ? ' · ' + pr.shop_city : '' %></div><% } %>
+  </div>
+</a>

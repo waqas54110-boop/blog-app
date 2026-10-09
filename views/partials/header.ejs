@@ -190,8 +190,9 @@
       <a href="/petitions" class="<%= _path.indexOf('/petitions') === 0 ? 'on' : '' %>">Petitions</a>
       <a href="/creators" class="<%= _path.indexOf('/creators') === 0 ? 'on' : '' %>">Creators</a>
       <a href="/trends" class="<%= _path.indexOf('/trends') === 0 ? 'on' : '' %>">Trend Radar</a>
-      <a href="/rates" class="<%= _path.indexOf('/rates') === 0 ? 'on' : '' %>">💱 Rates</a>
       <a href="/businesses" class="<%= _path.indexOf('/businesses') === 0 ? 'on' : '' %>">Local Businesses</a>
+      <a href="/shop" class="<%= (_path.indexOf('/shop') === 0 || _path.indexOf('/order') === 0) ? 'on' : '' %>">🛍️ Shop</a>
+      <a href="/rates" class="<%= _path.indexOf('/rates') === 0 ? 'on' : '' %>">💱 Rates</a>
       <% navCategories.forEach(c => { %>
         <a href="/blog?category=<%= encodeURIComponent(c) %>" class="<%= _cat === c ? 'on' : '' %>"><%= c %></a>
       <% }) %>
@@ -232,6 +233,7 @@
                 </a>
               </li>
               <li><a class="dropdown-item" href="/admin/petitions">📢 Petition milestones</a></li>
+              <li><a class="dropdown-item" href="/admin/shops">🛍️ All shops</a></li>
               <li>
                 <a class="dropdown-item d-flex justify-content-between align-items-center" href="/admin/ads">
                   📣 Ads
@@ -252,6 +254,12 @@
               </li>
               <li><hr class="dropdown-divider"></li>
             <% } %>
+            <li>
+              <a class="dropdown-item d-flex justify-content-between align-items-center" href="/seller">
+                🛍️ My Shop
+                <% if (locals.shopNewOrders > 0) { %><span class="badge rounded-pill bg-danger ms-2"><%= shopNewOrders %></span><% } %>
+              </a>
+            </li>
             <li><a class="dropdown-item" href="/u/<%= encodeURIComponent(user.username) %>">My Profile</a></li>
             <li><a class="dropdown-item" href="/settings/profile">✏️ Edit Profile</a></li>
             <li><a class="dropdown-item" href="/?user=<%= encodeURIComponent(user.username) %>">📸 My Posts</a></li>
@@ -289,9 +297,10 @@
           <li><a class="dropdown-item" href="/cricket">🏏 Street Cricket Manager</a></li>
           <li><a class="dropdown-item" href="/court">⚖️ People's Court</a></li>
           <li><a class="dropdown-item" href="/petitions">📢 Petitions</a></li>
+          <li><a class="dropdown-item" href="/rates">💱 Today's Rates</a></li>
+          <li><a class="dropdown-item" href="/shop">🛍️ Shop</a></li>
           <li><a class="dropdown-item" href="/creators">🎬 Creator Showcase</a></li>
           <li><a class="dropdown-item" href="/trends">📈 Trend Radar</a></li>
-          <li><a class="dropdown-item" href="/rates">💱 Today's Rates</a></li>
           <li><a class="dropdown-item" href="/businesses">🏪 Local Businesses</a></li>
           <li><a class="dropdown-item" href="/advertise">📣 Advertise on Khabzo</a></li>
           <li><a class="dropdown-item" href="/hire">💼 Hire Me</a></li>

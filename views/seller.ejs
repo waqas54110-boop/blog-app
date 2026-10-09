@@ -1,0 +1,76 @@
+<%- include('partials/header') %>
+<%- include('partials/shop-style') %>
+<%- include('partials/seller-nav') %>
+
+<div class="row g-3 mb-3">
+  <div class="col-6 col-md-3"><a href="/seller/orders?status=new" class="text-decoration-none text-body"><div class="sh-card text-center mb-0"><div class="fs-2 fw-bold" style="color:#f59e0b;"><%= st.new_orders %></div><div class="sh-stat">Naye orders</div></div></a></div>
+  <div class="col-6 col-md-3"><a href="/seller/orders?status=shipped" class="text-decoration-none text-body"><div class="sh-card text-center mb-0"><div class="fs-2 fw-bold" style="color:#3b82f6;"><%= st.shipped %></div><div class="sh-stat">Raaste mein</div></div></a></div>
+  <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-2 fw-bold"><%= st.today %></div><div class="sh-stat">Aaj ke orders</div></div></div>
+  <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-2 fw-bold" style="color:#12a37f;">Rs <%= rs(st.delivered_rs) %></div><div class="sh-stat">Pahunch chuke (kul)</div></div></div>
+</div>
+
+<div class="row g-3 mb-3">
+  <div class="col-12 col-md-6">
+    <div class="sh-card h-100">
+      <div class="sh-h">📦 Products</div>
+      <div class="mb-2"><b><%= st.products %></b> products
+        <% if (st.sold_out > 0) { %> · <span class="text-danger"><b><%= st.sold_out %></b> Sold out</span><% } %>
+        <% if (st.low > 0) { %> · <span class="text-warning"><b><%= st.low %></b> kam bache</span><% } %>
+      </div>
+      <div class="d-flex gap-2 flex-wrap">
+        <a href="/seller/products/new" class="btn btn-success btn-sm rounded-pill">➕ Naya product</a>
+        <a href="/seller/products" class="btn btn-outline-secondary btn-sm rounded-pill">Sab products</a>
+        <a href="/seller/share" class="btn btn-outline-primary btn-sm rounded-pill">📣 Groups mein share</a>
+      </div>
+      <% if (st.pending_rs > 0) { %><div class="sh-stat mt-2">Abhi raaste / naye orders ki qeemat: Rs <%= rs(st.pending_rs) %></div><% } %>
+    </div>
+  </div>
+  <div class="col-12 col-md-6">
+    <div class="sh-card h-100">
+      <div class="sh-h">🔗 Aap ki shop ka link</div>
+      <% if (shop.status === 'active') { %>
+        <input class="form-control form-control-sm mb-2" readonly value="<%= (locals.siteUrl || '') %>/shop/<%= shop.slug %>" id="shopLink" onclick="this.select()">
+        <button class="btn btn-outline-secondary btn-sm rounded-pill" id="copyShop" type="button">🔗 Copy</button>
+        <a class="btn btn-outline-success btn-sm rounded-pill" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=<%= encodeURIComponent(shop.name + ' - sab products yahan dekhein: ') %>">📤 WhatsApp</a>
+      <% } else { %>
+        <div class="sh-stat">Shop public hone par yahan link milega.</div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<div class="sh-card">
+  <div class="d-flex justify-content-between align-items-center mb-2"><div class="sh-h mb-0">🧾 Haali orders</div><a href="/seller/orders" class="small">Sab dekho →</a></div>
+  <% if (recent.length === 0) { %>
+    <p class="text-body-secondary mb-0">Abhi koi order nahi. Pehle products daalein aur apne groups mein share karein.</p>
+  <% } else { %>
+    <div class="table-responsive"><table class="table table-sm align-middle mb-0">
+      <tbody>
+        <% recent.forEach(o => { %>
+          <tr>
+            <td>#<%= o.id %></td>
+            <td><%= o.product_name %> x <%= o.qty %><div class="sh-stat"><%= o.customer_name %> · <%= o.city %></div></td>
+            <td class="text-end">Rs <%= rs(o.total_rs) %></td>
+            <td class="text-end"><span class="sh-pill" style="background:<%= STATUS_COLOR[o.status] %>;"><%= STATUS_LABEL[o.status] %></span></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+  <% } %>
+</div>
+
+<script>
+(function () {
+  var b = document.getElementById('copyShop'), i = document.getElementById('shopLink');
+  if (!b || !i) return;
+  if (!/^https?:/.test(i.value)) i.value = location.origin + i.value;
+  b.addEventListener('click', function () {
+    i.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    if (navigator.clipboard) navigator.clipboard.writeText(i.value).catch(function () {});
+    var o = b.textContent; b.textContent = '✓ Copy ho gaya'; setTimeout(function () { b.textContent = o; }, 1400);
+  });
+})();
+</script>
+
+<%- include('partials/footer') %>

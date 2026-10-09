@@ -1,0 +1,38 @@
+<%- include('partials/header') %>
+<%- include('partials/shop-style') %>
+
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+  <h1 class="fs-4 fw-bold mb-0">🛍️ Sab shops (<%= shops.length %>)</h1>
+  <a href="/shop" class="btn btn-sm btn-outline-secondary rounded-pill">Public shop dekho</a>
+</div>
+<% if (locals.msg) { %><div class="alert alert-success py-2"><%= msg %></div><% } %>
+<% if (locals.error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
+
+<% if (shops.length === 0) { %><div class="sh-card text-center text-body-secondary">Abhi kisi ne shop nahi kholi.</div><% } %>
+
+<div class="sh-card">
+<div class="table-responsive"><table class="table table-sm align-middle mb-0">
+  <thead><tr><th>Shop</th><th>Owner</th><th class="text-end">Products</th><th class="text-end">Orders</th><th class="text-end">Delivered (Rs)</th><th>Status</th><th></th></tr></thead>
+  <tbody>
+    <% shops.forEach(s => { %>
+      <tr>
+        <td><a class="fw-semibold text-decoration-none" href="/shop/<%= s.slug %>"><%= s.name %></a><div class="sh-stat"><%= s.city || '' %> · <%= s.whatsapp || '' %></div></td>
+        <td><a href="/u/<%= encodeURIComponent(s.username) %>"><%= s.username %></a></td>
+        <td class="text-end"><%= s.products %></td>
+        <td class="text-end"><%= s.orders %></td>
+        <td class="text-end"><%= Number(s.delivered_rs).toLocaleString('en-PK') %></td>
+        <td><span class="sh-pill" style="background:<%= s.status === 'active' ? '#12a37f' : s.status === 'pending' ? '#f59e0b' : '#dc3545' %>;"><%= s.status %></span></td>
+        <td class="text-end">
+          <form action="/admin/shops/<%= s.id %>/status" method="POST" class="d-inline-flex gap-1">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <% if (s.status !== 'active') { %><button name="status" value="active" class="btn btn-sm btn-success rounded-pill">Manzoor / Chalu</button><% } %>
+            <% if (s.status !== 'suspended') { %><button name="status" value="suspended" class="btn btn-sm btn-outline-danger rounded-pill" onclick="return confirm('Shop band karein? Uske products public nahi rahenge.')">Band karo</button><% } %>
+          </form>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table></div>
+</div>
+
+<%- include('partials/footer') %>

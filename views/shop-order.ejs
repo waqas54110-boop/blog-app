@@ -1,0 +1,72 @@
+<%- include('partials/header') %>
+<%- include('partials/shop-style') %>
+
+<%
+  const _idx = STATUSES.indexOf(o.status);
+  const _ret = o.status === 'returned';
+%>
+<div style="max-width:640px;margin:0 auto;">
+  <% if (fresh) { %>
+    <div class="text-center py-3">
+      <div style="font-size:3rem;">🎉</div>
+      <h1 class="fs-3 fw-bold mb-1">Order ho gaya!</h1>
+      <p class="text-body-secondary mb-0">Order <b>#<%= o.id %></b> <%= o.shop_name %> ko bhej diya gaya hai.</p>
+    </div>
+    <% if (wa) { %>
+      <div class="alert alert-success">
+        <b>Zaroori:</b> jaldi confirmation ke liye order ki detail WhatsApp par bhi bhej dein.
+        <a class="btn btn-success w-100 rounded-pill mt-2 fw-semibold" target="_blank" rel="noopener noreferrer" href="<%= wa %>">💬 WhatsApp par seller ko bhejo</a>
+      </div>
+    <% } %>
+  <% } else { %>
+    <h1 class="fs-3 fw-bold my-3">Order #<%= o.id %></h1>
+  <% } %>
+
+  <div class="sh-card">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="sh-h mb-0">Order ki halat</div>
+      <span class="sh-pill" style="background:<%= _ret ? '#dc3545' : '#12a37f' %>;"><%= STATUS_LABEL[o.status] %></span>
+    </div>
+    <% if (_ret) { %>
+      <div class="sh-stat">Ye order wapas aa gaya.</div>
+    <% } else { %>
+      <div class="d-flex justify-content-between text-center" style="font-size:.8rem;">
+        <% ['new', 'shipped', 'delivered'].forEach((s, i) => { %>
+          <div style="flex:1;">
+            <div style="width:28px;height:28px;border-radius:50%;margin:0 auto .2rem;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;background:<%= i <= _idx ? '#12a37f' : 'var(--bs-secondary-bg)' %>;"><%= i <= _idx ? '✓' : (i + 1) %></div>
+            <%= STATUS_LABEL[s] %>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+    <div class="sh-stat mt-2">Ye page bookmark kar lein: yahin se order ki halat dekh sakte hain.</div>
+  </div>
+
+  <div class="sh-card">
+    <div class="d-flex gap-3">
+      <% if (o.image_id) { %><img src="/img/<%= o.image_id %>" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:12px;"><% } %>
+      <div class="flex-grow-1">
+        <div class="fw-bold"><% if (o.product_slug) { %><a class="text-decoration-none text-body" href="/shop/<%= o.shop_slug %>/<%= o.product_slug %>"><%= o.product_name %></a><% } else { %><%= o.product_name %><% } %></div>
+        <div class="sh-stat">Rs <%= rs(o.unit_price_rs) %> x <%= o.qty %></div>
+      </div>
+    </div>
+    <hr class="my-2">
+    <div class="d-flex justify-content-between small"><span>Delivery</span><span><%= o.delivery_rs ? 'Rs ' + rs(o.delivery_rs) : 'Free' %></span></div>
+    <div class="d-flex justify-content-between fw-bold fs-5"><span>Kul</span><span style="color:#12a37f;">Rs <%= rs(o.total_rs) %></span></div>
+    <div class="sh-stat"><%= PAY_LABEL[o.payment_method] || o.payment_method %></div>
+  </div>
+
+  <div class="sh-card small">
+    <div class="sh-h">Delivery detail</div>
+    <div><b><%= o.customer_name %></b> · <%= showPhone(o.phone) %></div>
+    <div><%= o.address %>, <%= o.city %></div>
+    <% if (o.note) { %><div class="text-body-secondary mt-1">Note: <%= o.note %></div><% } %>
+  </div>
+
+  <div class="d-flex gap-2 flex-wrap justify-content-center mb-4">
+    <% if (!fresh && wa) { %><a class="btn btn-outline-success rounded-pill" target="_blank" rel="noopener noreferrer" href="https://wa.me/<%= o.shop_whatsapp %>">💬 Seller se baat karein</a><% } %>
+    <a class="btn btn-outline-secondary rounded-pill" href="/shop/<%= o.shop_slug %>">Shop par wapas</a>
+  </div>
+</div>
+
+<%- include('partials/footer') %>

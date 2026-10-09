@@ -10,13 +10,14 @@ const { addToc } = require('../lib/toc');
 const { postLd, listLd } = require('../lib/seo');
 const card = require('../lib/card');
 const polls = require('../lib/polls');
+const shopLib = require('../lib/shop');
+const fbwall = require('../lib/fbwall');
+const crypto = require('crypto');
 const sponsorLib = require('../lib/sponsor');
 const indexnow = require('../lib/indexnow');
 const spam = require('../lib/spam');
 const moderation = require('../lib/moderation');
 const earnings = require('../lib/earnings');
-const fbwall = require('../lib/fbwall');
-const crypto = require('crypto');
 
 const router = express.Router();
 const PER_PAGE = Math.min(Math.max(parseInt(process.env.POSTS_PER_PAGE, 10) || 6, 1), 30);
@@ -104,6 +105,28 @@ const savePostPoll = async (postId, raw) => {
     await pool.query('UPDATE posts SET poll_id = (SELECT id FROM polls WHERE id = $1) WHERE id = $2', [toId(raw), postId]);
   } catch (err) {
     console.error('[post poll]', err.message);
+  }
+};
+
+// Post ke neeche "Ye product kharido" card (V46): editor mein dropdown se product chuna jata hai
+const savePostProduct = async (postId, raw) => {
+  try {
+    await pool.query(
+      `UPDATE posts SET product_id = (SELECT p.id FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = $1 AND p.is_active AND s.status = 'active') WHERE id = $2`,
+      [toId(raw), postId]);
+  } catch (err) {
+    if (err.code !== '42703' && err.code !== '42P01') console.error('[post product]', err.message);
+  }
+};
+
+// V44: Facebook hook (share preview ka alag headline/description). migration_v44 na chali ho to chup chap skip.
+const savePostHook = async (postId, body) => {
+  const t = String(body.fb_title || '').replace(/\s+/g, ' ').trim().slice(0, 90);
+  const d = String(body.fb_desc || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  try {
+    await pool.query('UPDATE posts SET fb_title = $1, fb_desc = $2 WHERE id = $3', [t || null, d || null, postId]);
+  } catch (err) {
+    if (err.code !== '42703') console.error('[post hook]', err.message);
   }
 };
 
@@ -471,8 +494,9 @@ router.get('/sitemap.xml', async (req, res) => {
 
     // People's Court + petitions (migration_v34 na chali ho to skip)
   let courtRows = []; let petRows = [];
-  let bizRows = [];
+  let bizRows = []; let shopRows = [];
   try { bizRows = (await pool.query(`SELECT a.id, a.updated_at AS lastmod FROM ads a WHERE a.kind = 'listing' AND a.status = 'active' AND a.starts_at <= now() AND a.ends_at > now() ORDER BY a.id DESC LIMIT 2000`)).rows; } catch (e) { console.error('[sitemap businesses]', e.message); }
+  try { shopRows = (await pool.query(`SELECT s.slug AS shop_slug, p.slug, p.updated_at AS lastmod FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.is_active AND s.status = 'active' ORDER BY p.updated_at DESC LIMIT 3000`)).rows; } catch (e) { if (e.code !== '42P01') console.error('[sitemap shop]', e.message); }
   try { courtRows = (await pool.query(`SELECT c.id, COALESCE(c.jury_ends_at, c.created_at) AS lastmod FROM court_cases c WHERE NOT c.is_hidden ORDER BY c.created_at DESC LIMIT 1000`)).rows; } catch (e) { console.error('[sitemap court]', e.message); }
   try { petRows = (await pool.query(`SELECT p.id, p.updated_at AS lastmod FROM petitions p WHERE NOT p.is_hidden AND p.status <> 'closed' ORDER BY p.updated_at DESC LIMIT 3000`)).rows; } catch (e) { console.error('[sitemap petitions]', e.message); }
   const newest = result.rows.length ? new Date(result.rows[0].lastmod).toISOString() : null;
@@ -485,10 +509,7 @@ router.get('/sitemap.xml', async (req, res) => {
       url('/', newest), url('/blog', newest), url('/community', newest), url('/groups', null), url('/votes', null),
       url('/predictions', null), url('/leaderboard', null), url('/about', null), url('/hire', null),
     url('/court', null), url('/petitions', null), url('/cricket', null), url('/creators', null), url('/trends', null),
-      url('/businesses', null), url('/advertise', null),
-      // Rates pages roz update hoti hain, is liye lastmod = ab (sach hai)
-      ...['/rates', '/rates/dollar-rate-today', '/rates/gold-rate-today', '/rates/petrol-price-today',
-        ...Object.keys(require('../lib/rates').CITIES).map((c) => '/rates/prayer-times/' + c)].map((u) => url(u, new Date())),
+      url('/businesses', null), url('/advertise', null), url('/shop', null), url('/rates', null), url('/rates/dollar-rate-today', null), url('/rates/gold-rate-today', null), url('/rates/petrol-price-today', null), url('/rates/prayer-times/lahore', null), url('/rates/prayer-times/karachi', null), url('/rates/prayer-times/islamabad', null),
     ].join('');
     const postsXml = result.rows.map((p) => url('/posts/' + p.slug, p.lastmod, img(p.cover_url))).join('');
     const catXml = catRows.map((c) => url(homeUrl({ category: c.name }), c.lastmod)).join('');
@@ -498,10 +519,11 @@ router.get('/sitemap.xml', async (req, res) => {
     const courtXml = courtRows.map((c) => url('/court/' + c.id, c.lastmod)).join('');
   const petXml = petRows.map((p) => url('/petitions/' + p.id, p.lastmod)).join('');
   const bizXml = bizRows.map((b) => url('/businesses/' + b.id, b.lastmod)).join('');
+  const shopXml = shopRows.map((x) => url('/shop/' + x.shop_slug + '/' + x.slug, x.lastmod)).join('');
   const feedXml = feedRows.map((f) => url('/feed/' + f.id, f.lastmod, f.image_id ? `\n    <image:image><image:loc>${baseUrl}/img/${f.image_id}</image:loc></image:image>` : '')).join('');
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${staticXml}${postsXml}${catXml}${tagXml}${groupXml}${voteXml}${courtXml}${petXml}${bizXml}${feedXml}
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">${staticXml}${postsXml}${catXml}${tagXml}${groupXml}${voteXml}${courtXml}${petXml}${bizXml}${shopXml}${feedXml}
 </urlset>`;
 
     res.set('Cache-Control', 'public, max-age=300');
@@ -521,7 +543,7 @@ router.get('/robots.txt', (req, res) => {
     '/messages', '/poster', '/inbox', '/notifications', '/settings', '/dashboard', '/bookmarks', '/analytics', '/admin',
     '/friends', '/push', '/stories', '/upload-', '/auth', '/report', '/unsubscribe', '/r/',
     '/groups/join/', '/groups/new', '/votes/new', '/court/new', '/petitions/new', '/posts/new', '/invite', '/offline', '/feed/views',
-    '/earnings', '/advertise/', '/ads/', '/posts/*/edit', '/groups/*/manage', '/groups/*/chat', '/votes/*/go', '/votes/*/state.json', '/cricket/m/*/score', '/cricket/bar/', '/cricket/m/*/state.json',
+    '/earnings', '/advertise/', '/ads/', '/seller', '/order/', '/posts/*/edit', '/groups/*/manage', '/groups/*/chat', '/votes/*/go', '/votes/*/state.json', '/cricket/m/*/score', '/cricket/bar/', '/cricket/m/*/state.json',
   ];
   res.set('Cache-Control', 'public, max-age=3600');
   res.type('text/plain').send(
@@ -647,22 +669,12 @@ router.get('/posts/new', requireAdmin, async (req, res) => {
     error: null,
     categories: await getCategories(),
       polls: await getPollsForSelect(),
+      products: await shopLib.productsForSelect(),
     form: { ...editorDefaults },
     isEdit: false,
     tz: TZ,
   });
 });
-
-// Facebook hook (migration_v44): social preview ka alag headline/description. Column na ho to chup-chap chhor do.
-async function saveFbHook(id, body) {
-  const t = String(body.fb_title || '').replace(/\s+/g, ' ').trim().slice(0, 90);
-  const d = String(body.fb_desc || '').replace(/\s+/g, ' ').trim().slice(0, 200);
-  try {
-    await pool.query('UPDATE posts SET fb_title = $1, fb_desc = $2 WHERE id = $3', [t || null, d || null, id]);
-  } catch (err) {
-    if (err.code !== '42703') console.error('[fb hook]', err.message);
-  }
-}
 
 const formFromBody = (body) => ({
   ...body,
@@ -680,6 +692,7 @@ router.post('/posts', requireAdmin, async (req, res) => {
       error,
       categories: await getCategories(),
       polls: await getPollsForSelect(),
+      products: await shopLib.productsForSelect(),
       form: formFromBody(req.body),
       isEdit: false,
       tz: TZ,
@@ -703,8 +716,9 @@ router.post('/posts', requireAdmin, async (req, res) => {
       ]
     );
     await saveTagsForPost(result.rows[0].id, parseTags(req.body.tags));
-    await saveFbHook(result.rows[0].id, req.body);
     await savePostPoll(result.rows[0].id, req.body.poll_id);
+    await savePostProduct(result.rows[0].id, req.body.product_id);
+    await savePostHook(result.rows[0].id, req.body);
     res.redirect('/posts/' + slug);
   } catch (err) {
     console.error(err);
@@ -744,6 +758,7 @@ router.get('/posts/:id/edit', requireAdmin, async (req, res) => {
       error: null,
       categories: await getCategories(),
       polls: await getPollsForSelect(),
+      products: await shopLib.productsForSelect(),
       form: post,
       isEdit: true,
       newsletterAlreadySent: post.newsletter_sent,
@@ -768,6 +783,7 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
       error,
       categories: await getCategories(),
       polls: await getPollsForSelect(),
+      products: await shopLib.productsForSelect(),
       form: formFromBody(req.body),
       isEdit: true,
       tz: TZ,
@@ -796,8 +812,9 @@ router.post('/posts/:id/edit', requireAdmin, async (req, res) => {
        data.is_draft, data.publish_at, TZ, data.send_newsletter, id, slug]
     );
     await saveTagsForPost(id, parseTags(req.body.tags));
-    await saveFbHook(id, req.body);
     await savePostPoll(id, req.body.poll_id);
+    await savePostProduct(id, req.body.product_id);
+    await savePostHook(id, req.body);
 
     // Live post edit hui to Bing/Yandex ko batao (await nahi: redirect slow na ho).
     // Nayi publish hui post ko scheduler (lib/publisher.js) bhejta hai.
@@ -926,10 +943,13 @@ router.get('/posts/:ref', async (req, res) => {
 
     // Share image: cover ho to wahi; na ho to title wala auto card (OG_CARD_ALWAYS=true se hamesha card)
     const cover = absUrl(base, post.cover_url);
-    const useCard = card.isAvailable() && (!cover || process.env.OG_CARD_ALWAYS === 'true' || !!post.fb_title);
-    // ?h=... : hook badle to image ka URL badle (Facebook purani image cache na rakhe)
-    const hookTag = post.fb_title ? '?h=' + crypto.createHash('md5').update(post.fb_title).digest('hex').slice(0, 8) : '';
-    const ogImage = useCard ? `${base}/og/${post.slug}.png${hookTag}` : (cover || config.defaultOgImage || null);
+    const useCard = card.isAvailable() && (!cover || process.env.OG_CARD_ALWAYS === 'true');
+    // V44: hook ho to share image hamesha naya hook card (URL mein hash: hook badle to Facebook naya image uthaye)
+    const hookCard = !!(post.fb_title && card.isAvailable());
+    const hookHash = post.fb_title ? crypto.createHash('md5').update(post.fb_title).digest('hex').slice(0, 8) : '';
+    const ogImage = hookCard
+      ? `${base}/og/${post.slug}.png?h=${hookHash}`
+      : (useCard ? `${base}/og/${post.slug}.png` : (cover || config.defaultOgImage || null));
 
     // Post ke andar vote widget (agar admin ne contest lagaya ho)
     let pollState = null;
@@ -944,9 +964,17 @@ router.get('/posts/:ref', async (req, res) => {
       }
     }
 
+    // Post ke neeche product card (agar admin ne editor mein product chuna ho)
+    let postProduct = null;
+    if (post.product_id) {
+      try { postProduct = await shopLib.productForPost(post.product_id); }
+      catch (err) { console.error('[post product]', err.message); }
+    }
+
     let { html: contentHtml, toc } = addToc(renderMarkdown(post.content));
 
-    // Facebook wall: Facebook se aaya bina-login visitor -> sirf shuru ka hissa, baqi ke liye signup
+    // V43: Facebook wall. Facebook se aaya login-na-kiya visitor sirf pehle kuch paragraph parhta hai.
+    // Bots (Facebook preview, Google) ko poori post milti hai, is liye share card aur SEO theek rehte hain.
     let fbWall = false;
     if (post.is_live && fbwall.shouldWall(req, res, isBot)) {
       const t = fbwall.teaser(contentHtml, config.fbWallBlocks);
@@ -954,18 +982,20 @@ router.get('/posts/:ref', async (req, res) => {
         fbWall = true;
         contentHtml = t.html;
         toc = [];
-        req.session.returnTo = `/posts/${post.slug}`;   // signup/login ke baad isi post par wapas
-        req.session.fbWallPost = post.title;
+        req.session.fbWallPost = post.title;                 // signup/login page par banner
+        req.session.returnTo = `/posts/${post.slug}`;        // login ke baad isi post par wapas
+        res.set('Cache-Control', 'private, no-store');
       }
     }
 
     res.render('post', {
       title: post.title,
       metaDescription: description,
+      ogTitle: post.fb_title || undefined,          // V44: sirf share preview ke liye (Google title nahi badalta)
+      ogDescription: post.fb_desc || undefined,
+      fbWall,
       ogImage,
-      ogTitle: post.fb_title || null,
-      ogDescription: post.fb_desc || null,
-      ogImageCard: useCard,
+      ogImageCard: useCard || hookCard,
       ogUrl: shareUrl,
       ogType: 'article',
       jsonLd: post.is_live
@@ -981,6 +1011,7 @@ router.get('/posts/:ref', async (req, res) => {
       ogImageAlt: post.title,
       robots: post.is_live ? null : 'noindex,nofollow',
       post,
+      postProduct,
       readReward,
       contentHtml,
       toc,
@@ -1000,7 +1031,6 @@ router.get('/posts/:ref', async (req, res) => {
       },
       pollState,
       pollNotice,
-      fbWall,
       readingTime: readingTimeOf(post.content),
       tz: TZ,
       commentError: req.query.commentError || null,

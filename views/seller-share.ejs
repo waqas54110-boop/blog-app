@@ -1,0 +1,172 @@
+<%- include('partials/header') %>
+<%- include('partials/shop-style') %>
+<%- include('partials/seller-nav') %>
+
+<%
+  const ICON = { whatsapp: '💬', facebook: '📘', telegram: '✈️', instagram: '📸', other: '🔗' };
+  const totalVisits = groups.reduce((a, g) => a + g.visits, 0);
+  const totalOrders = groups.reduce((a, g) => a + g.orders, 0);
+%>
+<style>
+  .gp-bar { height: 8px; border-radius: 99px; background: var(--bs-tertiary-bg); overflow: hidden; }
+  .gp-bar i { display: block; height: 100%; background: #12a37f; width: 0; transition: width .25s; }
+  .gp-row { display: flex; align-items: center; gap: .6rem; padding: .65rem 0; border-top: 1px solid var(--bs-border-color); flex-wrap: wrap; }
+  .gp-row:first-child { border-top: 0; }
+  .gp-row.is-done .gp-name { text-decoration: line-through; opacity: .55; }
+  .gp-ico { font-size: 1.3rem; width: 1.8rem; text-align: center; }
+  .gp-info { flex: 1 1 160px; min-width: 0; }
+  .gp-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .gp-btns { display: flex; gap: .4rem; align-items: center; }
+  .gp-tick { width: 2.4rem; height: 2.4rem; border-radius: 50%; border: 2px solid var(--bs-border-color); background: transparent; color: transparent; font-size: 1.2rem; font-weight: 700; line-height: 1; cursor: pointer; transition: all .15s; }
+  .gp-tick:hover { border-color: #12a37f; }
+  .gp-row.is-done .gp-tick { background: #12a37f; border-color: #12a37f; color: #fff; }
+  .gp-del { background: none; border: 0; color: var(--bs-secondary-color); font-size: .8rem; }
+  .gp-del:hover { color: #dc3545; }
+</style>
+
+<div style="max-width:860px;margin:0 auto;">
+  <h1 class="fs-4 fw-bold mb-3">📣 Product groups mein share karo</h1>
+
+  <div class="sh-card">
+    <label class="sh-h" for="gpProd">Konsa product share karna hai?</label>
+    <select id="gpProd" class="form-select" onchange="location.href='/seller/share/' + this.value">
+      <% recent.forEach(r => { %><option value="<%= r.id %>" <%= r.id === product.id ? 'selected' : '' %>><%= r.name %></option><% }) %>
+    </select>
+    <% if (!product.is_active || product.stock <= 0) { %><div class="sh-stat mt-1 text-danger"><%= !product.is_active ? 'Ye product chhupa hua hai: link kholne par customers ko nazar nahi aayega.' : 'Ye product Sold out hai.' %></div><% } %>
+  </div>
+
+  <div class="sh-card">
+    <h2 class="sh-h">✍️ Caption</h2>
+    <textarea id="gpCaption" class="form-control" rows="6"><%= caption %></textarea>
+    <div class="sh-stat mt-1"><code>{link}</code> ki jagah har group ka apna UTM link khud lag jata hai. Isi se pata chalta hai kis group se kitne log aaye aur kitno ne order kiya.</div>
+  </div>
+
+  <div class="sh-card">
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
+      <h2 class="sh-h mb-0">👥 Groups</h2>
+      <span class="sh-stat"><b id="gpDone"><%= doneCount %></b> / <%= groups.length %> mein aaj post ho chuka · is product ke <b><%= totalVisits %></b> visits, <b><%= totalOrders %></b> orders groups se</span>
+    </div>
+    <div class="gp-bar mb-2"><i id="gpProg" style="width:<%= groups.length ? Math.round(doneCount * 100 / groups.length) : 0 %>%"></i></div>
+    <% if (groups.length) { %>
+      <button type="button" class="btn btn-success w-100 rounded-pill fw-semibold mb-2 py-2" id="gpNext">Next group ➜</button>
+      <div class="sh-stat mb-2">Dabane par agla group khulta hai, caption copy hota hai aur ✓ khud lag jata hai. Wahan paste karke send karo, phir wapas aa kar dobara dabao.</div>
+    <% } else { %>
+      <p class="text-body-secondary mb-0">Abhi koi group save nahi. Neeche "Groups add karo" se apni list ek dafa daal do.</p>
+    <% } %>
+
+    <% groups.forEach(g => { %>
+      <div class="gp-row <%= g.done ? 'is-done' : '' %>" data-gid="<%= g.id %>" data-url="<%= g.url %>" data-name="<%= g.name %>" data-link="<%= g.link || '' %>">
+        <div class="gp-ico" title="<%= g.platform %>"><%= ICON[g.platform] || '🔗' %></div>
+        <div class="gp-info">
+          <div class="gp-name"><%= g.name %></div>
+          <div class="sh-stat">👁 <%= g.visits %> visits · <%= g.people %> log · 🛒 <b><%= g.orders %></b> orders<% if (g.people > 0) { %> (<%= (g.orders * 100 / g.people).toFixed(1) %>%)<% } %></div>
+        </div>
+        <div class="gp-btns">
+          <button type="button" class="btn btn-sm btn-outline-primary rounded-pill gp-copy" title="Is group ka caption copy karo">📋</button>
+          <% if (g.link) { %>
+            <a href="<%= g.link %>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-success rounded-pill gp-open">↗ Open group</a>
+          <% } else { %>
+            <span class="btn btn-sm btn-outline-secondary rounded-pill disabled">No link</span>
+          <% } %>
+          <button type="button" class="gp-tick" aria-label="Aaj is group mein post ho gaya" title="Aaj post ho gaya">✓</button>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+
+  <div class="sh-card">
+    <details <%= groups.length === 0 ? 'open' : '' %>>
+      <summary class="sh-h" style="cursor:pointer;">➕ Groups add karo</summary>
+      <form action="/seller/share/groups" method="POST" class="mt-2">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="back" value="/seller/share/<%= product.id %>">
+        <label class="form-label small mb-1" for="gpList">Har line mein ek group: <code>Naam | link</code></label>
+        <textarea id="gpList" name="groups" class="form-control mb-2" rows="5" placeholder="Lahore Buy Sell | https://chat.whatsapp.com/xxxx&#10;Fashion FB Group | https://www.facebook.com/groups/12345&#10;Sirf naam bhi chalega"></textarea>
+        <div class="d-flex gap-2 align-items-center flex-wrap">
+          <select name="platform" class="form-select form-select-sm" style="width:auto;" aria-label="Platform">
+            <% PLATFORMS.forEach(p => { %><option value="<%= p %>"><%= p %></option><% }) %>
+          </select>
+          <span class="sh-stat">Link se platform khud pehchan liya jata hai.</span>
+          <button class="btn btn-sm btn-primary rounded-pill ms-auto">Save</button>
+        </div>
+      </form>
+      <% if (canImport) { %>
+        <form action="/seller/share/import" method="POST" class="mt-2">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="back" value="/seller/share/<%= product.id %>">
+          <button class="btn btn-sm btn-outline-secondary rounded-pill">📥 Group Poster ke groups yahan le aao</button>
+          <span class="sh-stat">Wahi UTM rehta hai, is liye purani analytics bhi mil jati hai.</span>
+        </form>
+      <% } %>
+      <% if (groups.length) { %>
+        <hr>
+        <div class="sh-stat mb-1">Group hatana ho to (uski purani analytics bhi hat jati hai):</div>
+        <% groups.forEach(g => { %>
+          <form action="/seller/share/groups/<%= g.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Group hataen: <%= g.name.replace(/['\\\n\r]/g, ' ') %> ?')">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input type="hidden" name="back" value="/seller/share/<%= product.id %>">
+            <button class="gp-del">✕ <%= g.name %></button>
+          </form>
+        <% }) %>
+      <% } %>
+    </details>
+  </div>
+
+  <p class="sh-stat">Visit tab ginti mein aata hai jab koi member link par click kare; sirf message dekhne wala count nahi hota. Bots aur aap ke apne visits count nahi hote. Poori report <a href="/seller/analytics">Shop analytics</a> mein hai.</p>
+</div>
+
+<script>
+(function () {
+  var csrf = <%- JSON.stringify(csrfToken) %>;
+  var productId = <%- product.id %>;
+  var total = <%- groups.length %>;
+  var cap = document.getElementById('gpCaption');
+  var doneEl = document.getElementById('gpDone');
+  var prog = document.getElementById('gpProg');
+
+  function captionFor(url) {
+    var t = cap.value || '';
+    return /\{link\}/.test(t) ? t.replace(/\{link\}/g, url) : (t + '\n\n' + url).trim();
+  }
+  function copyNow(text, done) {
+    var ok = false;
+    try { var ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); ok = document.execCommand('copy'); ta.remove(); } catch (e) {}
+    if (!ok && navigator.clipboard) { navigator.clipboard.writeText(text).then(done, function () {}); return; }
+    if (ok && done) done();
+  }
+  function flash(btn, txt) { var old = btn.dataset.old || btn.textContent; btn.dataset.old = old; btn.textContent = txt; setTimeout(function () { btn.textContent = old; }, 1400); }
+  function recount() {
+    var n = document.querySelectorAll('.gp-row.is-done').length;
+    doneEl.textContent = n; prog.style.width = (total ? Math.round(n * 100 / total) : 0) + '%'; refreshNext();
+  }
+  function toggleTick(row) {
+    var body = new URLSearchParams(); body.set('_csrf', csrf);
+    row.style.opacity = '.6';
+    return fetch('/seller/share/' + productId + '/tick/' + row.dataset.gid, { method: 'POST', headers: { 'x-csrf-token': csrf, 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
+      .then(function (r) { return r.json(); })
+      .then(function (j) { if (typeof j.done === 'boolean') row.classList.toggle('is-done', j.done); recount(); })
+      .catch(function () { alert('Tick save nahi hua, dobara try karo.'); })
+      .then(function () { row.style.opacity = ''; });
+  }
+  var nextBtn = document.getElementById('gpNext');
+  function nextRow() { var rows = document.querySelectorAll('.gp-row:not(.is-done)'); for (var i = 0; i < rows.length; i++) if (rows[i].dataset.link) return rows[i]; return null; }
+  function refreshNext() { if (!nextBtn) return; var r = nextRow(); nextBtn.textContent = r ? 'Next group ➜ ' + r.dataset.name : '✓ Sab groups ho gaye'; nextBtn.disabled = !r; }
+  if (nextBtn) nextBtn.addEventListener('click', function () {
+    var r = nextRow(); if (!r) return;
+    copyNow(captionFor(r.dataset.url));
+    window.open(r.dataset.link, '_blank', 'noopener');
+    toggleTick(r).then(refreshNext);
+  });
+  document.querySelectorAll('.gp-row').forEach(function (row) {
+    var url = row.dataset.url;
+    var copyBtn = row.querySelector('.gp-copy');
+    copyBtn.addEventListener('click', function () { copyNow(captionFor(url), function () { flash(copyBtn, '✓'); }); flash(copyBtn, '✓'); });
+    var open = row.querySelector('.gp-open');
+    if (open) open.addEventListener('click', function () { copyNow(captionFor(url)); flash(open, 'Copied ✓'); });
+    row.querySelector('.gp-tick').addEventListener('click', function () { toggleTick(row); });
+  });
+  refreshNext();
+})();
+</script>
+
+<%- include('partials/footer') %>
