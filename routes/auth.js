@@ -12,7 +12,7 @@ const referral = require('../lib/referral');
 const router = express.Router();
 
 // Facebook wall se aaya ho to signup/login page par "is post ke liye account banao" dikhane ke liye
-router.use((req, res, next) => { res.locals.fbWallPost = (req.session && req.session.fbWallPost) || null; next(); });
+router.use((req, res, next) => { res.locals.fbWallPost = (req.session && req.session.fbWallPost) || null; res.locals.wallKind = (req.session && req.session.wallKind) || 'post'; next(); });
 
 const RESET_TTL_MINUTES = 60;
 const VERIFY_TTL_HOURS = 24;
@@ -35,7 +35,8 @@ function startSession(req, res, user) {
   const back = req.session.returnTo;
   delete req.session.returnTo;
   delete req.session.fbWallPost;
-  res.redirect(/^\/(votes\/\d{1,9}|posts\/[a-z0-9-]{1,120}|groups\/join\/[a-f0-9]{32})$/.test(back || '') ? back : '/');
+  delete req.session.wallKind;
+  res.redirect(/^\/(votes\/\d{1,9}|posts\/[a-z0-9-]{1,120}|shop\/[a-z0-9-]{1,90}\/[a-z0-9-]{1,90}|groups\/join\/[a-f0-9]{32})$/.test(back || '') ? back : '/');
 }
 
 // Verification email (purane links saaf, naya 24 ghante ka). SMTP na ho to link console mein.

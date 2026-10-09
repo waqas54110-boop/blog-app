@@ -460,6 +460,31 @@
       <% } %>
       <p class="an-note mb-0">Login wale banda ek hi count hota hai (kisi bhi device se); guest browser cookie se pehchana jata hai. Age / gender sirf un members ki dikhti hai jinhon ne profile mein bhari hai, baaqi "Unknown".</p>
     </div>
+
+    <div class="an-card mb-3">
+      <h5 class="an-h">🧑‍💻 Recent visitors <small>kon aaya, kahan se (IP ke saath)</small></h5>
+      <% if (!au.recent || au.recent.length === 0) { %>
+        <p class="an-empty">Abhi IP data nahi. <code>migration_v50.sql</code> chalayen; uske baad naye visits yahan dikhenge.</p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="an-tbl">
+            <thead><tr><th>Time</th><th>Visitor</th><th>IP</th><th>Location</th><th>Source</th><th>Post</th></tr></thead>
+            <tbody>
+              <% au.recent.forEach((v) => { %>
+                <tr>
+                  <td class="text-body-secondary small"><%= new Date(v.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %></td>
+                  <td><% if (v.member) { %><a href="/u/<%= encodeURIComponent(v.who) %>"><%= v.who %></a><span class="vbadge">member</span><% } else { %><span class="text-body-secondary"><%= v.who %></span><% } %></td>
+                  <td><code><%= v.ip %></code></td>
+                  <td><%= v.flag %> <%= v.city ? v.city + ', ' : '' %><%= v.countryName %></td>
+                  <td><%= v.source || 'direct' %></td>
+                  <td><a href="/posts/<%= v.slug %>"><%= String(v.title).slice(0, 40) %></a></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
   </section>
   <% } %>
 

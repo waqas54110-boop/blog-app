@@ -5,6 +5,7 @@ const express = require('express');
 const pool = require('../db');
 const config = require('../config');
 const S = require('../lib/shop');
+const { maskIp, countryName, flag } = require('../lib/demographics');
 const Restricted = require('../lib/restricted');
 const Images = require('../lib/images');
 const { slugify } = require('../lib/slug');
@@ -545,7 +546,29 @@ router.get('/seller/analytics', guard, async (req, res) => {
     oPost.forEach((r) => { pm[r.campaign] = { visits: 0, ...(pm[r.campaign] || {}), campaign: r.campaign, orders: r.orders }; });
     const byPost = Object.values(pm).sort((a, b) => b.orders - a.orders || b.visits - a.visits).slice(0, 20);
 
-    render(res, 'seller-analytics', { title: 'Shop analytics', days, tot, byGroup, bySource, byProduct, byPost, seller: 'analytics' });
+    // Recent visitors: kon aaya, kahan se (migration_v50 na chali ho to khali list)
+    let recent = [];
+    try {
+      const isAdmin = req.session.user && req.session.user.role === 'admin';
+      const rows = (await pool.query(
+        `SELECT v.created_at, v.ip, v.city, v.country, v.source, v.campaign, v.visitor, v.user_id, p.name AS product, u.username
+         FROM product_visits v
+         JOIN products p ON p.id = v.product_id
+         LEFT JOIN users u ON u.id = v.user_id
+         WHERE v.shop_id = $1 AND v.created_at > ${since} AND v.ip IS NOT NULL
+         ORDER BY v.created_at DESC LIMIT 50`, [id, days])).rows;
+      recent = rows.map((r) => ({
+        ...r,
+        ipShown: isAdmin ? r.ip : maskIp(r.ip),
+        who: r.username || 'Guest #' + String(r.visitor || '').slice(-4),
+        countryName: r.country ? countryName(r.country) : '-',
+        flag: r.country ? flag(r.country) : '',
+      }));
+    } catch (err) {
+      if (err.code !== '42703') console.error('[seller] recent visitors:', err.message);
+    }
+
+    render(res, 'seller-analytics', { title: 'Shop analytics', days, tot, byGroup, bySource, byProduct, byPost, recent, seller: 'analytics' });
   } catch (err) { dbError(res, err); }
 });
 

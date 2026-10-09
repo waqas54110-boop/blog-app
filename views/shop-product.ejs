@@ -47,9 +47,15 @@
       <% if (product.category) { %><span class="badge text-bg-light border ms-1"><%= product.category %></span><% } %>
     </div>
 
+    <% const _wall = locals.shopWall === true; %>
     <% if (product.description) { %>
       <h2 class="fs-6 fw-bold">Tafseel</h2>
-      <p style="white-space:pre-line;"><%= product.description %></p>
+      <% if (_wall && locals.wallDesc) { %>
+        <p style="white-space:pre-line;<%= wallDesc.cut ? '-webkit-mask-image:linear-gradient(#000 55%,transparent);mask-image:linear-gradient(#000 55%,transparent);' : '' %>" class="mb-1"><%= wallDesc.text %></p>
+        <% if (wallDesc.cut) { %><div class="small fw-semibold mb-3" style="color:#12a37f;">🔒 Baqi tafseel dekhne ke liye neeche signup karo</div><% } %>
+      <% } else { %>
+        <p style="white-space:pre-line;"><%= product.description %></p>
+      <% } %>
     <% } %>
 
     <div class="sh-card">
@@ -69,6 +75,23 @@
     </div>
   </div>
 </div>
+
+<% if (_wall) { %>
+<div class="sh-card mt-4 text-center" id="order" style="max-width:720px;border:2px solid #12a37f;padding:1.5rem;">
+  <div style="font-size:2.2rem;">🔒</div>
+  <h2 class="fs-5 fw-bold mb-1">Poori tafseel aur order ke liye signup kar lo</h2>
+  <p class="small text-body-secondary mb-3">Account free hai aur 30 second mein ban jata hai. Signup ke baad aap isi product par wapas aa jayenge, aur order ki tracking, price / stock ki khabar bhi milegi.</p>
+  <a href="/signup" class="btn btn-success btn-lg rounded-pill fw-semibold px-4">Signup karo (free)</a>
+  <a href="/login" class="btn btn-outline-secondary btn-lg rounded-pill ms-1">Login</a>
+</div>
+<% } else { %>
+<% if (!locals.user && _publicOk && !soldOut) { %>
+<div class="sh-card mt-4" style="max-width:720px;border-color:#12a37f;">
+  <b>🔔 Account banayein (free, 1 minute)</b>
+  <p class="small text-body-secondary mb-2">Order ki tracking, aur is product ki price / stock ki khabar aap ko notification mein mil jayegi. Order ke liye account zaroori nahi.</p>
+  <a href="/signup" class="btn btn-sm btn-success">Sign up</a> <a href="/login" class="btn btn-sm btn-outline-secondary">Login</a>
+</div>
+<% } %>
 
 <!-- Order -->
 <div class="sh-card mt-4" id="order" style="max-width:720px;">
@@ -144,6 +167,8 @@
   <% } %>
 </div>
 
+<% } %>
+
 <% if (related.length) { %>
   <h2 class="fs-5 fw-bold mt-4">Is shop ke aur products</h2>
   <div class="sh-grid mb-4">
@@ -186,5 +211,65 @@
   <% if (error) { %>document.getElementById('order').scrollIntoView();<% } %>
 })();
 </script>
+
+<% if (!locals.user && _publicOk && !soldOut && !_wall) { %>
+<div id="watchSheet" class="d-none" style="position:fixed;left:0;right:0;bottom:0;z-index:1050;padding:.75rem;pointer-events:none;">
+  <div class="sh-card mx-auto shadow-lg" style="max-width:520px;pointer-events:auto;border:2px solid #12a37f;background:var(--bs-body-bg);">
+    <div class="d-flex justify-content-between align-items-start gap-2">
+      <b>🔔 Is product ki khabar chahiye?</b>
+      <button type="button" id="watchX" class="btn-close" aria-label="Close"></button>
+    </div>
+    <p class="small text-body-secondary my-2" id="watchTxt">Price, stock ya offer ki khabar seedha aap ke phone par aa jayegi. Signup ki zaroorat nahi.</p>
+    <div class="d-flex gap-2 flex-wrap">
+      <button type="button" id="watchYes" class="btn btn-success btn-sm rounded-pill fw-semibold">Haan, khabar do</button>
+      <a href="/signup" id="watchSignup" class="btn btn-outline-secondary btn-sm rounded-pill">Account banao</a>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var PID = <%- Number(product.id) %>, NAME = <%- JSON.stringify(String(product.name || '')) %>, csrf = <%- JSON.stringify(csrfToken || '') %>;
+  var sheet = document.getElementById('watchSheet'); if (!sheet) return;
+  var KEY = 'pw_' + PID, OFF = 'pw_off';
+  function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} }
+  var offUntil = parseInt(ls(OFF) || '0', 10);
+  if (ls(KEY) === 'done' || Date.now() < offUntil) return;
+  var canPush = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  function bytes(b64) { var pad = '='.repeat((4 - (b64.length % 4)) % 4), raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/')), o = new Uint8Array(raw.length); for (var i = 0; i < raw.length; i++) o[i] = raw.charCodeAt(i); return o; }
+  function send(sub) {
+    var body = sub.toJSON(); body.product_id = PID;
+    return fetch('/push/watch', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf }, body: JSON.stringify(body) });
+  }
+  function hide(days) { sheet.classList.add('d-none'); ls(OFF, String(Date.now() + days * 86400000)); }
+  function show() {
+    if (!canPush) { document.getElementById('watchYes').classList.add('d-none'); document.getElementById('watchTxt').textContent = 'Account banao (free): order ki tracking aur is product ki price / stock ki khabar notification mein milegi.'; }
+    sheet.classList.remove('d-none');
+  }
+  document.getElementById('watchX').addEventListener('click', function () { hide(3); });
+  document.getElementById('watchYes').addEventListener('click', function () {
+    var btn = this; btn.disabled = true;
+    Promise.all([navigator.serviceWorker.ready, fetch('/push/key').then(function (r) { return r.ok ? r.json() : null; })]).then(function (res) {
+      var reg = res[0], k = res[1];
+      if (!k || !k.key) throw new Error('nopush');
+      return Notification.requestPermission().then(function (perm) {
+        if (perm !== 'granted') { document.getElementById('watchTxt').textContent = 'Notification block hai. Browser settings mein allow karo, ya account bana lo.'; btn.classList.add('d-none'); return; }
+        return reg.pushManager.getSubscription().then(function (s) { return s || reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes(k.key) }); })
+          .then(function (s) { return send(s); })
+          .then(function (r) {
+            if (!r.ok) throw new Error('save');
+            ls(KEY, 'done');
+            document.getElementById('watchTxt').textContent = 'Ho gaya! Is product ki khabar aap ko notification mein milegi.';
+            btn.classList.add('d-none'); document.getElementById('watchSignup').classList.add('d-none');
+            try { reg.showNotification('✅ ' + NAME, { body: 'Ab is product ki khabar aap ko yahin milegi.', data: { url: location.pathname } }); } catch (e) {}
+            setTimeout(function () { sheet.classList.add('d-none'); }, 3500);
+          });
+      });
+    }).catch(function () { document.getElementById('watchTxt').textContent = 'Abhi notification on nahi ho saki. Account bana lo, usse bhi khabar milegi.'; btn.classList.add('d-none'); });
+  });
+  var t = setTimeout(show, 7000);
+  window.addEventListener('pageshow', function (ev) { if (ev.persisted) clearTimeout(t); });
+})();
+</script>
+<% } %>
 
 <%- include('partials/footer') %>

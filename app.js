@@ -53,6 +53,7 @@ const adsRouter = require('./routes/ads');
 const adsLib = require('./lib/ads');
 const { startCleaner: startStoryCleaner } = require('./lib/stories');
 const { startFollowNotifier } = require('./lib/follow');
+const { startProductReminders } = require('./lib/reminders');
 const { startTelegramPoster } = require('./lib/telegram');
 const { startPollScheduler } = require('./lib/polls');
 const { startCourtScheduler } = require('./lib/court');
@@ -521,5 +522,6 @@ shopLib.ensureSchema().finally(() => app.listen(PORT, (err) => {
   startTelegramPoster(); // naya contest / result Telegram channel mein (token set ho to)
   startStoryCleaner(); // 24 ghante purani stories (aur un ki photos) hata deta hai
   startFollowNotifier(); // followers ko naya post / contest ki notification (+ email)
+  startProductReminders(); // V51: product dekh kar order na karne wale members ko yaad dihani
   startRates(); // V45: dollar / gold / silver / namaz timings har 30 minute / roz khud update
 }));

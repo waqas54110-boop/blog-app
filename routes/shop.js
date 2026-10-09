@@ -6,6 +6,8 @@ const config = require('../config');
 const S = require('../lib/shop');
 const { visitorId } = require('../lib/demographics');
 const { notifyUser } = require('../lib/notify');
+const shopwall = require('../lib/shopwall');
+const { isBot } = require('../lib/analytics');
 
 const router = express.Router();
 const PER_PAGE = 24;
@@ -129,6 +131,16 @@ router.get('/shop/:shop/:product', async (req, res) => {
     const mine = !!(me && (me.id === shop.owner_id || me.role === 'admin'));
     if ((!product.is_active || shop.status !== 'active') && !mine) return notFound(res, 'Ye product abhi available nahi.');
     if (product.is_active && shop.status === 'active') await S.trackProductVisit(req, res, product, shop); // cookie render se pehle
+    // V52: login na kiya hua visitor ko sirf pehla hissa; signup ke baad isi product par wapas
+    let wall = false;
+    if (product.is_active && shop.status === 'active' && shopwall.shouldWall(req, res, isBot)) {
+      wall = true;
+      req.session.returnTo = `/shop/${shop.slug}/${product.slug}`;
+      req.session.fbWallPost = product.name;
+      req.session.wallKind = 'shop';
+      res.locals.wallDesc = shopwall.teaser(product.description, config.shopWallChars);
+    }
+    res.locals.shopWall = wall;
     await renderProduct(req, res, shop, product);
   } catch (err) { noShop(res, err); }
 });

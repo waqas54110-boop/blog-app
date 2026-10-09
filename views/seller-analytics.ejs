@@ -85,6 +85,29 @@
 <% } %>
 
 <div class="sh-card">
+  <h2 class="sh-h">🧑‍💻 Recent visitors <small class="text-body-secondary fw-normal">(kon aaya, kahan se)</small></h2>
+  <% if (!locals.recent || recent.length === 0) { %>
+    <p class="text-body-secondary mb-0">Abhi IP data nahi. <code>migration_v50.sql</code> chalayen; uske baad naye visits yahan dikhenge.</p>
+  <% } else { %>
+    <div class="table-responsive"><table class="an-t">
+      <thead><tr><th>Time</th><th>Visitor</th><th>IP</th><th>Location</th><th>Source</th><th>Product</th></tr></thead>
+      <tbody>
+        <% recent.forEach(v => { %>
+          <tr>
+            <td class="small text-body-secondary"><%= new Date(v.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %></td>
+            <td><%= v.who %></td>
+            <td><code><%= v.ipShown %></code></td>
+            <td><%= v.flag %> <%= v.city ? v.city + ', ' : '' %><%= v.countryName %></td>
+            <td><%= v.source || 'direct' %></td>
+            <td><%= v.product %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table></div>
+  <% } %>
+</div>
+
+<div class="sh-card">
   <h2 class="sh-h">📦 Product-wise</h2>
   <% if (byProduct.length === 0) { %><p class="text-body-secondary mb-0">Abhi koi product nahi.</p><% } else { %>
     <div class="table-responsive"><table class="an-t">

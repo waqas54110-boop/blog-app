@@ -9,6 +9,9 @@ module.exports = {
   // V43: Facebook wall. Facebook se aaya (login na kiya hua) visitor sirf shuru ka hissa parhta hai, baqi ke liye signup
   fbWall: process.env.FB_WALL !== '0',
   fbWallBlocks: Math.min(Math.max(parseInt(process.env.FB_WALL_BLOCKS, 10) || 3, 1), 15), // kitne paragraph free
+  // V52 (optional, default band): Shop wall. Login na kiya hua visitor product ka sirf pehla hissa (photo, naam, price, thodi tafseel) dekhta hai, baqi ke liye signup
+  shopWall: process.env.SHOP_WALL === '1', // default BAND (1 likhein to chalu)
+  shopWallChars: Math.min(Math.max(parseInt(process.env.SHOP_WALL_CHARS, 10) || 120, 40), 600), // description ke kitne huroof free
   timezone: process.env.SITE_TIMEZONE || 'Asia/Karachi',      // scheduled posts is timezone mein
   // Google Search Console verification (HTML tag wale tareeqe ka "content" wala hissa)
   googleVerification: (process.env.GOOGLE_SITE_VERIFICATION || '').replace(/[^A-Za-z0-9_-]/g, ''),

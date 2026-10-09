@@ -186,4 +186,21 @@ router.post('/push/unsubscribe', async (req, res) => {
   }
 });
 
+// V52: guest (bina signup) ne "is product ki khabar do" dabaya: subscription + product save
+router.post('/push/watch', async (req, res) => {
+  const sub = push.validSubscription(req.body);
+  const pid = parseInt(req.body && req.body.product_id, 10);
+  if (!sub || !Number.isInteger(pid) || pid < 1) return res.status(400).json({ error: 'Invalid request.' });
+  try {
+    const ok = (await pool.query(`SELECT 1 FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = $1 AND p.is_active = true AND s.status = 'active'`, [pid])).rowCount;
+    if (!ok) return res.status(404).json({ error: 'Product not found.' });
+    await push.saveSubscription(sub, req.session.user ? req.session.user.id : null);
+    await pool.query('INSERT INTO product_watch (endpoint, product_id) VALUES ($1, $2) ON CONFLICT (endpoint, product_id) DO NOTHING', [sub.endpoint, pid]);
+    res.json({ ok: true });
+  } catch (err) {
+    if (err.code !== '42P01') console.error('[push] watch:', err.message); // 42P01 = migration_v52 abhi nahi chali
+    res.status(500).json({ error: 'Could not save.' });
+  }
+});
+
 module.exports = router;

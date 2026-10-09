@@ -3,7 +3,11 @@
             <h2 class="text-center mb-4">Create Account</h2>
 
             <% if (locals.fbWallPost) { %>
+              <% if (locals.wallKind === 'shop') { %>
+              <div class="alert alert-primary py-2 text-center">🛍️ <strong><%= fbWallPost %></strong> ki poori tafseel aur order ke liye account banao — free hai, 30 second lagte hain.</div>
+              <% } else { %>
               <div class="alert alert-primary py-2 text-center">📖 <strong><%= fbWallPost %></strong> poori parhne ke liye account banao — free hai, 30 second lagte hain.</div>
+              <% } %>
             <% } %>
 
             <% const f = locals.form || {}; %>

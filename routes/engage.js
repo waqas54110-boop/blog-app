@@ -289,7 +289,7 @@ router.get('/analytics', requireAdmin, async (req, res) => {
     // Audience: age / gender / country / repeat clicks (alag try: migration_v23 na chali ho to baaqi analytics phir bhi chale)
     let audience = null;
     try {
-      const [tot, ages, genders, countries, buckets, top] = await Promise.all([
+      const [tot, ages, genders, countries, buckets, top, recent] = await Promise.all([
         pool.query(
           `SELECT COUNT(*)::int AS clicks,
                   COUNT(DISTINCT visitor)::int AS people,
@@ -332,10 +332,18 @@ router.get('/analytics', requireAdmin, async (req, res) => {
            GROUP BY visitor ORDER BY clicks DESC, last_seen DESC LIMIT 10`,
           [days]
         ),
+        // Recent visitors with IP (migration_v50 na chali ho to khali, baaqi analytics na ruke)
+        pool.query(
+          `SELECT v.created_at, v.ip, v.city, v.country, v.source, v.visitor, v.user_id, p.title, p.slug
+           FROM post_visits v JOIN posts p ON p.id = v.post_id
+           WHERE v.created_at > ${since} AND v.ip IS NOT NULL
+           ORDER BY v.created_at DESC LIMIT 50`,
+          [days]
+        ).catch((e) => { if (e.code !== '42703') throw e; return { rows: [] }; }),
       ]);
 
       // Top visitors mein jo members hain unke naam
-      const uids = top.rows.map((r) => r.uid).filter(Boolean);
+      const uids = [...top.rows.map((r) => r.uid), ...recent.rows.map((r) => r.user_id)].filter(Boolean);
       const names = {};
       if (uids.length) {
         (await pool.query('SELECT id, username FROM users WHERE id = ANY($1::int[])', [uids]))
@@ -354,6 +362,13 @@ router.get('/analytics', requireAdmin, async (req, res) => {
         genders: genders.rows,
         countries: countries.rows.map((r) => ({ ...r, name: countryName(r.code), flag: flag(r.code) })),
         buckets: buckets.rows,
+        recent: recent.rows.map((r) => ({
+          ...r,
+          who: r.user_id && names[r.user_id] ? names[r.user_id] : 'Guest #' + String(r.visitor || '').slice(-4),
+          member: !!(r.user_id && names[r.user_id]),
+          countryName: r.country ? countryName(r.country) : '-',
+          flag: r.country ? flag(r.country) : '',
+        })),
         top: top.rows.map((r) => ({
           ...r,
           who: r.uid && names[r.uid] ? names[r.uid] : 'Guest #' + String(r.visitor).slice(-4),
