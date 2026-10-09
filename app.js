@@ -162,6 +162,7 @@ app.post('/votes/:id/vote', limiter(10, 60, 'Too many votes. Please wait a few m
 app.get('/votes/:id/state.json', limiter(1, 40, 'Too many requests.'));
 app.post('/votes/:id/share', limiter(10, 60, 'Too many requests.'));
 app.get('/votes/:id/go', limiter(1, 30, 'Too many requests.'));
+app.get('/t/:id', limiter(1, 60, 'Too many requests.'));
 app.post('/votes/:id/comments', limiter(5, 10, 'You are commenting too fast. Please wait a few minutes.'));
 app.post('/push/subscribe', limiter(15, 20, 'Too many attempts. Please try again later.'));
 // V35: Street Cricket Manager. The score bar / scorecard poll every 4 seconds, so these limits are higher

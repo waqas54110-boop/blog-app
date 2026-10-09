@@ -1,0 +1,311 @@
+<%- include('partials/header') %>
+
+<style>
+  .tt-canvas-wrap { max-width: 340px; margin: 0 auto; }
+  .tt-canvas-wrap canvas, .tt-canvas-wrap video { width: 100%; aspect-ratio: 9 / 16; border-radius: 18px; background: #0f172a; display: block; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .tt-step { display: flex; gap: .6rem; align-items: flex-start; }
+  .tt-step .n { flex: 0 0 28px; height: 28px; border-radius: 50%; background: #fe2c55; color: #fff; font-weight: 700; display: grid; place-items: center; font-size: .85rem; }
+</style>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-10">
+    <div class="mb-3"><a href="/votes/<%= st.id %>" class="text-decoration-none">&larr; Back to contest</a></div>
+    <h1 class="fw-bold h3 mb-1">🎵 TikTok vote video</h1>
+    <p class="text-body-secondary mb-4"><%= st.title %></p>
+
+    <div class="row g-4">
+      <!-- Left: video -->
+      <div class="col-12 col-md-5">
+        <div class="tt-canvas-wrap">
+          <canvas id="ttCanvas" width="720" height="1280"></canvas>
+          <video id="ttVideo" class="d-none" controls playsinline loop></video>
+        </div>
+        <div class="d-grid gap-2 mt-3 tt-canvas-wrap">
+          <div class="form-check small">
+            <input class="form-check-input" type="checkbox" id="ttShowPct">
+            <label class="form-check-label" for="ttShowPct">Show current result % on the video</label>
+          </div>
+          <button type="button" class="btn btn-lg text-white fw-bold" style="background:#fe2c55" id="ttMake">▶ Create video (12 sec)</button>
+          <div id="ttProgress" class="progress d-none" style="height:8px"><div class="progress-bar bg-danger" style="width:0%"></div></div>
+          <div id="ttMsg" class="small text-body-secondary"></div>
+          <div id="ttDone" class="d-none">
+            <div class="d-grid gap-2">
+              <button type="button" class="btn btn-dark fw-semibold d-none" id="ttShare">📤 Share video to TikTok</button>
+              <a class="btn btn-outline-dark fw-semibold" id="ttDownload" download>⬇ Download video</a>
+              <a class="btn btn-outline-secondary" href="https://www.tiktok.com/upload" target="_blank" rel="noopener">Open TikTok upload page ↗</a>
+            </div>
+            <div class="alert alert-warning small mt-2 mb-0 d-none" id="ttWebmNote">
+              Your browser made a .webm file. TikTok may not accept it. Open this page in Chrome on Android (it makes .mp4), or convert the file with CapCut.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: steps, caption, link -->
+      <div class="col-12 col-md-7">
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body">
+            <h6 class="fw-bold mb-3">How to get TikTok traffic to this vote</h6>
+            <div class="tt-step mb-2"><span class="n">1</span><div>Press <strong>Create video</strong>. Keep this tab open until it finishes.</div></div>
+            <div class="tt-step mb-2"><span class="n">2</span><div>Press <strong>Share video to TikTok</strong> (phone) or <strong>Download</strong>, then upload it on TikTok. Add a trending sound there.</div></div>
+            <div class="tt-step mb-2"><span class="n">3</span><div>Paste the <strong>caption</strong> below into the TikTok description.</div></div>
+            <div class="tt-step mb-0"><span class="n">4</span><div>Put the <strong>bio link</strong> below in your TikTok profile bio. The video says &ldquo;link in bio&rdquo;, so viewers tap your profile, click the link and vote.</div></div>
+          </div>
+        </div>
+
+        <div class="alert alert-info small">
+          TikTok does <strong>not</strong> make links clickable inside a video description or comments, so the link has to go in your <strong>profile bio</strong>.
+          A Business account can add a bio link right away (personal accounts need enough followers). Check TikTok's current rules in your account settings.
+        </div>
+
+        <label class="fw-semibold small mb-1">🔗 Bio link (counts as source &ldquo;tiktok&rdquo; in analytics)</label>
+        <div class="input-group mb-3">
+          <input class="form-control" id="ttLink" value="<%= shortUrl %>" readonly>
+          <button class="btn btn-outline-secondary" type="button" data-copy="ttLink">Copy</button>
+        </div>
+
+        <label class="fw-semibold small mb-1">📝 Caption</label>
+        <textarea class="form-control mb-2" id="ttCaption" rows="5"><%= caption %>
+
+<%= tags %></textarea>
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-copy="ttCaption">Copy caption</button>
+
+        <% if (!st.open) { %><div class="alert alert-secondary small mt-3 mb-0">Voting is closed for this contest, so the video will say so only if you reopen it first.</div><% } %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var D = <%- JSON.stringify(studio).replace(/</g, '\\u003c') %>;
+  var CSRF = <%- JSON.stringify(csrfToken) %>;
+  var W = 720, H = 1280, DUR = 12;
+  var FONT = "'Segoe UI', Roboto, 'Noto Sans', Arial, sans-serif";
+  var cv = document.getElementById('ttCanvas'), ctx = cv.getContext('2d');
+  var $ = function (id) { return document.getElementById(id); };
+  var showPct = false;
+
+  // ---- images ----
+  var imgs = D.options.map(function (o) {
+    var im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = function () { if (!recording) draw(7.5); };
+    im.onerror = function () { im.failed = true; };
+    im.src = o.image;
+    return im;
+  });
+
+  // ---- helpers ----
+  var c01 = function (x) { return Math.min(1, Math.max(0, x)); };
+  var easeOut = function (x) { x = c01(x); return 1 - Math.pow(1 - x, 3); };
+  var back = function (x) { x = c01(x); var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+  function rr(x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function wrap(text, maxW) {
+    var words = String(text).split(/\s+/), lines = [], cur = '';
+    words.forEach(function (w) {
+      var test = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; } else cur = test;
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function cover(im, x, y, w, h, r) {
+    ctx.save(); rr(x, y, w, h, r); ctx.clip();
+    if (im && im.complete && im.naturalWidth && !im.failed) {
+      var s = Math.max(w / im.naturalWidth, h / im.naturalHeight);
+      var dw = im.naturalWidth * s, dh = im.naturalHeight * s;
+      ctx.drawImage(im, x + (w - dw) / 2, y + (h - dh) * 0.2, dw, dh);
+    } else {
+      var g = ctx.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, '#334155'); g.addColorStop(1, '#1e293b');
+      ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+    }
+    ctx.restore();
+  }
+  function text(str, x, y, size, color, align, weight) {
+    ctx.font = (weight || '800') + ' ' + size + 'px ' + FONT;
+    ctx.fillStyle = color; ctx.textAlign = align || 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(str, x, y);
+  }
+
+  // ---- one frame ----
+  function draw(t) {
+    // background
+    var g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, '#0f172a'); g.addColorStop(0.55, '#3b0764'); g.addColorStop(1, '#831843');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    for (var i = 0; i < 3; i++) {
+      var cx = W * (0.2 + 0.3 * i) + Math.sin(t * 0.7 + i * 2) * 60;
+      var cy = H * (0.25 + 0.25 * i) + Math.cos(t * 0.6 + i) * 80;
+      var rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, 300);
+      rg.addColorStop(0, 'rgba(254,44,85,0.22)'); rg.addColorStop(1, 'rgba(254,44,85,0)');
+      ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+    }
+
+    // progress bar
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; rr(40, 34, W - 80, 8, 4); ctx.fill();
+    ctx.fillStyle = '#fe2c55'; rr(40, 34, Math.max(8, (W - 80) * c01(t / DUR)), 8, 4); ctx.fill();
+
+    // top pill
+    var a0 = easeOut(t / 0.4);
+    ctx.save(); ctx.globalAlpha = a0;
+    ctx.fillStyle = '#fe2c55'; rr(W / 2 - 110, 70, 220, 56, 28); ctx.fill();
+    text('🗳️ VOTE NOW', W / 2, 109, 30, '#fff');
+    ctx.restore();
+
+    // title
+    var ta = easeOut((t - 0.3) / 0.6);
+    ctx.save(); ctx.globalAlpha = ta; ctx.translate(0, (1 - ta) * 30);
+    ctx.font = '800 54px ' + FONT;
+    var tl = wrap(D.title, W - 120).slice(0, 4);
+    var ty = 200;
+    tl.forEach(function (ln, i) { text(ln, W / 2, ty + i * 64, 54, '#fff'); });
+    ctx.restore();
+    var areaTop = ty + tl.length * 64 + 10;
+
+    // options
+    var n = D.options.length, areaBottom = 900, areaH = areaBottom - areaTop;
+    if (n === 2) {
+      var cw = 560, gap = 70, ch = Math.min(300, (areaH - gap) / 2), x = (W - cw) / 2;
+      for (var k = 0; k < 2; k++) {
+        var p = easeOut((t - 2.0 - k * 0.5) / 0.7);
+        if (p <= 0) continue;
+        var y = areaTop + k * (ch + gap);
+        var off = (1 - p) * (k === 0 ? -W : W);
+        drawCard(k, x + off, y, cw, ch, 24, 46);
+      }
+      var vp = back((t - 3.3) / 0.5);
+      if (vp > 0) {
+        var vy = areaTop + ch + gap / 2, rad = 46 * vp;
+        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(W / 2, vy, rad, 0, Math.PI * 2); ctx.fill();
+        ctx.save(); ctx.translate(W / 2, vy); ctx.scale(vp, vp); text('VS', 0, 14, 40, '#111'); ctx.restore();
+      }
+    } else {
+      var cols = 2, rows = Math.ceil(n / cols), gx = 24, gy = 24;
+      var cw2 = (W - 100 - gx) / cols, ch2 = Math.min(250, (areaH - gy * (rows - 1)) / rows);
+      for (var k2 = 0; k2 < n; k2++) {
+        var pp = easeOut((t - 2.0 - k2 * 0.35) / 0.6);
+        if (pp <= 0) continue;
+        var cxx = 50 + (k2 % cols) * (cw2 + gx), cyy = areaTop + Math.floor(k2 / cols) * (ch2 + gy);
+        ctx.save(); ctx.globalAlpha = pp; ctx.translate(0, (1 - pp) * 50);
+        drawCard(k2, cxx, cyy, cw2, ch2, 20, 34);
+        ctx.restore();
+      }
+    }
+
+    // call to action
+    var ca = easeOut((t - 6.5) / 0.6);
+    if (ca > 0) {
+      var pulse = 1 + 0.04 * Math.sin(t * 6);
+      ctx.save(); ctx.globalAlpha = ca; ctx.translate(W / 2, 960); ctx.scale(pulse, pulse);
+      ctx.fillStyle = '#fff'; rr(-290, -50, 580, 100, 50); ctx.fill();
+      text('🔗 Link in bio to vote 👆', 0, 15, 40, '#be123c');
+      ctx.restore();
+      var la = easeOut((t - 7.3) / 0.6);
+      ctx.save(); ctx.globalAlpha = la;
+      text(D.shortUrl.replace(/^https?:\/\//, ''), W / 2, 1050, 30, '#fde68a', 'center', '700');
+      if (D.siteName) text(D.siteName, W / 2, 1095, 26, 'rgba(255,255,255,.7)', 'center', '600');
+      ctx.restore();
+    }
+  }
+
+  function drawCard(k, x, y, w, h, r, nameSize) {
+    var o = D.options[k];
+    cover(imgs[k], x, y, w, h, r);
+    // dark bottom gradient + name
+    ctx.save(); rr(x, y, w, h, r); ctx.clip();
+    var gg = ctx.createLinearGradient(0, y + h * 0.45, 0, y + h);
+    gg.addColorStop(0, 'rgba(0,0,0,0)'); gg.addColorStop(1, 'rgba(0,0,0,.8)');
+    ctx.fillStyle = gg; ctx.fillRect(x, y, w, h);
+    ctx.restore();
+    ctx.font = '800 ' + nameSize + 'px ' + FONT;
+    var nm = o.name; while (ctx.measureText(nm).width > w - 40 && nm.length > 3) nm = nm.slice(0, -2);
+    if (nm !== o.name) nm += '…';
+    text(nm, x + 22, y + h - 22, nameSize, '#fff', 'left');
+    if (showPct) {
+      ctx.font = '800 ' + (nameSize + 6) + 'px ' + FONT;
+      text(o.pct + '%', x + w - 22, y + h - 22, nameSize + 6, '#facc15', 'right');
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; rr(x, y, w, h, r); ctx.stroke();
+  }
+
+  // ---- recording ----
+  var recording = false, blobUrl = null;
+  function pickMime() {
+    var list = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    if (!window.MediaRecorder) return null;
+    for (var i = 0; i < list.length; i++) { if (MediaRecorder.isTypeSupported(list[i])) return list[i]; }
+    return '';
+  }
+  function count() {
+    try { var fd = new URLSearchParams(); fd.set('ch', 'tiktok'); fd.set('_csrf', CSRF); navigator.sendBeacon('/votes/' + D.id + '/share', fd); } catch (e) {}
+  }
+
+  $('ttShowPct').addEventListener('change', function () { showPct = this.checked; if (!recording) draw(7.5); });
+
+  $('ttMake').addEventListener('click', function () {
+    var btn = this, mime = pickMime();
+    if (mime === null || !cv.captureStream) {
+      $('ttMsg').textContent = 'This browser cannot record video. Please open this page in Chrome (Android / desktop) or Safari 14.1+.';
+      return;
+    }
+    recording = true; btn.disabled = true; btn.textContent = 'Recording…';
+    $('ttDone').classList.add('d-none'); $('ttVideo').classList.add('d-none'); cv.classList.remove('d-none');
+    $('ttMsg').textContent = 'Keep this tab open and visible…';
+    var bar = $('ttProgress'); bar.classList.remove('d-none');
+    var chunks = [], stream = cv.captureStream(30), rec;
+    try { rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 4000000 } : {}); }
+    catch (e) { rec = new MediaRecorder(stream); }
+    rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = function () {
+      recording = false; btn.disabled = false; btn.textContent = '🔁 Create again'; bar.classList.add('d-none');
+      var type = rec.mimeType || mime || 'video/webm';
+      var ext = /mp4/.test(type) ? 'mp4' : 'webm';
+      var blob = new Blob(chunks, { type: type });
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      blobUrl = URL.createObjectURL(blob);
+      var v = $('ttVideo'); v.src = blobUrl; cv.classList.add('d-none'); v.classList.remove('d-none'); v.play().catch(function () {});
+      var a = $('ttDownload'); a.href = blobUrl; a.download = 'vote-' + D.id + '.' + ext;
+      a.onclick = count;
+      $('ttWebmNote').classList.toggle('d-none', ext === 'mp4');
+      var file = null;
+      try { file = new File([blob], 'vote-' + D.id + '.' + ext, { type: type }); } catch (e) {}
+      var sh = $('ttShare');
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        sh.classList.remove('d-none');
+        sh.onclick = function () {
+          count();
+          navigator.share({ files: [file], text: $('ttCaption').value }).catch(function () {});
+        };
+      } else { sh.classList.add('d-none'); }
+      $('ttDone').classList.remove('d-none');
+      $('ttMsg').textContent = 'Done! Share it, then put the bio link in your TikTok profile.';
+    };
+    rec.start(250);
+    var t0 = performance.now();
+    (function loop() {
+      var t = (performance.now() - t0) / 1000;
+      draw(Math.min(t, DUR));
+      bar.firstElementChild.style.width = (c01(t / DUR) * 100) + '%';
+      if (t < DUR) requestAnimationFrame(loop);
+      else setTimeout(function () { rec.stop(); }, 150);
+    })();
+  });
+
+  // ---- copy buttons ----
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-copy]'); if (!b) return;
+    var el = $(b.dataset.copy), old = b.textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(el.value) : Promise.reject()).then(function () {
+      b.textContent = 'Copied ✅'; setTimeout(function () { b.textContent = old; }, 1800);
+    }).catch(function () { el.select(); try { document.execCommand('copy'); } catch (x) {} });
+  });
+
+  draw(7.5); // preview
+})();
+</script>
+
+<%- include('partials/footer') %>

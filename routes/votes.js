@@ -14,7 +14,8 @@ const moderation = require('../lib/moderation');
 
 const router = express.Router();
 const IMG_RE = /^\/img\/\d{1,9}$/;
-const SHARE_CHANNELS = ['whatsapp', 'facebook', 'copy', 'native'];
+const SHARE_CHANNELS = ['whatsapp', 'facebook', 'copy', 'native', 'tiktok'];
+const { detectSource } = require('../lib/analytics');
 
 const requireLogin = (req, res, next) => {
   if (!req.session.user) return res.redirect('/login');
@@ -159,6 +160,40 @@ router.get('/votes/:id/state.json', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ---------- TIKTOK ----------
+// Chhota link (TikTok bio mein lagane ke liye): /t/5 -> contest page, source = tiktok
+router.get('/t/:id', (req, res, next) => {
+  const id = toId(req.params.id);
+  if (!id) return next();
+  const camp = oneLine(req.query.c, 40).toLowerCase().replace(/[^a-z0-9_\-]/g, '');
+  res.redirect(302, `/votes/${id}?utm_source=tiktok&utm_medium=bio` + (camp ? '&utm_campaign=' + camp : ''));
+});
+
+// TikTok Video Studio: browser mein hi 9:16 vote video banta hai (server par ffmpeg nahi chahiye)
+router.get('/votes/:id/tiktok', async (req, res, next) => {
+  try {
+    const id = toId(req.params.id);
+    if (!id) return next();
+    const base = baseUrl(req);
+    const st = await P.loadState(id, uidOf(req), base);
+    if (!st) return next();
+    const opts = st.matches[0].options.map((o) => ({ name: o.name, image: o.image, pct: o.pct }));
+    const shortUrl = `${base}/t/${id}`;
+    const names = opts.map((o) => o.name);
+    const caption = `${st.title}\n\n${names.join(' vs ')}: who wins? \u{1F525} Vote now, link in bio \u{1F446}`;
+    const tags = `#vote #poll #fyp #foryou #viral #${String(config.siteName || 'vote').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+    res.render('vote-tiktok', {
+      title: 'TikTok video: ' + st.title,
+      metaDescription: 'Make a TikTok vote video for this contest.',
+      st,
+      shortUrl,
+      caption,
+      tags,
+      studio: { id, title: st.title, options: opts, shortUrl, siteName: config.siteName || '', open: st.open },
+    });
+  } catch (err) { next(err); }
+});
+
 // ---------- DETAIL (share hone wala page) ----------
 router.get('/votes/:id', async (req, res, next) => {
   try {
@@ -216,7 +251,10 @@ router.get('/votes/:id', async (req, res, next) => {
     cr.rows.forEach((c) => { if (c.parent_id) (byParent[c.parent_id] = byParent[c.parent_id] || []).push(c); else top.push(c); });
     const threads = top.map((c) => ({ ...c, replies: byParent[c.id] || [] }));
 
+    const fromTikTok = detectSource(req).source === 'tiktok' || P.voteSource(req, id) === 'tiktok';
+
     res.render('vote', {
+      fromTikTok,
       ex, adminX,
       title: st.title,
       metaDescription: st.kind === 'knockout'
