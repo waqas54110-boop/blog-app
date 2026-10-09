@@ -3,12 +3,12 @@
 <%- include('partials/seller-nav') %>
 
 <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-  <h1 class="fs-4 fw-bold mb-0">📦 Mere products</h1>
-  <a href="/seller/products/new" class="btn btn-success rounded-pill">➕ Naya product</a>
+  <h1 class="fs-4 fw-bold mb-0">📦 My products</h1>
+  <a href="/seller/products/new" class="btn btn-success rounded-pill">➕ New product</a>
 </div>
 
 <% if (items.length === 0) { %>
-  <div class="sh-card text-center text-body-secondary">Abhi koi product nahi. <a href="/seller/products/new">Pehla product daalein</a>.</div>
+  <div class="sh-card text-center text-body-secondary">No products yet. <a href="/seller/products/new">Add your first product</a>.</div>
 <% } %>
 
 <% items.forEach(p => { const sold = p.stock <= 0; %>
@@ -20,14 +20,14 @@
       <div class="flex-grow-1 min-w-0">
         <div class="d-flex align-items-center gap-2 flex-wrap">
           <a class="fw-bold text-decoration-none text-body" href="/shop/<%= shop.slug %>/<%= p.slug %>"><%= p.name %></a>
-          <% if (sold) { %><span class="badge text-bg-danger">Sold out</span><% } else if (p.stock <= 5) { %><span class="badge text-bg-warning">Kam bache</span><% } %>
-          <% if (!p.is_active) { %><span class="badge text-bg-secondary">Chhupa hua</span><% } %>
+          <% if (sold) { %><span class="badge text-bg-danger">Sold out</span><% } else if (p.stock <= 5) { %><span class="badge text-bg-warning">Low stock</span><% } %>
+          <% if (!p.is_active) { %><span class="badge text-bg-secondary">Hidden</span><% } %>
         </div>
-        <div class="sh-stat mb-2"><%= p.sold %> bik chuke</div>
+        <div class="sh-stat mb-2"><%= p.sold %> sold out</div>
 
         <form action="/seller/products/<%= p.id %>/quick" method="POST" class="d-flex gap-2 align-items-end flex-wrap">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <div><label class="sh-stat d-block">Qeemat (Rs)</label><input class="form-control form-control-sm" name="price_rs" inputmode="numeric" value="<%= p.price_rs %>" style="width:110px;"></div>
+          <div><label class="sh-stat d-block">Price (Rs)</label><input class="form-control form-control-sm" name="price_rs" inputmode="numeric" value="<%= p.price_rs %>" style="width:110px;"></div>
           <div><label class="sh-stat d-block">Stock</label><input class="form-control form-control-sm" name="stock" inputmode="numeric" value="<%= p.stock %>" style="width:90px;"></div>
           <button class="btn btn-sm btn-primary rounded-pill">Update</button>
         </form>
@@ -37,11 +37,11 @@
           <a href="/seller/share/<%= p.id %>" class="btn btn-sm btn-outline-primary rounded-pill">📣 Share</a>
           <% if (!sold) { %>
             <form action="/seller/products/<%= p.id %>/soldout" method="POST" class="d-inline" onsubmit="return confirm('Is product ko Sold out karein?')">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-danger rounded-pill">Sold out karo</button>
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-danger rounded-pill">Mark as Sold Out</button>
             </form>
           <% } %>
           <form action="/seller/products/<%= p.id %>/toggle" method="POST" class="d-inline">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-secondary rounded-pill"><%= p.is_active ? '👁 Chhupao' : '👁 Dikhao' %></button>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-secondary rounded-pill"><%= p.is_active ? '👁 Hide' : '👁 Show' %></button>
           </form>
           <form action="/seller/products/<%= p.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Product hamesha ke liye hataen? Purane orders bache rahenge.')">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-link text-danger">Hatao</button>
@@ -51,6 +51,6 @@
     </div>
   </div>
 <% }) %>
-<div class="sh-stat">Stock 0 hone par product khud "Sold out" ho jata hai aur order band ho jata hai. Har order par stock khud kam hota hai; order "Wapas" karne par wapas jur jata hai.</div>
+<div class="sh-stat">When stock reaches 0, the product is automatically marked as “Sold Out”, and new orders are disabled. Stock decreases automatically with every order and is restored when an order is returned.</div>
 
 <%- include('partials/footer') %>

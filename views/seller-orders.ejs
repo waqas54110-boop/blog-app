@@ -12,12 +12,12 @@
 </div>
 <form method="GET" action="/seller/orders" class="d-flex gap-2 mb-3" style="max-width:420px;">
   <% if (status) { %><input type="hidden" name="status" value="<%= status %>"><% } %>
-  <input class="form-control form-control-sm rounded-pill" type="search" name="q" value="<%= q %>" placeholder="Naam / phone / shehar / order #">
-  <button class="btn btn-sm btn-primary rounded-pill">Dhundo</button>
+  <input class="form-control form-control-sm rounded-pill" type="search" name="q" value="<%= q %>" placeholder="Name / Phone / City / Order #">
+  <button class="btn btn-sm btn-primary rounded-pill">find</button>
 </form>
 
 <% if (orders.length === 0) { %>
-  <div class="sh-card text-center text-body-secondary">Is filter mein koi order nahi.</div>
+  <div class="sh-card text-center text-body-secondary">There are no orders in this filter..</div>
 <% } %>
 
 <% orders.forEach(o => {

@@ -3,9 +3,9 @@
 
 <div class="text-center py-3 mb-2">
   <h1 class="fw-bold mb-1">🛍️ Shop</h1>
-  <p class="text-body-secondary mb-3">Pakistani sellers ki shops. Order karein <b>Cash on Delivery</b> ya <b>WhatsApp</b> par.</p>
+  <p class="text-body-secondary mb-3">Shop from Pakistani Sellers. Place Your Order Today! <b>Cash on Delivery</b> or <b>WhatsApp</b> .</p>
   <form action="/shop" method="GET" class="d-flex gap-2 justify-content-center mb-2" style="max-width:520px;margin:0 auto;">
-    <input type="search" name="q" value="<%= q %>" class="form-control rounded-pill" placeholder="Product ya shop dhundo..." maxlength="60">
+    <input type="search" name="q" value="<%= q %>" class="form-control rounded-pill" placeholder="find the product..." maxlength="60">
     <% if (cat) { %><input type="hidden" name="cat" value="<%= cat %>"><% } %>
     <button class="btn btn-success rounded-pill px-4">Search</button>
   </form>
@@ -31,7 +31,7 @@
 <% if (items.length === 0) { %>
   <div class="text-center text-body-secondary py-5">
     <div style="font-size:3rem;">🛍️</div>
-    <p class="mb-2"><%= (q || cat) ? 'Is search par koi product nahi mila.' : 'Abhi koi product nahi. Pehli shop aap khol sakte hain!' %></p>
+    <p class="mb-2"><%= (q || cat) ? 'Is search par koi product nahi mila.' : 'There are no products yet. Be the first to open a shop!' %></p>
   </div>
 <% } else { %>
   <div class="sh-stat mb-2"><%= total %> product<%= total === 1 ? '' : 's' %></div>
@@ -49,12 +49,12 @@
 
 <div class="sh-card text-center mt-4">
   <div class="fs-3">🏪</div>
-  <div class="fw-bold mb-1">Apna business shuru karein</div>
-  <p class="text-body-secondary small mb-2">Free mein apni shop banayein, products daalein, orders WhatsApp aur dashboard par payein, aur dekhein kis group se kitne log aaye aur kitno ne order kiya.</p>
+  <div class="fw-bold mb-1">Start Your Own Business</div>
+  <p class="text-body-secondary small mb-2">Create your own shop for free, add products, receive orders via WhatsApp and your dashboard, and track how many visitors and orders come from each group.</p>
   <% if (myShop) { %>
-    <a href="/seller" class="btn btn-success rounded-pill px-4">🛍️ Meri shop</a>
+    <a href="/seller" class="btn btn-success rounded-pill px-4">🛍️ My shop</a>
   <% } else { %>
-    <a href="/seller/open" class="btn btn-success rounded-pill px-4">Apni shop kholo</a>
+    <a href="/seller/open" class="btn btn-success rounded-pill px-4">Open Your Shop</a>
   <% } %>
 </div>
 

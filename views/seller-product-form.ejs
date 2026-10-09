@@ -3,7 +3,7 @@
 <%- include('partials/seller-nav') %>
 
 <div style="max-width:720px;margin:0 auto;">
-  <h1 class="fs-4 fw-bold mb-3"><%= edit ? '✏️ Product edit' : '➕ Naya product' %></h1>
+  <h1 class="fs-4 fw-bold mb-3"><%= edit ? '✏️ Product edit' : '➕ New product' %></h1>
   <% if (error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
 
   <form action="<%= edit ? '/seller/products/' + edit.id : '/seller/products' %>" method="POST" class="sh-card" id="pForm">
@@ -20,9 +20,9 @@
     </div>
 
     <div class="row g-2 mb-3">
-      <div class="col-6 col-sm-4"><label class="form-label" for="pPrice">Qeemat (Rs)</label><input class="form-control" id="pPrice" name="price_rs" inputmode="numeric" required maxlength="10" value="<%= f.price %>" placeholder="1500"></div>
-      <div class="col-6 col-sm-4"><label class="form-label" for="pCmp">Purani qeemat <span class="text-body-secondary">(optional)</span></label><input class="form-control" id="pCmp" name="compare_price_rs" inputmode="numeric" maxlength="10" value="<%= f.compare %>" placeholder="2000"></div>
-      <div class="col-12 col-sm-4"><label class="form-label" for="pStock">Stock (kitne hain)</label><input class="form-control" id="pStock" name="stock" inputmode="numeric" required maxlength="7" value="<%= f.stock %>" placeholder="10"><div class="form-text">0 likhein = Sold out</div></div>
+      <div class="col-6 col-sm-4"><label class="form-label" for="pPrice">Price (Rs)</label><input class="form-control" id="pPrice" name="price_rs" inputmode="numeric" required maxlength="10" value="<%= f.price %>" placeholder="1500"></div>
+      <div class="col-6 col-sm-4"><label class="form-label" for="pCmp">Compare Price <span class="text-body-secondary">(optional)</span></label><input class="form-control" id="pCmp" name="compare_price_rs" inputmode="numeric" maxlength="10" value="<%= f.compare %>" placeholder="2000"></div>
+      <div class="col-12 col-sm-4"><label class="form-label" for="pStock">Stock</label><input class="form-control" id="pStock" name="stock" inputmode="numeric" required maxlength="7" value="<%= f.stock %>" placeholder="10"><div class="form-text">0 likhein = Sold out</div></div>
     </div>
 
     <div class="mb-3">
@@ -40,7 +40,7 @@
 
     <div class="form-check mb-3">
       <input class="form-check-input" type="checkbox" name="is_active" value="1" id="pAct" <%= f.active ? 'checked' : '' %>>
-      <label class="form-check-label" for="pAct">Shop mein dikhao (band karne par product chhup jata hai)</label>
+      <label class="form-check-label" for="pAct">Show in Shop (When disabled, the product is hidden from your shop).</label>
     </div>
 
     <button class="btn btn-success btn-lg rounded-pill px-4" type="submit"><%= edit ? 'Save karo' : 'Product add karo' %></button>

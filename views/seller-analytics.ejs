@@ -27,16 +27,16 @@
   <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold"><%= tot.people %></div><div class="sh-stat">Log aaye (<%= tot.visits %> visits)</div></div></div>
   <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold"><%= tot.orders %></div><div class="sh-stat">Orders</div></div></div>
   <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold"><%= pct(tot.orders, tot.people) %></div><div class="sh-stat">Order / visitor</div></div></div>
-  <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold" style="color:#12a37f;">Rs <%= rs(tot.revenue) %></div><div class="sh-stat">Sale (wapas ke bina)</div></div></div>
+  <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold" style="color:#12a37f;">Rs <%= rs(tot.revenue) %></div><div class="sh-stat">Sale (without returns)</div></div></div>
 </div>
 
 <div class="sh-card" id="groups">
   <h2 class="sh-h">👥 Group-wise sales <a href="/seller/share" class="small ms-2">📣 Share</a></h2>
   <% if (byGroup.length === 0) { %>
-    <p class="text-body-secondary mb-0">Abhi koi group save nahi. <a href="/seller/share">Share</a> page par groups daalein; har group ke link par alag UTM lagta hai aur yahan us group ke log aur orders alag dikhte hain.</p>
+    <p class="text-body-secondary mb-0">not now group <a href="/seller/share">Share</a> Add your groups to the page. Each group gets a unique UTM tracking link, allowing you to see visitors and orders from each group separately.</p>
   <% } else { %>
     <div class="table-responsive"><table class="an-t">
-      <thead><tr><th>Group</th><th class="r">Log aaye</th><th class="r">Orders</th><th class="r">Order / log</th><th class="r">Saman</th><th class="r">Sale (Rs)</th><th class="r">Wapas</th></tr></thead>
+      <thead><tr><th>Group</th><th class="r">Visitors Arrived</th><th class="r">Orders</th><th class="r">Order / Peopleo</th><th class="r">Units</th><th class="r">Sale (Rs)</th><th class="r">back</th></tr></thead>
       <tbody>
         <% byGroup.forEach(g => { %>
           <tr>
@@ -52,15 +52,15 @@
         <% }) %>
       </tbody>
     </table></div>
-    <p class="sh-stat mb-0 mt-2">"Log aaye" = jinhon ne group ke link par click kiya (sirf message dekhne wale ginti mein nahi). Order us group se gina jata hai jis ke link se customer aaya, 7 din ke andar order karne par.</p>
+    <p class="sh-stat mb-0 mt-2">"Visitors Arrived" = people who clicked on the group's link (not just those who viewed messages). Orders are attributed to the group whose link the customer used, within 7 days.</p>
   <% } %>
 </div>
 
 <div class="sh-card">
   <h2 class="sh-h">🌐 Source-wise</h2>
-  <% if (bySource.length === 0) { %><p class="text-body-secondary mb-0">Abhi koi data nahi.</p><% } else { %>
+  <% if (bySource.length === 0) { %><p class="text-body-secondary mb-0">No data available yet.</p><% } else { %>
     <div class="table-responsive"><table class="an-t">
-      <thead><tr><th>Source</th><th class="r">Log</th><th class="r">Orders</th><th class="r">Order / log</th><th class="r">Sale (Rs)</th></tr></thead>
+      <thead><tr><th>Source</th><th class="r">Visitors</th><th class="r">Orders</th><th class="r">Order / Visitor</th><th class="r">Sale (Rs)</th></tr></thead>
       <tbody>
         <% bySource.forEach(s => { %>
           <tr><td><b><%= s.source %></b></td><td class="r"><%= s.people %></td><td class="r"><b><%= s.orders %></b></td><td class="r"><%= pct(s.orders, s.people) %></td><td class="r"><%= rs(s.revenue) %></td></tr>

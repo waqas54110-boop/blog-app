@@ -6,9 +6,9 @@
   <% if (!edit) { %>
     <div class="text-center py-3">
       <div style="font-size:3rem;">🏪</div>
-      <h1 class="fw-bold fs-3">Apni shop kholo</h1>
-      <p class="text-body-secondary">Free mein shop banayein, products daalein, orders lein (Cash on Delivery / WhatsApp), aur dekhein kaun se group se kitni sales aayi.</p>
-      <% if (approval) { %><div class="alert alert-info py-2 small">Nayi shop ko site owner manzoor karta hai, tab public hoti hai.</div><% } %>
+      <h1 class="fw-bold fs-3">Open shop</h1>
+      <p class="text-body-secondary">Create your own online shop, add products, and start selling!</p>
+      <% if (approval) { %><div class="alert alert-info py-2 small">Your shop is pending approval.</div><% } %>
     </div>
   <% } %>
 
@@ -17,36 +17,37 @@
   <form action="<%= edit ? '/seller/settings' : '/seller/open' %>" method="POST" class="sh-card" id="shopForm">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <div class="mb-3">
-      <label class="form-label" for="sName">Shop ka naam</label>
+      <label class="form-label" for="sName">Shop Name</label>
       <input class="form-control" id="sName" name="name" required maxlength="80" value="<%= f.name %>" placeholder="Jaise: Ali Fashion Store">
       <% if (edit) { %>
-        <div class="form-check mt-1"><input class="form-check-input" type="checkbox" name="rename_link" value="1" id="rn"><label class="form-check-label small" for="rn">Naam badalne par shop ka link bhi badlo (purana link kaam karna chhor dega)</label></div>
+        <div class="form-check mt-1"><input class="form-check-input" type="checkbox" name="rename_link" value="1" id="rn"><label class="form-check-label small" for="rn">When renaming, also update the shop link (the old link will stop working)</label></div>
       <% } %>
     </div>
     <div class="mb-3">
-      <label class="form-label" for="sTag">Chhoti line <span class="text-body-secondary">(optional)</span></label>
+      <label class="form-label" for="sTag">Tagline <span class="text-body-secondary">(optional)</span></label>
       <input class="form-control" id="sTag" name="tagline" maxlength="140" value="<%= f.tagline %>" placeholder="Jaise: Asli leather, sasti qeemat">
     </div>
     <div class="mb-3">
-      <label class="form-label" for="sDesc">Shop ke baare mein <span class="text-body-secondary">(optional)</span></label>
+      <label class="form-label" for="sDesc">Shop Description <span class="text-body-secondary">(optional)</span></label>
       <textarea class="form-control" id="sDesc" name="description" rows="3" maxlength="1500"><%= f.description %></textarea>
     </div>
     <div class="row g-2 mb-3">
-      <div class="col-12 col-sm-4"><label class="form-label" for="sCity">Shehar</label><input class="form-control" id="sCity" name="city" required maxlength="60" value="<%= f.city %>" placeholder="Lahore"></div>
-      <div class="col-12 col-sm-4"><label class="form-label" for="sWa">WhatsApp number</label><input class="form-control" id="sWa" name="whatsapp" type="tel" required maxlength="20" value="<%= f.whatsapp %>" placeholder="0300 1234567"></div>
+      <div class="col-12 col-sm-4"><label class="form-label" for="sCity">City</label><input class="form-control" id="sCity" name="city" required maxlength="60" value="<%= f.city %>" placeholder="Lahore"></div>
+      <div class="col-12 col-sm-4"><label class="form-label" for="sWa">WhatsApp Number</label><input class="form-control" id="sWa" name="whatsapp" type="tel" required maxlength="20" value="<%= f.whatsapp %>" placeholder="0300 1234567"></div>
       <div class="col-12 col-sm-4"><label class="form-label" for="sPh">Phone <span class="text-body-secondary">(optional)</span></label><input class="form-control" id="sPh" name="phone" type="tel" maxlength="20" value="<%= f.phone %>" placeholder="0300 1234567"></div>
     </div>
 
     <div class="mb-3">
-      <div class="form-label">Order lene ke tareeqe</div>
+      <div class="form-label">Order Collection Methods</div>
       <div class="form-check"><input class="form-check-input" type="checkbox" name="cod" value="1" id="sCod" <%= f.cod ? 'checked' : '' %>><label class="form-check-label" for="sCod">🚚 Cash on Delivery</label></div>
       <div class="form-check"><input class="form-check-input" type="checkbox" name="wa" value="1" id="sWaOn" <%= f.wa ? 'checked' : '' %>><label class="form-check-label" for="sWaOn">💬 WhatsApp par order bhejna</label></div>
-      <div class="form-text">Online payment (JazzCash, Easypaisa, card) baad mein judegi, kyunke uska alag account aur integration chahiye.</div>
+      <div class="form-text">
+Online payments (JazzCash, Easypaisa, and cards) will be available later, as they require a separate account and payment gateway integration.</div>
     </div>
 
     <div class="row g-2 mb-3">
       <div class="col-12 col-sm-6"><label class="form-label" for="sFee">Delivery charges (Rs)</label><input class="form-control" id="sFee" name="delivery_fee" inputmode="numeric" maxlength="8" value="<%= f.delivery_fee %>" placeholder="0 = free"></div>
-      <div class="col-12 col-sm-6"><label class="form-label" for="sFree">Itne se upar delivery free (Rs) <span class="text-body-secondary">(optional)</span></label><input class="form-control" id="sFree" name="free_over" inputmode="numeric" maxlength="8" value="<%= f.free_over %>" placeholder="Jaise 3000"></div>
+      <div class="col-12 col-sm-6"><label class="form-label" for="sFree">Items above this amount are free (Rs) <span class="text-body-secondary">(optional)</span></label><input class="form-control" id="sFree" name="free_over" inputmode="numeric" maxlength="8" value="<%= f.free_over %>" placeholder="Jaise 3000"></div>
     </div>
 
     <div class="mb-3">
