@@ -65,7 +65,7 @@
     <div class="d-flex gap-2 flex-wrap">
       <a class="btn btn-sm btn-outline-success rounded-pill" target="_blank" rel="noopener noreferrer" href="https://wa.me/?text=<%= encodeURIComponent(product.name + ' - Rs ' + rs(product.price_rs) + '\n' + shareUrl) %>">📤 WhatsApp par share</a>
       <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" id="copyLink" data-url="<%= shareUrl %>">🔗 Link copy</button>
-      <% if (mine) { %><a class="btn btn-sm btn-outline-primary rounded-pill" href="/seller/products/<%= product.id %>/edit">✏️ Edit</a><% } %>
+      <% if (mine) { %><a class="btn btn-sm btn-outline-primary rounded-pill" href="/seller/products/<%= product.id %>/edit">✏️ Edit</a><a class="btn btn-sm rounded-pill fw-semibold" style="background:#fbbf24;color:#111;" href="/shop/<%= shop.slug %>/<%= product.slug %>/tiktok">🎬 TikTok video</a><% } %>
     </div>
   </div>
 </div>

@@ -133,6 +133,60 @@ router.get('/shop/:shop/:product', async (req, res) => {
   } catch (err) { noShop(res, err); }
 });
 
+// ---------- TikTok ----------
+// Chhota link (TikTok bio mein): /tp/12 -> product page, source = tiktok (orders analytics mein "tiktok" dikhte hain)
+router.get('/tp/:id', async (req, res, next) => {
+  try {
+    const id = S.toId(req.params.id);
+    if (!id) return next();
+    const r = (await pool.query(
+      `SELECT p.slug, s.slug AS shop_slug FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = $1 AND p.is_active = true AND s.status = 'active'`, [id])).rows[0];
+    if (!r) return notFound(res, 'Ye product abhi available nahi.');
+    const camp = S.oneLine(req.query.c, 40).toLowerCase().replace(/[^a-z0-9_\-]/g, '');
+    res.redirect(302, `/shop/${r.shop_slug}/${r.slug}?utm_source=tiktok&utm_medium=bio` + (camp ? '&utm_campaign=' + camp : ''));
+  } catch (err) { noShop(res, err); }
+});
+
+// TikTok Video Studio (sirf shop owner / admin): browser mein hi 9:16, 60 second ki funny product video
+router.get('/shop/:shop/:product/tiktok', async (req, res) => {
+  try {
+    const { shop, product } = await loadProduct(req.params.shop, req.params.product);
+    if (!shop || !product) return notFound(res, 'Ye product nahi mila.');
+    const me = req.session.user;
+    const mine = !!(me && (me.id === shop.owner_id || me.role === 'admin'));
+    if (!mine) return notFound(res, 'Ye page sirf shop owner ke liye hai.');
+    const images = (await pool.query('SELECT image_id FROM product_images WHERE product_id = $1 ORDER BY position, image_id LIMIT 4', [product.id])).rows.map((r) => r.image_id);
+    const base = S.baseUrlOf(req);
+    const shortUrl = `${base}/tp/${product.id}`;
+    const off = product.compare_price_rs && product.compare_price_rs > product.price_rs
+      ? Math.round((product.compare_price_rs - product.price_rs) * 100 / product.compare_price_rs) : 0;
+    const N = String(product.name || '').replace(/[^\p{L}\p{N}\s&'.-]/gu, '').replace(/\s+/g, ' ').trim() || 'this';
+    const price = S.rs(product.price_rs);
+    const cod = !!shop.cod_enabled;
+    const caption = `${product.name} - Rs ${price} \u{1F525} ${cod ? 'Cash on Delivery! ' : ''}Link in bio \u{1F446}`;
+    const slugTag = String(shop.name || 'shop').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const tags = `#shopping #pakistan #fyp #foryou #deal #viral #onlineshopping${cod ? ' #cod' : ''}${slugTag ? ' #' + slugTag : ''}`;
+    const presets = [
+      { key: 'wallet', label: '\u{1F4B8} Wallet cries',
+        en: `Wait, wait, wait! Do not scroll! Meet ${N}. I know what you are thinking. I don't need it. But look at it. Really look at it. Gorgeous, right? My wallet said please don't. My heart said please do. And guess who won? The heart. Always the heart. Now here is the part where you sit down. It is only Rs ${price}. Yes, really! No, I am not joking. ${cod ? 'And you pay when it arrives, cash on delivery, so even your wallet can relax. ' : ''}Your friends will ask, where did you get that? And you will say, oh, this old thing? Just the best deal on the internet. But hurry, because it is selling fast, and I am not waiting around while you think about it. Tap the link in my bio, order now, and thank me later!` },
+      { key: 'mom', label: '\u{1F469} Mom vs Me',
+        en: `Mom: Do we really need ${N}? Me: Need? Mom, it needs me! Mom: What about the budget? Me: Mom, it is only Rs ${price}. That is basically free. Mom: Basically free is not free. Me: Fine, look at it. Just look. Mom: ...Okay, that is actually nice. Me: See? Now you want it too! ${cod ? 'And the best part, we pay when it arrives. Cash on delivery. No stress, no tension. ' : ''}Mom: Order two. Me: That is my mom! So if even my mom is convinced, what is stopping you? Hurry up, it is selling fast. Tap the link in my bio and order now, before Mom takes it all!` },
+      { key: 'trailer', label: '\u{1F3AC} Movie trailer',
+        en: `In a world full of boring things, one hero rises. ${N}. This summer, it is coming for your cart. Critics say, wow. Friends say, where did you get that? And your wallet says, here we go again. For only Rs ${price}, it can be yours. ${cod ? 'No card, no stress. Just cash on delivery. ' : ''}Do not miss the biggest deal of the season. Stock is limited, and the clock is ticking. Tick, tock, tick, tock. Rated T for totally worth it. Coming soon to your doorstep. Tap the link in my bio and order now!` },
+    ];
+    res.render('shop-tiktok', {
+      title: 'TikTok video: ' + product.name, robots: 'noindex,nofollow',
+      metaDescription: 'Make a 60-second funny TikTok video for this product.',
+      shop, product, images, rs: S.rs, shortUrl, caption, tags, presets,
+      studio: {
+        id: product.id, name: String(product.name || ''), price: product.price_rs, compare: product.compare_price_rs || 0, off,
+        stock: product.stock, shopName: String(shop.name || ''), cod, shortUrl,
+        images: images.map((i) => '/img/' + i),
+      },
+    });
+  } catch (err) { noShop(res, err); }
+});
+
 // ---------- POST /order ----------
 router.post('/order', async (req, res) => {
   try {

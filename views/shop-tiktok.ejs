@@ -1,0 +1,588 @@
+<%- include('partials/header') %>
+
+<style>
+  .tt-canvas-wrap { max-width: 340px; margin: 0 auto; }
+  .tt-canvas-wrap canvas, .tt-canvas-wrap video { width: 100%; aspect-ratio: 9 / 16; border-radius: 18px; background: #022c22; display: block; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+  .tt-step { display: flex; gap: .6rem; align-items: flex-start; }
+  .tt-step .n { flex: 0 0 28px; height: 28px; border-radius: 50%; background: #f59e0b; color: #111; font-weight: 700; display: grid; place-items: center; font-size: .85rem; }
+</style>
+
+<div class="row justify-content-center">
+  <div class="col-12 col-lg-10">
+    <div class="mb-3"><a href="/shop/<%= shop.slug %>/<%= product.slug %>" class="text-decoration-none">&larr; Back to product</a></div>
+    <h1 class="fw-bold h3 mb-1">🎬 TikTok product video</h1>
+    <p class="text-body-secondary mb-4"><%= product.name %> &middot; Rs <%= rs(product.price_rs) %></p>
+
+    <% if (product.stock <= 0) { %><div class="alert alert-warning small">This product is <strong>sold out</strong>. Add stock first, or people will click and find nothing.</div><% } %>
+    <% if (!images.length) { %><div class="alert alert-info small">This product has no photo yet. Add 1 to 4 photos (edit product) for a much better video.</div><% } %>
+
+    <div class="row g-4">
+      <!-- Left: video -->
+      <div class="col-12 col-md-5">
+        <div class="tt-canvas-wrap">
+          <canvas id="ttCanvas" width="720" height="1280"></canvas>
+          <video id="ttVideo" class="d-none" controls playsinline loop></video>
+        </div>
+        <div class="d-grid gap-2 mt-3 tt-canvas-wrap">
+          <button type="button" class="btn btn-lg fw-bold" style="background:#f59e0b;color:#111" id="ttMake">▶ Create video (60 sec)</button>
+          <div id="ttProgress" class="progress d-none" style="height:8px"><div class="progress-bar bg-warning" style="width:0%"></div></div>
+          <div id="ttMsg" class="small text-body-secondary"></div>
+          <div id="ttDone" class="d-none">
+            <div class="d-grid gap-2">
+              <button type="button" class="btn btn-dark fw-semibold d-none" id="ttShare">📤 Share video to TikTok</button>
+              <a class="btn btn-outline-dark fw-semibold" id="ttDownload" download>⬇ Download video</a>
+              <a class="btn btn-outline-secondary" href="https://www.tiktok.com/upload" target="_blank" rel="noopener">Open TikTok upload page ↗</a>
+            </div>
+            <div class="alert alert-warning small mt-2 mb-0 d-none" id="ttWebmNote">
+              Your browser made a .webm file. TikTok may not accept it. Open this page in Chrome on Android (it makes .mp4), or convert the file with CapCut.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: voice, steps, caption, link -->
+      <div class="col-12 col-md-7">
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body">
+            <h6 class="fw-bold mb-1">🎙️ Funny voice (optional)</h6>
+            <p class="small text-body-secondary mb-2">The video already has automatic funny captions and sounds. For a voice-over, pick a script, make the voice file (free, see the command) and upload it here. The script then shows as subtitles.</p>
+            <div class="d-flex flex-wrap gap-2 mb-2" id="ttPresets">
+              <% presets.forEach(function (p) { %><button type="button" class="btn btn-outline-dark btn-sm" data-preset="<%= p.key %>"><%= p.label %></button><% }) %>
+            </div>
+            <textarea class="form-control mb-2" id="ttScript" rows="5" placeholder="Script (about 140 words fills 60 seconds)"></textarea>
+            <div class="row g-2 mb-2">
+              <div class="col-6">
+                <select class="form-select form-select-sm" id="ttVoice">
+                  <option value="en-US-GuyNeural">Male (Guy, US)</option>
+                  <option value="en-US-JennyNeural">Female (Jenny, US)</option>
+                  <option value="en-GB-RyanNeural">Male (Ryan, UK)</option>
+                  <option value="en-US-AriaNeural">Female (Aria, US)</option>
+                </select>
+              </div>
+              <div class="col-6">
+                <select class="form-select form-select-sm" id="ttRate">
+                  <option value="-10%">A bit slower</option>
+                  <option value="+0%" selected>Normal speed</option>
+                  <option value="+10%">A bit faster</option>
+                </select>
+              </div>
+            </div>
+            <label class="small fw-semibold mb-1">1. Free voice command (run in terminal, needs <code>pip install --break-system-packages edge-tts</code> once)</label>
+            <textarea class="form-control form-control-sm font-monospace mb-1" id="ttCmd" rows="3" readonly></textarea>
+            <button class="btn btn-outline-secondary btn-sm mb-3" type="button" data-copy="ttCmd">Copy command</button>
+            <label class="small fw-semibold d-block mb-1">2. Upload the voice file (mp3 / wav / m4a)</label>
+            <input type="file" class="form-control form-control-sm" id="ttAudio" accept="audio/*">
+            <audio id="ttAudioPrev" class="w-100 mt-2 d-none" controls></audio>
+            <div class="small text-body-secondary mt-1" id="ttAudioInfo"></div>
+            <div class="form-check mt-2">
+              <input class="form-check-input" type="checkbox" id="ttFunny" checked>
+              <label class="form-check-label" for="ttFunny">😂 Funny mode (wobbling photo, floating emojis, auto captions)</label>
+            </div>
+            <div class="form-check mt-1">
+              <input class="form-check-input" type="checkbox" id="ttSfx" checked>
+              <label class="form-check-label" for="ttSfx">🔊 Auto funny sounds (siren, boing, airhorn, beat) - no voice file needed</label>
+            </div>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body">
+            <h6 class="fw-bold mb-3">How to get TikTok buyers for this product</h6>
+            <div class="tt-step mb-2"><span class="n">1</span><div>Press <strong>Create video</strong>. Keep this tab open until it finishes (60 sec).</div></div>
+            <div class="tt-step mb-2"><span class="n">2</span><div>Press <strong>Share video to TikTok</strong> (phone) or <strong>Download</strong>, then upload it on TikTok. Add a trending sound there.</div></div>
+            <div class="tt-step mb-2"><span class="n">3</span><div>Paste the <strong>caption</strong> below into the TikTok description.</div></div>
+            <div class="tt-step mb-0"><span class="n">4</span><div>Put the <strong>bio link</strong> below in your TikTok profile bio. The video says &ldquo;link in bio&rdquo;, so viewers tap your profile, open the link and order.</div></div>
+          </div>
+        </div>
+
+        <div class="alert alert-info small">
+          TikTok does <strong>not</strong> make links clickable inside a video description or comments, so the link has to go in your <strong>profile bio</strong>.
+          A Business account can add a bio link right away (personal accounts need enough followers). Check TikTok's current rules in your account settings.
+        </div>
+
+        <label class="fw-semibold small mb-1">🔗 Bio link (orders from it are counted as source &ldquo;tiktok&rdquo;)</label>
+        <div class="input-group mb-3">
+          <input class="form-control" id="ttLink" value="<%= shortUrl %>" readonly>
+          <button class="btn btn-outline-secondary" type="button" data-copy="ttLink">Copy</button>
+        </div>
+
+        <label class="fw-semibold small mb-1">📝 Caption</label>
+        <textarea class="form-control mb-2" id="ttCaption" rows="5"><%= caption %>
+
+<%= tags %></textarea>
+        <button class="btn btn-outline-secondary btn-sm" type="button" data-copy="ttCaption">Copy caption</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var P = <%- JSON.stringify(studio).replace(/</g, '\\u003c') %>;
+  var W = 720, H = 1280, BASE = 60, DUR = 60, VOICE_AT = 0.6;
+  var PRESETS = <%- JSON.stringify(presets).replace(/</g, '\\u003c') %>;
+  var funny = true, sfxOn = true, audioBuf = null, audioCtx = null, subs = [], cues = [];
+  var FONT = "'Segoe UI', Roboto, 'Noto Sans', Arial, sans-serif";
+  var cv = document.getElementById('ttCanvas'), ctx = cv.getContext('2d');
+  var $ = function (id) { return document.getElementById(id); };
+  var GOLD = '#fbbf24', RED = '#ef4444';
+  var recording = false, blobUrl = null;
+
+  // ---- photos ----
+  var imgs = P.images.map(function (src) {
+    var im = new Image(); im.crossOrigin = 'anonymous';
+    im.onload = function () { if (!recording) draw(previewT()); };
+    im.onerror = function () { im.failed = true; };
+    im.src = src;
+    return im;
+  });
+  function photo(k) { return imgs.length ? imgs[k % imgs.length] : null; }
+
+  // ---- helpers ----
+  var c01 = function (x) { return Math.min(1, Math.max(0, x)); };
+  var easeOut = function (x) { x = c01(x); return 1 - Math.pow(1 - x, 3); };
+  var back = function (x) { x = c01(x); var c1 = 1.70158, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+  function rr(x, y, w, h, r) {
+    ctx.beginPath(); ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  function wrap(str, maxW) {
+    var words = String(str).split(/\s+/), lines = [], cur = '';
+    words.forEach(function (w) {
+      var test = cur ? cur + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; } else cur = test;
+    });
+    if (cur) lines.push(cur);
+    return lines;
+  }
+  function text(str, x, y, size, color, align, weight) {
+    ctx.font = (weight || '800') + ' ' + size + 'px ' + FONT;
+    ctx.fillStyle = color; ctx.textAlign = align || 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.fillText(str, x, y);
+  }
+  // photo inside a rounded box, with optional zoom / pan (ken-burns)
+  function cover(im, x, y, w, h, r, zoom, panx, pany) {
+    ctx.save(); rr(x, y, w, h, r); ctx.clip();
+    if (im && im.complete && im.naturalWidth && !im.failed) {
+      var s = Math.max(w / im.naturalWidth, h / im.naturalHeight) * (zoom || 1);
+      var dw = im.naturalWidth * s, dh = im.naturalHeight * s;
+      ctx.drawImage(im, x + (w - dw) / 2 + (panx || 0) * (dw - w) / 2, y + (h - dh) / 2 + (pany || 0) * (dh - h) / 2, dw, dh);
+    } else {
+      var g = ctx.createLinearGradient(x, y, x + w, y + h); g.addColorStop(0, '#0f766e'); g.addColorStop(1, '#134e4a');
+      ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+      ctx.font = Math.round(h * 0.4) + 'px ' + FONT; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#fff';
+      ctx.fillText('🛍️', x + w / 2, y + h / 2); ctx.textBaseline = 'alphabetic';
+    }
+    ctx.restore();
+  }
+  // white "polaroid" frame with the photo and the product name under it
+  function polaroid(k, cx, cy, w, h, rot, zoom, panx, pany) {
+    if (w < 80 || h < 120) return;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot || 0);
+    ctx.shadowColor = 'rgba(0,0,0,.45)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12;
+    ctx.fillStyle = '#fff'; rr(-w / 2, -h / 2, w, h, 20); ctx.fill();
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    var m = 16, ph = h - m - 78;
+    cover(photo(k), -w / 2 + m, -h / 2 + m, w - 2 * m, ph, 12, zoom, panx, pany);
+    var nm = P.name; ctx.font = '800 30px ' + FONT;
+    while (ctx.measureText(nm).width > w - 40 && nm.length > 4) nm = nm.slice(0, -2);
+    if (nm !== P.name) nm += '…';
+    text(nm, 0, h / 2 - 28, 30, '#0f172a');
+    ctx.restore();
+  }
+  function sticker(str, x, y, rot, scale, bg, fg, size) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(scale, scale);
+    ctx.font = '900 ' + size + 'px ' + FONT;
+    var tw = ctx.measureText(str).width + 44;
+    ctx.fillStyle = bg; ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 14; ctx.shadowOffsetY = 6;
+    rr(-tw / 2, -size * 0.85, tw, size * 1.6, size * 0.45); ctx.fill();
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    text(str, 0, size * 0.28, size, fg, 'center', '900');
+    ctx.restore();
+  }
+
+  // ---- timeline: 60-second scale (scaled automatically if the video is longer) ----
+  var TL = 60, REVEAL = 5, GAL_A = 12, GAL_B = 32, PRICE_B = 40, SKIT_B = 50, CD_B = 54, CTA_AT = 50;
+  var curT = 0;
+  var GAL_LINES = ['Looks: 10/10 ✨', 'Quality? Chef\'s kiss 👌', 'Friends: "Where did you get that?!" 🔥', 'Your cart is already smiling 🛒'];
+  function shortName() { return P.name.length > 26 ? P.name.slice(0, 25) + '…' : P.name; }
+  function priceTxt(n) { return 'Rs ' + Number(n).toLocaleString('en-US'); }
+  function buildCues() {
+    var span = (GAL_B - GAL_A) / 4;
+    var cues = [[0, 3, 'WAIT!! Don\'t scroll! 🛑'], [3, 5, 'Your wallet is not ready for this… 💸'], [5, 8, 'Meet: ' + shortName() + ' 😍'], [8, 12, 'Yes, it is as good as it looks.']];
+    for (var i = 0; i < 4; i++) cues.push([GAL_A + i * span, GAL_A + (i + 1) * span, GAL_LINES[i]]);
+    cues.push([32, 36, 'And the price? Sit down first. 🪑']);
+    cues.push([36, 40, P.compare > P.price ? 'Was ' + priceTxt(P.compare) + '. Now ' + priceTxt(P.price) + '. Boom! 💥' : 'Only ' + priceTxt(P.price) + '. Yes, really! 😱']);
+    cues.push([40, 43, 'Me: "I\'m just looking." 😎'], [43, 46, 'My wallet: "Please… no." 😭'], [46, 50, 'Me: "Pay on delivery? Sold!" 🚚']);
+    cues.push([50, 54, P.stock > 0 && P.stock <= 10 ? 'Only ' + P.stock + ' left! Hurry! ⏰' : 'Selling fast! ⏰'], [54, 60, 'Link in bio. Grab it now! 👆']);
+    return cues;
+  }
+
+  function sceneHook(u, top, h) {
+    var cy = top + h / 2, s = 1 + 0.08 * Math.sin(u * 18);
+    ctx.fillStyle = 'rgba(251,191,36,' + (0.07 + 0.1 * Math.abs(Math.sin(u * 6))) + ')'; ctx.fillRect(0, 0, W, H);
+    ctx.save(); ctx.translate(W / 2 + Math.sin(u * 40) * 5, cy - 10); ctx.scale(s, s); ctx.rotate(Math.sin(u * 9) * 0.05);
+    text('🛑', 0, -50, 150); text('WAIT!!', 0, 100, 120, GOLD);
+    ctx.restore();
+    var em = ['💸', '🛍️', '😱'];
+    for (var i = 0; i < 3; i++) { ctx.globalAlpha = 0.9; ctx.font = '60px ' + FONT; ctx.textAlign = 'center'; ctx.fillText(em[i], 120 + i * 240 + Math.sin(u * 5 + i) * 14, top + 50 + Math.abs(Math.sin(u * 4 + i)) * 20); }
+    ctx.globalAlpha = 1;
+  }
+  function sceneReveal(u, top, h) {
+    var loc = u - REVEAL, p = back(loc / 0.7), pw = 440, ph = Math.min(h - 20, 470), cy = top + h / 2;
+    ctx.save();
+    var fly = (1 - c01(p)) * -W * 0.9;
+    polaroid(0, W / 2 + fly, cy, pw * Math.min(1, p + 0.0001), ph * Math.min(1, p + 0.0001), -0.06 + Math.sin(curT * 3) * 0.02 + (1 - c01(p)) * -0.5, 1.02 + 0.03 * Math.sin(curT * 2), 0, 0);
+    ctx.restore();
+    var sp = back((loc - 1) / 0.5);
+    if (sp > 0) sticker(priceTxt(P.price), W / 2 + 150, cy - ph / 2 + 40, 0.12, sp, GOLD, '#111', 46);
+    if (P.off > 0) { var op = back((loc - 2) / 0.5); if (op > 0) sticker('-' + P.off + '% OFF', W / 2 - 150, cy + ph / 2 - 100, -0.14, op, RED, '#fff', 36); }
+  }
+  function sceneGallery(u, top, h) {
+    var span = (GAL_B - GAL_A) / 4, idx = Math.min(3, Math.floor((u - GAL_A) / span)), loc = u - GAL_A - idx * span;
+    var pw = 500, ph = Math.min(h - 20, 470), cy = top + h / 2;
+    var p = back(loc / 0.6), pans = [[0.4, 0.2], [-0.5, -0.3], [0.3, -0.4], [-0.2, 0.5]];
+    var zoom = 1.05 + (loc / span) * 0.25 + (imgs.length <= 1 ? idx * 0.12 : 0);
+    var em = ['⭐', '🎉', '✨', '🔥', '💥', '🎊'];
+    for (var i = 0; i < 6; i++) {
+      var a = curT * 1.6 + i * 1.047;
+      ctx.globalAlpha = c01(loc / 0.5); ctx.font = '48px ' + FONT; ctx.textAlign = 'center';
+      ctx.fillText(em[i], W / 2 + Math.cos(a) * 330, cy + Math.sin(a) * (ph / 2 + 20));
+    }
+    ctx.globalAlpha = 1;
+    var side = idx % 2 ? 1 : -1;
+    polaroid(imgs.length ? idx : 0, W / 2, cy, pw * p, ph * p, side * 0.05 + Math.sin(curT * 4) * 0.025 + (1 - c01(p)) * side * 0.3, zoom, pans[idx][0], pans[idx][1]);
+    var sp = back((loc - 0.5) / 0.4);
+    if (sp > 0) sticker('#' + (idx + 1) + ' reason ⭐', W / 2 - 150 * side, cy - ph / 2 + 30, -side * 0.12, sp, GOLD, '#111', 32);
+  }
+  function scenePrice(u, top, h) {
+    var loc = u - GAL_B, cy = top + h / 2;
+    // money rain
+    var em = ['💸', '💵', '🤑', '💰'];
+    ctx.font = '54px ' + FONT; ctx.textAlign = 'center';
+    for (var i = 0; i < 10; i++) {
+      var ph = (curT * 0.35 + i * 0.1) % 1;
+      ctx.globalAlpha = 0.9 * Math.sin(ph * Math.PI);
+      ctx.fillText(em[i % 4], 40 + ((i * 71) % 640) + Math.sin(curT * 3 + i) * 16, top - 20 + ph * (h + 80));
+    }
+    ctx.globalAlpha = 1;
+    var hasCmp = P.compare > P.price;
+    if (hasCmp) {
+      var ca = easeOut((loc - 3.2) / 0.4);
+      ctx.save(); ctx.globalAlpha = ca;
+      text(priceTxt(P.compare), W / 2, cy - 90, 78, 'rgba(255,255,255,.75)');
+      ctx.font = '800 78px ' + FONT; var tw = ctx.measureText(priceTxt(P.compare)).width;
+      ctx.strokeStyle = RED; ctx.lineWidth = 10; ctx.beginPath(); ctx.moveTo(W / 2 - tw / 2 - 10, cy - 70); ctx.lineTo(W / 2 - tw / 2 - 10 + (tw + 20) * easeOut((loc - 3.6) / 0.3), cy - 112); ctx.stroke();
+      ctx.restore();
+    } else {
+      var oa = easeOut((loc - 3.2) / 0.4); ctx.save(); ctx.globalAlpha = oa; text('ONLY', W / 2, cy - 100, 70, '#fff'); ctx.restore();
+    }
+    var pp = back((loc - 4.2) / 0.5);
+    if (pp > 0) { ctx.save(); ctx.translate(W / 2, cy + 70); ctx.scale(pp, pp); ctx.rotate(-0.04); text(priceTxt(P.price), 0, 0, 130, GOLD); ctx.restore(); }
+    if (hasCmp) { var op = back((loc - 5.0) / 0.5); if (op > 0) sticker(P.off + '% OFF 💥', W / 2 + 130, cy + 190, 0.1, op, RED, '#fff', 44); }
+    else { var yp = back((loc - 5.0) / 0.5); if (yp > 0) sticker('Yes, really! 😱', W / 2, cy + 190, -0.05, yp, RED, '#fff', 40); }
+  }
+  function sceneSkit(u, top, h) {
+    var who = u < 43 ? ['😎', 'Me: "I\'m just looking."', 0] : u < 46 ? ['😭', 'My wallet: "Please… no."', 1] : ['🤑', 'Me: "Pay on delivery? Sold!"', 2];
+    var loc = u < 43 ? u - 40 : u < 46 ? u - 43 : u - 46;
+    var bp = back(loc / 0.4), bounce = Math.abs(Math.sin(loc * 8)) * 22;
+    // speech bubble
+    ctx.save(); ctx.translate(W / 2, top + 105); ctx.scale(bp, bp);
+    ctx.fillStyle = '#fff'; rr(-290, -95, 580, 190, 34); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-170, 94); ctx.lineTo(-210, 150); ctx.lineTo(-110, 94); ctx.closePath(); ctx.fill();
+    ctx.font = '800 44px ' + FONT; var ls = wrap(who[1], 520).slice(0, 3);
+    ls.forEach(function (ln, i) { text(ln, 0, -ls.length * 24 + 34 + i * 56, 44, '#0f172a'); });
+    ctx.restore();
+    // avatar
+    ctx.save(); ctx.translate(190, top + h - 90 - bounce); ctx.rotate(Math.sin(loc * 12) * 0.08); ctx.scale(bp, bp);
+    text(who[0], 0, 0, 170); ctx.restore();
+    // product mini polaroid
+    polaroid(0, W - 200, top + h - 130 - bounce * 0.4, 250, 250, 0.1 + Math.sin(curT * 4) * 0.03, 1, 0, 0);
+  }
+  function sceneCount(u, top, h) {
+    var i = Math.min(3, Math.max(0, Math.floor(u - SKIT_B))), loc = (u - SKIT_B) % 1, labels = ['3', '2', '1', 'GRAB IT!'];
+    var lab = labels[i], s = back(loc / 0.35) * (1 + 0.04 * Math.sin(curT * 20));
+    ctx.save(); ctx.translate(W / 2, top + h / 2 + 40); ctx.scale(s, s);
+    text(lab, 0, 0, lab.length > 1 ? 130 : 300, i === 3 ? GOLD : '#fff');
+    ctx.restore();
+    text('⏰', W / 2, top + 90, 80);
+  }
+  function sceneFinal(u, top, h) {
+    var cy = top + h / 2, ph = Math.min(h - 30, 450);
+    polaroid(0, W / 2, cy + 6, 430, ph, -0.04 + Math.sin(curT * 3) * 0.025, 1.04, Math.sin(curT) * 0.3, 0);
+    var pulse = 1 + 0.06 * Math.sin(curT * 7);
+    sticker(priceTxt(P.price), W / 2 + 150, top + 28, 0.1, pulse, GOLD, '#111', 44);
+    if (P.cod) sticker('🚚 Pay on delivery', W / 2 - 175, top + h - 20, -0.06, 1, '#10b981', '#fff', 26);
+    if (P.stock > 0 && P.stock <= 10) sticker('Only ' + P.stock + ' left!', W / 2 + 185, top + h - 20, 0.06, pulse, RED, '#fff', 26);
+  }
+
+  // ---- one frame ----
+  function draw(t) {
+    curT = t;
+    var u = t * TL / DUR; // time on the 60-second scale
+    var g = ctx.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, '#022c22'); g.addColorStop(0.55, '#0f766e'); g.addColorStop(1, '#1e1b4b');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    for (var i = 0; i < 3; i++) {
+      var cx = W * (0.2 + 0.3 * i) + Math.sin(t * 0.7 + i * 2) * 60;
+      var cy = H * (0.25 + 0.25 * i) + Math.cos(t * 0.6 + i) * 80;
+      var rg = ctx.createRadialGradient(cx, cy, 0, cx, cy, 300);
+      rg.addColorStop(0, 'rgba(251,191,36,0.20)'); rg.addColorStop(1, 'rgba(251,191,36,0)');
+      ctx.fillStyle = rg; ctx.fillRect(0, 0, W, H);
+    }
+    if (funny) {
+      var em = ['😂', '🛍️', '🔥', '💸', '😍', '🛒'];
+      ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.font = '46px ' + FONT;
+      for (var e = 0; e < 8; e++) {
+        var ph = (t * 0.22 + e * 0.125) % 1;
+        ctx.globalAlpha = Math.sin(ph * Math.PI) * 0.9;
+        ctx.fillText(em[e % em.length], 70 + ((e * 89) % 580) + Math.sin(t * 2 + e) * 18, H - 60 - ph * (H - 220));
+      }
+      ctx.globalAlpha = 1;
+    }
+    // progress bar
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; rr(40, 34, W - 80, 8, 4); ctx.fill();
+    ctx.fillStyle = GOLD; rr(40, 34, Math.max(8, (W - 80) * c01(t / DUR)), 8, 4); ctx.fill();
+    // top pill
+    var a0 = easeOut(t / 0.4);
+    ctx.save(); ctx.globalAlpha = a0;
+    ctx.fillStyle = GOLD; rr(W / 2 - 150, 70, 300, 56, 28); ctx.fill();
+    text('🛍️ ' + (P.shopName.length > 18 ? P.shopName.slice(0, 17) + '…' : P.shopName).toUpperCase(), W / 2, 109, 28, '#111');
+    ctx.restore();
+    // product name (always on screen)
+    var ta = easeOut((t - 0.3) / 0.6);
+    ctx.save(); ctx.globalAlpha = ta; ctx.translate(0, (1 - ta) * 30);
+    var tsz = 46, tlh = 54;
+    ctx.font = '800 ' + tsz + 'px ' + FONT;
+    var tl = wrap(P.name, W - 120).slice(0, 2), ty = 205;
+    tl.forEach(function (ln, i) { text(ln, W / 2, ty + i * tlh, tsz, '#fff'); });
+    ctx.restore();
+    var areaTop = ty + tl.length * tlh + 20, areaBottom = funny ? 790 : 900, areaH = areaBottom - areaTop;
+
+    var shk = (u >= 33 && u < 34.3) ? (1 - (u - 33) / 1.3) * 14 : 0;
+    ctx.save();
+    if (shk) ctx.translate(Math.sin(t * 95) * shk, Math.cos(t * 83) * shk);
+    if (u < REVEAL) sceneHook(u, areaTop, areaH);
+    else if (u < GAL_A) sceneReveal(u, areaTop, areaH);
+    else if (u < GAL_B) sceneGallery(u, areaTop, areaH);
+    else if (u < PRICE_B) scenePrice(u, areaTop, areaH);
+    else if (u < SKIT_B) sceneSkit(u, areaTop, areaH);
+    else if (u < CD_B) sceneCount(u, areaTop, areaH);
+    else sceneFinal(u, areaTop, areaH);
+    ctx.restore();
+
+    // captions: your script (voice) if you wrote one, else the automatic funny captions
+    if (funny) {
+      var list = subs.length ? subs : cues, hit = null;
+      for (var si = 0; si < list.length; si++) { if (t >= list[si].a && t < list[si].b) { hit = list[si]; break; } }
+      if (hit) drawSub(hit.s, easeOut((t - hit.a) / 0.25));
+    }
+
+    // call to action
+    var cy0 = funny ? 985 : 960, ly = cy0 + 90;
+    var ca = easeOut((u - CTA_AT) / 0.6);
+    if (ca > 0) {
+      var pulse2 = 1 + 0.04 * Math.sin(t * 6);
+      ctx.save(); ctx.globalAlpha = ca; ctx.translate(W / 2, cy0); ctx.scale(pulse2, pulse2);
+      ctx.fillStyle = GOLD; rr(-290, -50, 580, 100, 50); ctx.fill();
+      text('🔗 Link in bio to buy 👆', 0, 15, 40, '#111');
+      ctx.restore();
+      var la = easeOut((u - CTA_AT - 0.8) / 0.6);
+      ctx.save(); ctx.globalAlpha = la;
+      text(P.shortUrl.replace(/^https?:\/\//, ''), W / 2, ly, 30, '#fde68a', 'center', '700');
+      text(P.shopName + (P.cod ? '  ·  🚚 Cash on Delivery' : ''), W / 2, ly + 42, 26, 'rgba(255,255,255,.75)', 'center', '600');
+      ctx.restore();
+    }
+  }
+
+  function drawSub(str, pop) {
+    var size = 38;
+    ctx.save();
+    ctx.font = '800 ' + size + 'px ' + FONT;
+    var lines = wrap(str, W - 170);
+    if (lines.length > 2) { size = 32; ctx.font = '800 ' + size + 'px ' + FONT; lines = wrap(str, W - 170).slice(0, 3); }
+    var lh = size + 12, bh = lines.length * lh + 26, by = 805;
+    ctx.globalAlpha = pop;
+    ctx.fillStyle = 'rgba(0,0,0,.62)'; rr(50, by, W - 100, bh, 22); ctx.fill();
+    lines.forEach(function (ln, i) { text(ln, W / 2, by + 20 + size + i * lh - 6, size, '#fde047'); });
+    ctx.restore();
+  }
+  function computeSubs() {
+    subs = [];
+    var raw = ($('ttScript').value || '').trim();
+    if (!raw) return;
+    var parts = (raw.match(/[^!?.\n]+[!?.]?/g) || [raw]).map(function (x) { return x.trim(); }).filter(Boolean);
+    var total = parts.reduce(function (a, x) { return a + x.length; }, 0) || 1;
+    var span = audioBuf ? audioBuf.duration : Math.max(6, DUR - VOICE_AT - 1.5), cur = VOICE_AT;
+    parts.forEach(function (x) { var d = span * x.length / total; subs.push({ s: x, a: cur, b: cur + d }); cur += d; });
+  }
+  function computeCues() { var k = DUR / TL; cues = buildCues().map(function (c) { return { a: c[0] * k, b: c[1] * k, s: c[2] }; }); }
+  function previewT() { return DUR * 0.95; }
+  function setLabel() { $('ttMake').textContent = '▶ Create video (' + DUR + ' sec)'; }
+  function cmdText() {
+    var txt = ($('ttScript').value || '').replace(/\s*\n\s*/g, ' ').replace(/(["\\$`])/g, '\\$1').trim() || 'Write your script here';
+    return 'edge-tts --voice ' + $('ttVoice').value + ' --rate=' + $('ttRate').value + ' --text "' + txt + '" --write-media voice.mp3';
+  }
+  function refreshVoiceUi() { $('ttCmd').value = cmdText(); computeSubs(); computeCues(); if (!recording) draw(previewT()); }
+
+  // ---- automatic funny sounds (made in the browser, no files needed) ----
+  function tone(dest, when, type, f0, f1, dur, vol) {
+    var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, when); o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), when + dur);
+    g.gain.setValueAtTime(vol, when); g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    o.connect(g); g.connect(dest); o.start(when); o.stop(when + dur + 0.05);
+  }
+  function noise(dest, when, dur, vol, f0, f1) {
+    var len = Math.floor(audioCtx.sampleRate * dur), b = audioCtx.createBuffer(1, len, audioCtx.sampleRate), d = b.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    var s = audioCtx.createBufferSource(), f = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+    s.buffer = b; f.type = 'bandpass'; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(f0, when); f.frequency.exponentialRampToValueAtTime(f1, when + dur);
+    g.gain.setValueAtTime(vol, when); g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    s.connect(f); f.connect(g); g.connect(dest); s.start(when);
+  }
+  function sfx(type, when, dest) {
+    if (type === 'pop') tone(dest, when, 'sine', 700, 180, 0.18, 0.5);
+    else if (type === 'boing') { tone(dest, when, 'sine', 180, 650, 0.35, 0.5); tone(dest, when + 0.18, 'sine', 650, 260, 0.3, 0.35); }
+    else if (type === 'whoosh') noise(dest, when, 0.5, 0.6, 300, 4000);
+    else if (type === 'drum') { for (var i = 0; i < 4; i++) tone(dest, when + i * 0.12, 'sine', 170, 45, 0.3, 0.8); }
+    else if (type === 'beep') tone(dest, when, 'square', 880, 880, 0.18, 0.22);
+    else if (type === 'ding') { tone(dest, when, 'triangle', 1175, 1175, 0.5, 0.4); tone(dest, when + 0.12, 'triangle', 1568, 1568, 0.7, 0.35); }
+    else if (type === 'cash') { tone(dest, when, 'triangle', 1568, 1568, 0.25, 0.35); tone(dest, when + 0.1, 'triangle', 2093, 2093, 0.5, 0.35); noise(dest, when, 0.25, 0.25, 5000, 9000); }
+    else if (type === 'horn') [440, 554, 659].forEach(function (f) { tone(dest, when, 'sawtooth', f, f * 0.97, 0.7, 0.12); });
+    else if (type === 'siren') { tone(dest, when, 'sawtooth', 500, 900, 0.6, 0.14); tone(dest, when + 0.6, 'sawtooth', 900, 500, 0.6, 0.14); }
+  }
+  function sfxPlan() {
+    var span = (GAL_B - GAL_A) / 4;
+    var ev = [[0, 'siren'], [3.2, 'pop'], [REVEAL, 'whoosh'], [REVEAL + 1, 'pop'], [REVEAL + 2, 'pop'], [8, 'drum']];
+    for (var i = 0; i < 4; i++) ev.push([GAL_A + i * span, 'boing']);
+    return ev.concat([[32, 'whoosh'], [33, 'horn'], [35.4, 'whoosh'], [36.2, 'cash'], [37.2, 'ding'], [38.2, 'pop'], [40, 'whoosh'], [40.3, 'boing'], [43, 'boing'], [46, 'boing'],
+      [50, 'beep'], [51, 'beep'], [52, 'beep'], [53, 'horn'], [54, 'ding'], [56, 'pop'], [58, 'cash']]);
+  }
+  function scheduleSounds(dest, base, quiet) {
+    var k = DUR / TL, master = audioCtx.createGain();
+    master.gain.value = quiet ? 0.5 : 1; master.connect(dest);
+    sfxPlan().forEach(function (e) { sfx(e[1], base + e[0] * k, master); });
+    var bg = audioCtx.createGain(); bg.gain.value = quiet ? 0.45 : 0.8; bg.connect(dest);
+    var bass = [110, 110, 147, 165, 110, 110, 196, 165];
+    for (var i = 0, tt = 0.2; tt < DUR - 0.3; i++, tt += 0.5) {
+      tone(bg, base + tt, 'sine', 130, 45, 0.16, 0.22);
+      if (i % 2 === 1) noise(bg, base + tt, 0.05, 0.07, 7000, 9000);
+      if (i % 2 === 0) tone(bg, base + tt, 'square', bass[(i >> 1) % bass.length], bass[(i >> 1) % bass.length], 0.2, 0.035);
+    }
+  }
+
+  // ---- recording ----
+  function pickMime(withAudio) {
+    var list = (withAudio ? ['video/mp4;codecs=avc1.42E01E,mp4a.40.2', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus'] : [])
+      .concat(['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm']);
+    if (!window.MediaRecorder) return null;
+    for (var i = 0; i < list.length; i++) { if (MediaRecorder.isTypeSupported(list[i])) return list[i]; }
+    return '';
+  }
+
+  $('ttSfx').addEventListener('change', function () { sfxOn = this.checked; });
+  $('ttFunny').addEventListener('change', function () { funny = this.checked; if (!recording) draw(previewT()); });
+  document.getElementById('ttPresets').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-preset]'); if (!b) return;
+    var p = PRESETS.filter(function (x) { return x.key === b.dataset.preset; })[0];
+    if (p) { $('ttScript').value = p.en; refreshVoiceUi(); }
+  });
+  $('ttScript').addEventListener('input', refreshVoiceUi);
+  $('ttVoice').addEventListener('change', refreshVoiceUi);
+  $('ttRate').addEventListener('change', refreshVoiceUi);
+  $('ttAudio').addEventListener('change', function () {
+    var f = this.files && this.files[0], info = $('ttAudioInfo'), prev = $('ttAudioPrev');
+    audioBuf = null; DUR = BASE; setLabel();
+    if (!f) { prev.classList.add('d-none'); info.textContent = ''; refreshVoiceUi(); return; }
+    if (f.size > 15 * 1024 * 1024) { info.textContent = 'File is too big (max 15 MB).'; return; }
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) { info.textContent = 'This browser cannot mix audio. Use Chrome.'; return; }
+    audioCtx = audioCtx || new AC();
+    prev.src = URL.createObjectURL(f); prev.classList.remove('d-none');
+    info.textContent = 'Reading audio…';
+    f.arrayBuffer().then(function (ab) { return audioCtx.decodeAudioData(ab); }).then(function (buf) {
+      if (buf.duration > 72) { info.textContent = 'Audio is longer than 72 seconds. Please use a shorter one.'; return; }
+      audioBuf = buf;
+      DUR = Math.min(75, Math.max(BASE, Math.ceil(buf.duration + VOICE_AT + 1.5)));
+      info.textContent = 'Voice: ' + buf.duration.toFixed(1) + ' sec. Video will be ' + DUR + ' sec.' + (buf.duration < 50 ? ' (Tip: a slower voice or a longer script fills the whole video.)' : '');
+      setLabel(); refreshVoiceUi();
+    }).catch(function () { info.textContent = 'Could not read this audio file. Try mp3 or wav.'; });
+  });
+
+  $('ttMake').addEventListener('click', function () {
+    var AC0 = window.AudioContext || window.webkitAudioContext;
+    var useSfx = funny && sfxOn && !!AC0;
+    var btn = this, mime = pickMime(!!audioBuf || useSfx);
+    if (mime === null || !cv.captureStream) {
+      $('ttMsg').textContent = 'This browser cannot record video. Please open this page in Chrome (Android / desktop) or Safari 14.1+.';
+      return;
+    }
+    recording = true; btn.disabled = true; btn.textContent = 'Recording…';
+    $('ttDone').classList.add('d-none'); $('ttVideo').classList.add('d-none'); cv.classList.remove('d-none');
+    $('ttMsg').textContent = 'Keep this tab open and visible…';
+    var bar = $('ttProgress'); bar.classList.remove('d-none');
+    var chunks = [], stream = cv.captureStream(30), rec, vsrc = null;
+    computeSubs(); computeCues();
+    var dest = null;
+    if (audioBuf || useSfx) {
+      try {
+        audioCtx = audioCtx || new AC0();
+        audioCtx.resume();
+        dest = audioCtx.createMediaStreamDestination();
+        if (audioBuf) { vsrc = audioCtx.createBufferSource(); vsrc.buffer = audioBuf; vsrc.connect(dest); }
+        dest.stream.getAudioTracks().forEach(function (tr) { stream.addTrack(tr); });
+      } catch (e) { vsrc = null; dest = null; }
+    }
+    try { rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 4000000 } : {}); }
+    catch (e) { rec = new MediaRecorder(stream); }
+    rec.ondataavailable = function (e) { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = function () {
+      recording = false; btn.disabled = false; btn.textContent = '🔁 Create again (' + DUR + ' sec)'; bar.classList.add('d-none');
+      var type = rec.mimeType || mime || 'video/webm';
+      var ext = /mp4/.test(type) ? 'mp4' : 'webm';
+      var blob = new Blob(chunks, { type: type });
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      blobUrl = URL.createObjectURL(blob);
+      var v = $('ttVideo'); v.src = blobUrl; cv.classList.add('d-none'); v.classList.remove('d-none'); v.play().catch(function () {});
+      var a = $('ttDownload'); a.href = blobUrl; a.download = 'product-' + P.id + '.' + ext;
+      $('ttWebmNote').classList.toggle('d-none', ext === 'mp4');
+      var file = null;
+      try { file = new File([blob], 'product-' + P.id + '.' + ext, { type: type }); } catch (e) {}
+      var sh = $('ttShare');
+      if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+        sh.classList.remove('d-none');
+        sh.onclick = function () { navigator.share({ files: [file], text: $('ttCaption').value }).catch(function () {}); };
+      } else { sh.classList.add('d-none'); }
+      $('ttDone').classList.remove('d-none');
+      $('ttMsg').textContent = 'Done! Share it, then put the bio link in your TikTok profile.';
+    };
+    rec.start(250);
+    var t0 = performance.now();
+    if (vsrc) vsrc.start(audioCtx.currentTime + VOICE_AT);
+    if (dest && useSfx) { try { scheduleSounds(dest, audioCtx.currentTime + 0.05, !!audioBuf); } catch (e) {} }
+    (function loop() {
+      var t = (performance.now() - t0) / 1000;
+      draw(Math.min(t, DUR));
+      bar.firstElementChild.style.width = (c01(t / DUR) * 100) + '%';
+      if (t < DUR) requestAnimationFrame(loop);
+      else setTimeout(function () { rec.stop(); }, 150);
+    })();
+  });
+
+  // ---- copy buttons ----
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-copy]'); if (!b) return;
+    var el = $(b.dataset.copy), old = b.textContent;
+    (navigator.clipboard ? navigator.clipboard.writeText(el.value) : Promise.reject()).then(function () {
+      b.textContent = 'Copied ✅'; setTimeout(function () { b.textContent = old; }, 1800);
+    }).catch(function () { el.select(); try { document.execCommand('copy'); } catch (x) {} });
+  });
+
+  setLabel();
+  refreshVoiceUi(); // preview
+})();
+</script>
+
+<%- include('partials/footer') %>

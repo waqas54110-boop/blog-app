@@ -35,6 +35,7 @@
         <div class="d-flex gap-2 flex-wrap mt-2">
           <a href="/seller/products/<%= p.id %>/edit" class="btn btn-sm btn-outline-secondary rounded-pill">✏️ Edit</a>
           <a href="/seller/share/<%= p.id %>" class="btn btn-sm btn-outline-primary rounded-pill">📣 Share</a>
+          <a href="/shop/<%= shop.slug %>/<%= p.slug %>/tiktok" class="btn btn-sm rounded-pill fw-semibold" style="background:#fbbf24;color:#111;">🎬 TikTok video</a>
           <% if (!sold) { %>
             <form action="/seller/products/<%= p.id %>/soldout" method="POST" class="d-inline" onsubmit="return confirm('Is product ko Sold out karein?')">
               <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-danger rounded-pill">Mark as Sold Out</button>
