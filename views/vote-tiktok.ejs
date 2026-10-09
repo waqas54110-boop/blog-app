@@ -25,7 +25,7 @@
             <input class="form-check-input" type="checkbox" id="ttShowPct">
             <label class="form-check-label" for="ttShowPct">Show current result % on the video</label>
           </div>
-          <button type="button" class="btn btn-lg text-white fw-bold" style="background:#fe2c55" id="ttMake">▶ Create video (12 sec)</button>
+          <button type="button" class="btn btn-lg text-white fw-bold" style="background:#fe2c55" id="ttMake">▶ Create video (60 sec)</button>
           <div id="ttProgress" class="progress d-none" style="height:8px"><div class="progress-bar bg-danger" style="width:0%"></div></div>
           <div id="ttMsg" class="small text-body-secondary"></div>
           <div id="ttDone" class="d-none">
@@ -75,7 +75,11 @@
             <div class="small text-body-secondary mt-1" id="ttAudioInfo"></div>
             <div class="form-check mt-2">
               <input class="form-check-input" type="checkbox" id="ttFunny" checked>
-              <label class="form-check-label" for="ttFunny">😂 Funny mode (wobbling cards, floating emojis, subtitles)</label>
+              <label class="form-check-label" for="ttFunny">😂 Funny mode (wobbling cards, floating emojis, auto captions)</label>
+            </div>
+            <div class="form-check mt-1">
+              <input class="form-check-input" type="checkbox" id="ttSfx" checked>
+              <label class="form-check-label" for="ttSfx">🔊 Auto funny sounds (siren, boing, airhorn, beat) - no voice file needed</label>
             </div>
           </div>
         </div>
@@ -117,9 +121,9 @@
 (function () {
   var D = <%- JSON.stringify(studio).replace(/</g, '\\u003c') %>;
   var CSRF = <%- JSON.stringify(csrfToken) %>;
-  var W = 720, H = 1280, BASE = 12, DUR = 12, VOICE_AT = 0.6;
+  var W = 720, H = 1280, BASE = 60, DUR = 60, VOICE_AT = 0.6;
   var PRESETS = <%- JSON.stringify(presets).replace(/</g, '\\u003c') %>;
-  var funny = true, audioBuf = null, audioCtx = null, subs = [];
+  var funny = true, sfxOn = true, audioBuf = null, audioCtx = null, subs = [], cues = [];
   var FONT = "'Segoe UI', Roboto, 'Noto Sans', Arial, sans-serif";
   var cv = document.getElementById('ttCanvas'), ctx = cv.getContext('2d');
   var $ = function (id) { return document.getElementById(id); };
@@ -170,8 +174,116 @@
     ctx.fillText(str, x, y);
   }
 
+  // ---- timeline: 60-second scale (scaled automatically if the video is longer) ----
+  var TL = 60, SPOT_A = 12, SPOT_B = 32, FIGHT_B = 40, DEB_B = 50, CD_B = 54, CTA_AT = 50;
+  var curT = 0;
+  var LINES = ['Main hi jeetoonga! 😎', 'Bhai pehle mujhe dekh lo! 🙄', 'Mera bhi haq banta hai! 🤝', 'Mujhe kam mat samjho! 💪'];
+  function spotCount() { return Math.min(4, D.options.length); }
+  function oname(i) {
+    var s = String(D.options[i % D.options.length].name || '').replace(/[^\p{L}\p{N}\s]/gu, '').replace(/\s+/g, ' ').trim() || 'Option';
+    return s.length > 22 ? s.slice(0, 21) + '…' : s;
+  }
+  // Auto captions (no voice needed). Times are on the 60-second scale.
+  function buildCues() {
+    var k = spotCount(), a = oname(0), b = oname(1), span = (SPOT_B - SPOT_A) / k;
+    var cues = [[0, 3, 'Ruko ruko ruko! 🛑'], [3, 5, 'Pehle ye dekho… 👀'], [5, 8, 'Aaj ka sab se bada muqabla! 🔥'], [8, 12, 'Dil thaam ke baithiye! 💔']];
+    for (var i = 0; i < k; i++) cues.push([SPOT_A + i * span, SPOT_A + (i + 1) * span, oname(i) + ': "' + LINES[i] + '"']);
+    cues.push([32, 36, 'Aur ab… aamne saamne! 🥊'], [36, 40, 'Dono ke fans ne shor macha diya! 📢'],
+      [40, 43, 'Chacha: ' + a + ' hi jeetay ga!'], [43, 46, 'Phupho: Nahi, ' + b + '! 🙄'], [46, 50, 'Dadi: Chup! Chai lao! ☕'],
+      [50, 54, 'Waqt khatam hone wala hai ⏰'], [54, 60, 'Link in bio, abhi vote karo! 👆']);
+    return cues;
+  }
+
+  // card layout (2 options = stacked with VS, more = grid). tin = seconds since this scene started.
+  function layout(top, h, tin, wob) {
+    var n = D.options.length;
+    if (n === 2) {
+      var cw = 560, gap = 56, ch = Math.min(300, (h - gap) / 2), x = (W - cw) / 2;
+      for (var k = 0; k < 2; k++) {
+        var p = easeOut((tin - k * 0.3) / 0.6);
+        if (p <= 0) continue;
+        var y = top + k * (ch + gap), off = (1 - p) * (k === 0 ? -W : W), mx = x + cw / 2, my = y + ch / 2;
+        ctx.save(); ctx.translate(mx + off, my);
+        if (wob && p >= 1) { ctx.translate(Math.sin(curT * 14 + k * 3) * 2, 0); ctx.rotate(Math.sin(curT * 5 + k * 2) * 0.03); }
+        ctx.translate(-mx, -my);
+        drawCard(k, x, y, cw, ch, 24, 46);
+        ctx.restore();
+      }
+      var vp = back((tin - 1.0) / 0.5);
+      if (vp > 0) {
+        var vy = top + ch + gap / 2, rad = 46 * vp;
+        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(W / 2, vy, rad, 0, Math.PI * 2); ctx.fill();
+        ctx.save(); ctx.translate(W / 2, vy); ctx.scale(vp, vp); text('VS', 0, 14, 40, '#111'); ctx.restore();
+      }
+    } else {
+      var cols = 2, rows = Math.ceil(n / cols), gx = 24, gy = 24;
+      var cw2 = (W - 100 - gx) / cols, ch2 = Math.min(250, (h - gy * (rows - 1)) / rows);
+      for (var k2 = 0; k2 < n; k2++) {
+        var pp = easeOut((tin - k2 * 0.25) / 0.6);
+        if (pp <= 0) continue;
+        var cxx = 50 + (k2 % cols) * (cw2 + gx), cyy = top + Math.floor(k2 / cols) * (ch2 + gy), mx2 = cxx + cw2 / 2, my2 = cyy + ch2 / 2;
+        ctx.save(); ctx.globalAlpha = pp; ctx.translate(mx2, my2 + (1 - pp) * 50);
+        if (wob && pp >= 1) ctx.rotate(Math.sin(curT * 5 + k2 * 2) * 0.025);
+        ctx.translate(-mx2, -my2);
+        drawCard(k2, cxx, cyy, cw2, ch2, 20, 34);
+        ctx.restore();
+      }
+      if (tin > 1.0) { var fp = back((tin - 1.0) / 0.5); ctx.save(); ctx.translate(W / 2, top - 6); ctx.scale(fp, fp); text('VS', 0, 0, 40, '#facc15'); ctx.restore(); }
+    }
+  }
+
+  function sceneHook(u, top, h) {
+    var cy = top + h / 2, s = 1 + 0.08 * Math.sin(u * 18);
+    ctx.fillStyle = 'rgba(254,44,85,' + (0.08 + 0.1 * Math.abs(Math.sin(u * 6))) + ')'; ctx.fillRect(0, 0, W, H);
+    ctx.save(); ctx.translate(W / 2 + Math.sin(u * 40) * 5, cy - 10); ctx.scale(s, s); ctx.rotate(Math.sin(u * 9) * 0.05);
+    text('😱', 0, -50, 150); text('RUKO!', 0, 100, 120, '#fde047');
+    ctx.restore();
+  }
+
+  function sceneSpot(u, top, h) {
+    var k = spotCount(), span = (SPOT_B - SPOT_A) / k, idx = Math.min(k - 1, Math.floor((u - SPOT_A) / span)), loc = u - SPOT_A - idx * span;
+    var w = 560, hh = Math.min(h - 40, 470), x = (W - w) / 2, y = top + (h - hh) / 2;
+    var p = back(loc / 0.6), mx = W / 2, my = y + hh / 2;
+    var em = ['⭐', '🎉', '✨', '🔥', '💥', '🎊'];
+    for (var i = 0; i < 6; i++) {
+      var a = curT * 1.6 + i * 1.047;
+      ctx.globalAlpha = c01(loc / 0.5); ctx.font = '48px ' + FONT; ctx.textAlign = 'center';
+      ctx.fillText(em[i], mx + Math.cos(a) * 320, my + Math.sin(a) * (hh / 2 + 25));
+    }
+    ctx.globalAlpha = 1;
+    ctx.save(); ctx.translate(mx, my); ctx.scale(p, p); ctx.rotate(Math.sin(curT * 4) * 0.035 + (1 - c01(p)) * -0.25); ctx.translate(-mx, -my);
+    drawCard(idx, x, y, w, hh, 28, 54);
+    ctx.fillStyle = '#facc15'; rr(x + 18, y + 18, 150, 46, 23); ctx.fill();
+    text('#' + (idx + 1) + ' 🔥', x + 93, y + 51, 28, '#111');
+    ctx.restore();
+  }
+
+  function sceneDebate(u, top, h) {
+    layout(top, h - 130, 99, true);
+    var who = u < 43 ? ['👴', 0] : u < 46 ? ['👩', 1] : ['👵', 2];
+    var loc = u < 43 ? u - 40 : u < 46 ? u - 43 : u - 46;
+    var bx = [150, W - 150, W / 2][who[1]], by = top + h - 12, bounce = Math.abs(Math.sin(loc * 9)) * 22, pp = back(loc / 0.35);
+    ctx.save(); ctx.translate(bx, by - bounce); ctx.scale(pp, pp); ctx.rotate(Math.sin(loc * 12) * 0.08);
+    text(who[0], 0, 0, 120);
+    ctx.restore();
+    ctx.save(); ctx.globalAlpha = c01(loc / 0.3);
+    text('💬', bx + (who[1] === 1 ? -95 : 95), by - 90 - bounce, 56);
+    ctx.restore();
+  }
+
+  function sceneCount(u, top, h) {
+    var i = Math.min(3, Math.max(0, Math.floor(u - DEB_B))), loc = (u - DEB_B) % 1, labels = ['3', '2', '1', 'VOTE!'];
+    var lab = labels[i], s = back(loc / 0.35) * (1 + 0.04 * Math.sin(curT * 20));
+    ctx.save(); ctx.translate(W / 2, top + h / 2 + 40); ctx.scale(s, s);
+    text(lab, 0, 0, lab.length > 1 ? 150 : 300, i === 3 ? '#facc15' : '#fff');
+    ctx.restore();
+    text('⏰', W / 2, top + 90, 80);
+  }
+
   // ---- one frame ----
   function draw(t) {
+    curT = t;
+    var u = t * TL / DUR; // time on the 60-second scale
     // background
     var g = ctx.createLinearGradient(0, 0, W, H);
     g.addColorStop(0, '#0f172a'); g.addColorStop(0.55, '#3b0764'); g.addColorStop(1, '#831843');
@@ -207,7 +319,7 @@
     text(funny ? '😂 VOTE NOW' : '🗳️ VOTE NOW', W / 2, 109, 30, '#fff');
     ctx.restore();
 
-    // title
+    // title (stays on screen the whole video)
     var ta = easeOut((t - 0.3) / 0.6);
     ctx.save(); ctx.globalAlpha = ta; ctx.translate(0, (1 - ta) * 30);
     var tsz = funny ? 46 : 54, tlh = funny ? 54 : 64;
@@ -216,61 +328,38 @@
     var ty = 200;
     tl.forEach(function (ln, i) { text(ln, W / 2, ty + i * tlh, tsz, '#fff'); });
     ctx.restore();
-    var areaTop = ty + tl.length * tlh + 10;
+    var areaTop = ty + tl.length * tlh + 10, areaBottom = funny ? 790 : 900, areaH = areaBottom - areaTop;
 
-    // options
-    var n = D.options.length, areaBottom = funny ? 790 : 900, areaH = areaBottom - areaTop;
-    if (n === 2) {
-      var cw = 560, gap = funny ? 56 : 70, ch = Math.min(300, (areaH - gap) / 2), x = (W - cw) / 2;
-      for (var k = 0; k < 2; k++) {
-        var p = easeOut((t - 2.0 - k * 0.5) / 0.7);
-        if (p <= 0) continue;
-        var y = areaTop + k * (ch + gap);
-        var off = (1 - p) * (k === 0 ? -W : W);
-        if (funny && p >= 1) {
-          var mx = x + cw / 2, my = y + ch / 2;
-          ctx.save(); ctx.translate(mx + Math.sin(t * 14 + k * 3) * 2, my); ctx.rotate(Math.sin(t * 5 + k * 2) * 0.03); ctx.translate(-mx, -my);
-          drawCard(k, x, y, cw, ch, 24, 46);
-          ctx.restore();
-        } else drawCard(k, x + off, y, cw, ch, 24, 46);
-      }
-      var vp = back((t - 3.3) / 0.5);
-      if (vp > 0) {
-        var vy = areaTop + ch + gap / 2, rad = 46 * vp;
-        ctx.fillStyle = '#facc15'; ctx.beginPath(); ctx.arc(W / 2, vy, rad, 0, Math.PI * 2); ctx.fill();
-        ctx.save(); ctx.translate(W / 2, vy); ctx.scale(vp, vp); text('VS', 0, 14, 40, '#111'); ctx.restore();
-      }
-    } else {
-      var cols = 2, rows = Math.ceil(n / cols), gx = 24, gy = 24;
-      var cw2 = (W - 100 - gx) / cols, ch2 = Math.min(250, (areaH - gy * (rows - 1)) / rows);
-      for (var k2 = 0; k2 < n; k2++) {
-        var pp = easeOut((t - 2.0 - k2 * 0.35) / 0.6);
-        if (pp <= 0) continue;
-        var cxx = 50 + (k2 % cols) * (cw2 + gx), cyy = areaTop + Math.floor(k2 / cols) * (ch2 + gy);
-        ctx.save(); ctx.globalAlpha = pp; ctx.translate(0, (1 - pp) * 50);
-        drawCard(k2, cxx, cyy, cw2, ch2, 20, 34);
-        ctx.restore();
-      }
-    }
+    // stage: changes scene every few seconds
+    var shk = (u >= 33 && u < 34.3) ? (1 - (u - 33) / 1.3) * 14 : 0;
+    ctx.save();
+    if (shk) ctx.translate(Math.sin(t * 95) * shk, Math.cos(t * 83) * shk);
+    if (u < 5) sceneHook(u, areaTop, areaH);
+    else if (u < SPOT_A) layout(areaTop, areaH, u - 5, true);
+    else if (u < SPOT_B) sceneSpot(u, areaTop, areaH);
+    else if (u < FIGHT_B) layout(areaTop, areaH, u - SPOT_B, true);
+    else if (u < DEB_B) sceneDebate(u, areaTop, areaH);
+    else if (u < CD_B) sceneCount(u, areaTop, areaH);
+    else layout(areaTop, areaH, 99, true);
+    ctx.restore();
 
-    // subtitles (funny mode)
+    // captions: your script (voice) if you wrote one, else the automatic funny captions
     if (funny) {
-      for (var si = 0; si < subs.length; si++) {
-        if (t >= subs[si].a && t < subs[si].b) { drawSub(subs[si].s, easeOut((t - subs[si].a) / 0.25)); break; }
-      }
+      var list = subs.length ? subs : cues, hit = null;
+      for (var si = 0; si < list.length; si++) { if (t >= list[si].a && t < list[si].b) { hit = list[si]; break; } }
+      if (hit) drawSub(hit.s, easeOut((t - hit.a) / 0.25));
     }
 
     // call to action
-    var ctaAt = Math.max(6.5, DUR - 5.5);
     var cy0 = funny ? 985 : 960, ly = cy0 + 90;
-    var ca = easeOut((t - ctaAt) / 0.6);
+    var ca = easeOut((u - CTA_AT) / 0.6);
     if (ca > 0) {
       var pulse = 1 + 0.04 * Math.sin(t * 6);
       ctx.save(); ctx.globalAlpha = ca; ctx.translate(W / 2, cy0); ctx.scale(pulse, pulse);
       ctx.fillStyle = '#fff'; rr(-290, -50, 580, 100, 50); ctx.fill();
       text('🔗 Link in bio to vote 👆', 0, 15, 40, '#be123c');
       ctx.restore();
-      var la = easeOut((t - ctaAt - 0.8) / 0.6);
+      var la = easeOut((u - CTA_AT - 0.8) / 0.6);
       ctx.save(); ctx.globalAlpha = la;
       text(D.shortUrl.replace(/^https?:\/\//, ''), W / 2, ly, 30, '#fde68a', 'center', '700');
       if (D.siteName) text(D.siteName, W / 2, ly + 42, 26, 'rgba(255,255,255,.7)', 'center', '600');
@@ -300,13 +389,14 @@
     var span = audioBuf ? audioBuf.duration : Math.max(6, DUR - VOICE_AT - 1.5), cur = VOICE_AT;
     parts.forEach(function (x) { var d = span * x.length / total; subs.push({ s: x, a: cur, b: cur + d }); cur += d; });
   }
-  function previewT() { return Math.max(7.5, DUR - 5.5) + 1.5; }
+  function previewT() { return DUR * 0.95; }
+  function computeCues() { var k = DUR / TL; cues = buildCues().map(function (c) { return { a: c[0] * k, b: c[1] * k, s: c[2] }; }); }
   function setLabel() { $('ttMake').textContent = '▶ Create video (' + DUR + ' sec)'; }
   function cmdText() {
     var txt = ($('ttScript').value || '').replace(/\s*\n\s*/g, ' ').replace(/(["\\$`])/g, '\\$1').trim() || 'اپنا متن یہاں لکھیں';
     return 'edge-tts --voice ' + $('ttVoice').value + ' --rate=' + $('ttRate').value + ' --text "' + txt + '" --write-media voice.mp3';
   }
-  function refreshVoiceUi() { $('ttCmd').value = cmdText(); computeSubs(); if (!recording) draw(previewT()); }
+  function refreshVoiceUi() { $('ttCmd').value = cmdText(); computeSubs(); computeCues(); if (!recording) draw(previewT()); }
 
   function drawCard(k, x, y, w, h, r, nameSize) {
     var o = D.options[k];
@@ -328,6 +418,54 @@
     ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 3; rr(x, y, w, h, r); ctx.stroke();
   }
 
+
+  // ---- automatic funny sounds (made in the browser, no files needed) ----
+  function tone(dest, when, type, f0, f1, dur, vol) {
+    var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, when); o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), when + dur);
+    g.gain.setValueAtTime(vol, when); g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    o.connect(g); g.connect(dest); o.start(when); o.stop(when + dur + 0.05);
+  }
+  function noise(dest, when, dur, vol, f0, f1) {
+    var len = Math.floor(audioCtx.sampleRate * dur), b = audioCtx.createBuffer(1, len, audioCtx.sampleRate), d = b.getChannelData(0);
+    for (var i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    var s = audioCtx.createBufferSource(), f = audioCtx.createBiquadFilter(), g = audioCtx.createGain();
+    s.buffer = b; f.type = 'bandpass'; f.Q.value = 1.2;
+    f.frequency.setValueAtTime(f0, when); f.frequency.exponentialRampToValueAtTime(f1, when + dur);
+    g.gain.setValueAtTime(vol, when); g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    s.connect(f); f.connect(g); g.connect(dest); s.start(when);
+  }
+  function sfx(type, when, dest) {
+    if (type === 'pop') tone(dest, when, 'sine', 700, 180, 0.18, 0.5);
+    else if (type === 'boing') { tone(dest, when, 'sine', 180, 650, 0.35, 0.5); tone(dest, when + 0.18, 'sine', 650, 260, 0.3, 0.35); }
+    else if (type === 'whoosh') noise(dest, when, 0.5, 0.6, 300, 4000);
+    else if (type === 'drum') { for (var i = 0; i < 4; i++) tone(dest, when + i * 0.12, 'sine', 170, 45, 0.3, 0.8); }
+    else if (type === 'beep') tone(dest, when, 'square', 880, 880, 0.18, 0.22);
+    else if (type === 'ding') { tone(dest, when, 'triangle', 1175, 1175, 0.5, 0.4); tone(dest, when + 0.12, 'triangle', 1568, 1568, 0.7, 0.35); }
+    else if (type === 'horn') [440, 554, 659].forEach(function (f) { tone(dest, when, 'sawtooth', f, f * 0.97, 0.7, 0.12); });
+    else if (type === 'siren') { tone(dest, when, 'sawtooth', 500, 900, 0.6, 0.14); tone(dest, when + 0.6, 'sawtooth', 900, 500, 0.6, 0.14); }
+  }
+  function sfxPlan() {
+    var k = spotCount(), span = (SPOT_B - SPOT_A) / k;
+    var ev = [[0, 'siren'], [3.2, 'pop'], [5, 'whoosh'], [8, 'drum']];
+    for (var i = 0; i < k; i++) ev.push([SPOT_A + i * span, 'boing']);
+    return ev.concat([[32, 'whoosh'], [33, 'horn'], [36, 'pop'], [40, 'whoosh'], [40.3, 'boing'], [43, 'boing'], [46, 'boing'],
+      [50, 'beep'], [51, 'beep'], [52, 'beep'], [53, 'horn'], [54, 'ding'], [56, 'pop'], [58, 'ding']]);
+  }
+  function scheduleSounds(dest, base, quiet) {
+    var k = DUR / TL, master = audioCtx.createGain();
+    master.gain.value = quiet ? 0.5 : 1; master.connect(dest);
+    sfxPlan().forEach(function (e) { sfx(e[1], base + e[0] * k, master); });
+    // light party beat under everything
+    var bg = audioCtx.createGain(); bg.gain.value = quiet ? 0.45 : 0.8; bg.connect(dest);
+    var bass = [110, 110, 147, 165, 110, 110, 196, 165];
+    for (var i = 0, tt = 0.2; tt < DUR - 0.3; i++, tt += 0.5) {
+      tone(bg, base + tt, 'sine', 130, 45, 0.16, 0.22);
+      if (i % 2 === 1) noise(bg, base + tt, 0.05, 0.07, 7000, 9000);
+      if (i % 2 === 0) tone(bg, base + tt, 'square', bass[(i >> 1) % bass.length], bass[(i >> 1) % bass.length], 0.2, 0.035);
+    }
+  }
+
   // ---- recording ----
   var recording = false, blobUrl = null;
   function pickMime(withAudio) {
@@ -342,6 +480,7 @@
   }
 
   $('ttShowPct').addEventListener('change', function () { showPct = this.checked; if (!recording) draw(previewT()); });
+  $('ttSfx').addEventListener('change', function () { sfxOn = this.checked; });
   $('ttFunny').addEventListener('change', function () { funny = this.checked; if (!recording) draw(previewT()); });
   document.getElementById('ttPresets').addEventListener('click', function (e) {
     var b = e.target.closest('[data-preset]'); if (!b) return;
@@ -362,16 +501,18 @@
     prev.src = URL.createObjectURL(f); prev.classList.remove('d-none');
     info.textContent = 'Reading audio…';
     f.arrayBuffer().then(function (ab) { return audioCtx.decodeAudioData(ab); }).then(function (buf) {
-      if (buf.duration > 40) { info.textContent = 'Audio is longer than 40 seconds. Please use a shorter one.'; return; }
+      if (buf.duration > 72) { info.textContent = 'Audio is longer than 72 seconds. Please use a shorter one.'; return; }
       audioBuf = buf;
-      DUR = Math.min(45, Math.max(BASE, Math.ceil(buf.duration + VOICE_AT + 1.5)));
+      DUR = Math.min(75, Math.max(BASE, Math.ceil(buf.duration + VOICE_AT + 1.5)));
       info.textContent = 'Voice: ' + buf.duration.toFixed(1) + ' sec. Video will be ' + DUR + ' sec.';
       setLabel(); refreshVoiceUi();
     }).catch(function () { info.textContent = 'Could not read this audio file. Try mp3 or wav.'; });
   });
 
   $('ttMake').addEventListener('click', function () {
-    var btn = this, mime = pickMime(!!audioBuf);
+    var AC0 = window.AudioContext || window.webkitAudioContext;
+    var useSfx = funny && sfxOn && !!AC0;
+    var btn = this, mime = pickMime(!!audioBuf || useSfx);
     if (mime === null || !cv.captureStream) {
       $('ttMsg').textContent = 'This browser cannot record video. Please open this page in Chrome (Android / desktop) or Safari 14.1+.';
       return;
@@ -381,14 +522,16 @@
     $('ttMsg').textContent = 'Keep this tab open and visible…';
     var bar = $('ttProgress'); bar.classList.remove('d-none');
     var chunks = [], stream = cv.captureStream(30), rec, vsrc = null;
-    computeSubs();
-    if (audioBuf) {
+    computeSubs(); computeCues();
+    var dest = null;
+    if (audioBuf || useSfx) {
       try {
+        audioCtx = audioCtx || new AC0();
         audioCtx.resume();
-        var dest = audioCtx.createMediaStreamDestination();
-        vsrc = audioCtx.createBufferSource(); vsrc.buffer = audioBuf; vsrc.connect(dest); // speakers se nahi chalta
+        dest = audioCtx.createMediaStreamDestination();
+        if (audioBuf) { vsrc = audioCtx.createBufferSource(); vsrc.buffer = audioBuf; vsrc.connect(dest); } // speakers se nahi chalta
         dest.stream.getAudioTracks().forEach(function (tr) { stream.addTrack(tr); });
-      } catch (e) { vsrc = null; }
+      } catch (e) { vsrc = null; dest = null; }
     }
     try { rec = new MediaRecorder(stream, mime ? { mimeType: mime, videoBitsPerSecond: 4000000 } : {}); }
     catch (e) { rec = new MediaRecorder(stream); }
@@ -420,6 +563,7 @@
     rec.start(250);
     var t0 = performance.now();
     if (vsrc) vsrc.start(audioCtx.currentTime + VOICE_AT);
+    if (dest && useSfx) { try { scheduleSounds(dest, audioCtx.currentTime + 0.05, !!audioBuf); } catch (e) {} }
     (function loop() {
       var t = (performance.now() - t0) / 1000;
       draw(Math.min(t, DUR));
