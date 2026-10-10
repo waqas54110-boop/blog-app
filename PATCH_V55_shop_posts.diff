@@ -1,0 +1,61 @@
+--- first/routes/posts.js	2026-10-09 04:14:32.000000000 +0000
++++ first/routes/posts.js	2026-10-10 09:18:17.301859426 +0000
+@@ -3,7 +3,7 @@
+ const sanitizeHtml = require('sanitize-html');
+ const pool = require('../db');
+ const config = require('../config');
+-const { trackVisit, isBot } = require('../lib/analytics');
++const { trackVisit, isBot, logBot } = require('../lib/analytics');
+ const { notifyUser } = require('../lib/notify');
+ const { uniqueSlug } = require('../lib/slug');
+ const { addToc } = require('../lib/toc');
+@@ -871,6 +871,8 @@
+       await pool.query('UPDATE posts SET views = views + 1 WHERE id = $1', [id]);
+       post.views += 1;
+       trackVisit(req, res, id); // await nahi: page slow na ho
++    } else if (post.is_live && isBot(req)) {
++      logBot(req); // bots alag tab mein (/analytics?tab=bots)
+     }
+ 
+     // Parhne ka inaam: login user, live post, admin nahi. Server yahan se waqt ginna shuru karta hai.
+--- first/lib/shop.js	2026-10-09 12:20:48.000000000 +0000
++++ first/lib/shop.js	2026-10-10 09:18:17.302298015 +0000
+@@ -6,7 +6,9 @@
+ const pool = require('../db');
+ const config = require('../config');
+ const { slugify } = require('./slug');
+-const { detectSource, isBot } = require('./analytics');
++const { detectSource, isBot, logBot } = require('./analytics');
++const { parseUA } = require('./ua');
++const ipinfo = require('./ipinfo');
+ const { visitorId, clientIp, geoCity, geoCountry } = require('./demographics');
+ 
+ const STATUSES = ['new', 'shipped', 'delivered', 'returned'];
+@@ -132,7 +134,7 @@
+ 
+ async function trackProductVisit(req, res, product, shop) {
+   try {
+-    if (isBot(req)) return;
++    if (isBot(req)) { logBot(req); return; }
+     const a = detectSource(req);
+     rememberAttr(req, product.id, a);
+     const u = req.session && req.session.user;
+@@ -141,6 +143,18 @@
+     const ip = clientIp(req);
+     const city = geoCity(req);
+     const country = geoCountry(req);
++    const d = parseUA(req.get('User-Agent'));
++    if (ip) ipinfo.enqueue(ip);
++    try {
++      // device / browser (migration_v55) pehle
++      await pool.query(
++        `INSERT INTO product_visits (product_id, shop_id, source, medium, campaign, referrer, visitor, ip, city, country, user_id, device, os, browser, brand, inapp)
++         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)`,
++        [product.id, shop.id, a.source, a.medium, a.campaign, a.referrer, vid, ip, city, country, u ? u.id : null, d.device, d.os, d.browser, d.brand, d.inapp]);
++      return;
++    } catch (err) {
++      if (err.code !== '42703') throw err;
++    }
+     try {
+       // ip / city / country / user (migration_v50) pehle; na ho to purani tarah visit ginein
+       await pool.query(

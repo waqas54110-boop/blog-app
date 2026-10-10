@@ -3,7 +3,7 @@ const { marked } = require('marked');
 const sanitizeHtml = require('sanitize-html');
 const pool = require('../db');
 const config = require('../config');
-const { trackVisit, isBot } = require('../lib/analytics');
+const { trackVisit, isBot, logBot } = require('../lib/analytics');
 const { notifyUser } = require('../lib/notify');
 const { uniqueSlug } = require('../lib/slug');
 const { addToc } = require('../lib/toc');
@@ -871,6 +871,8 @@ router.get('/posts/:ref', async (req, res) => {
       await pool.query('UPDATE posts SET views = views + 1 WHERE id = $1', [id]);
       post.views += 1;
       trackVisit(req, res, id); // await nahi: page slow na ho
+    } else if (post.is_live && isBot(req)) {
+      logBot(req); // bots alag tab mein (/analytics?tab=bots)
     }
 
     // Parhne ka inaam: login user, live post, admin nahi. Server yahan se waqt ginna shuru karta hai.

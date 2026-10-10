@@ -1,0 +1,147 @@
+<%- include('partials/header') %>
+
+<%
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const KIND = {
+    search:  ['Search engine', 'isp'],
+    social:  ['Link preview', 'mob'],
+    seo:     ['SEO crawler', 'host'],
+    ai:      ['AI crawler', 'app'],
+    monitor: ['Monitor / speed test', 'dev'],
+    script:  ['Script / tool', 'vpn'],
+    other:   ['Other', 'dev'],
+  };
+  const kname = (k) => (KIND[k] || KIND.other)[0];
+  const kcls = (k) => (KIND[k] || KIND.other)[1];
+  const t = totals;
+  const dmax = Math.max(1, ...daily.map((d) => d.hits));
+%>
+
+<%- include('partials/analytics-style') %>
+
+<div class="an">
+  <header class="an-hero">
+    <div class="an-top">
+      <div>
+        <h1>🤖 Bots</h1>
+        <p>Jo visits insaan nahi the (Google, Facebook preview, scrapers). Ye People ke numbers mein shamil nahi hote.</p>
+      </div>
+      <div class="an-tools">
+        <div class="an-seg" role="tablist" aria-label="Date range">
+          <% [7, 30, 90].forEach(d => { %><a href="/analytics?tab=bots&days=<%= d %>" class="<%= d === days ? 'on' : '' %>">Last <%= d %>d</a><% }) %>
+        </div>
+      </div>
+    </div>
+    <div class="an-tabs" role="tablist" aria-label="Analytics view">
+      <a href="/analytics?days=<%= days %>">👥 People</a>
+      <a class="on" href="/analytics?tab=bots&days=<%= days %>">🤖 Bots</a>
+    </div>
+  </header>
+
+  <% if (missing) { %>
+    <div class="an-card"><p class="an-empty mb-0">Neon SQL Editor mein <code>migration_v55.sql</code> chalayen. Uske baad bots yahan alag dikhne lagenge.</p></div>
+  <% } else if (!t) { %>
+    <div class="an-card"><p class="an-empty mb-0">Bots ka data load nahi hua. Server log dekhein.</p></div>
+  <% } else { %>
+
+  <section id="bot-overview">
+    <div class="an-aud">
+      <div class="an-stat g1" style="--i: 0;"><div class="lbl">🤖 Bot hits</div><div class="num"><%= t.hits %></div></div>
+      <div class="an-stat g2" style="--i: 1;"><div class="lbl">🧩 Different bots</div><div class="num"><%= t.bots %></div></div>
+      <div class="an-stat g3" style="--i: 2;"><div class="lbl">🌐 Unique IPs</div><div class="num"><%= t.ips %></div></div>
+      <div class="an-stat g4" style="--i: 3;"><div class="lbl">⚖️ Bots share of all hits</div><div class="num"><%= t.botPct %>%</div></div>
+    </div>
+    <div class="an-note">
+      👥 Insani visits is dauran: <b><%= t.human %></b> &nbsp;|&nbsp;
+      📘 Facebook preview fetches: <b><%= t.fb_preview %></b> (jab koi link Facebook / Messenger mein paste ya share karta hai, Facebook ka bot page padhne aata hai) &nbsp;|&nbsp;
+      🔎 Search engine hits: <b><%= t.search_hits %></b>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-lg-7"><div class="an-card">
+        <h5 class="an-h">📆 Daily bot hits</h5>
+        <div style="display:flex;align-items:flex-end;gap:2px;height:120px;">
+          <% daily.forEach((d) => { %><div title="<%= d.label %>: <%= d.hits %>" style="flex:1;min-width:2px;border-radius:3px 3px 0 0;background:linear-gradient(180deg,#12a37f,#0a6b4d);height:<%= Math.max(2, Math.round(d.hits / dmax * 100)) %>%"></div><% }) %>
+        </div>
+        <div class="d-flex justify-content-between small text-body-secondary mt-1"><span><%= daily.length ? daily[0].label : '' %></span><span><%= daily.length ? daily[daily.length - 1].label : '' %></span></div>
+      </div></div>
+      <div class="col-lg-5"><div class="an-card">
+        <h5 class="an-h">🗂️ Bot type</h5>
+        <% if (kinds.length === 0) { %><p class="an-empty">Abhi koi bot hit nahi.</p><% } else { kinds.forEach((r) => { %>
+          <div class="hbar-row"><span class="nm text-truncate"><%= kname(r.label) %></span><span class="bar"><span style="width:<%= Math.max(3, r.pct) %>%"></span></span><span class="ct"><%= r.clicks %></span><span class="pc"><%= r.pct %>%</span></div>
+        <% }) } %>
+      </div></div>
+    </div>
+  </section>
+
+  <section id="bot-list">
+    <div class="an-card mb-3">
+      <h5 class="an-h">🧩 Top bots</h5>
+      <% if (bots.length === 0) { %><p class="an-empty">Abhi koi bot hit nahi.</p><% } else { %>
+        <div class="table-responsive">
+          <table class="an-tbl">
+            <thead><tr><th>Bot</th><th>Type</th><th class="r">Hits</th><th class="r">Pages</th><th class="r">Last seen</th></tr></thead>
+            <tbody>
+              <% bots.forEach((b) => { %>
+                <tr>
+                  <td class="fw-semibold"><%= b.bot %></td>
+                  <td><span class="tag <%= kcls(b.kind) %>"><%= kname(b.kind) %></span></td>
+                  <td class="r"><span class="click-badge"><%= b.hits %></span></td>
+                  <td class="r"><%= b.pages %></td>
+                  <td class="r text-body-secondary small"><%= new Date(b.last_seen).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </div>
+
+    <div class="an-card mb-3">
+      <h5 class="an-h">📄 Pages bots ne sab se zyada dekhe</h5>
+      <% if (paths.length === 0) { %><p class="an-empty">Abhi data nahi.</p><% } else { %>
+        <div class="table-responsive">
+          <table class="an-tbl">
+            <thead><tr><th>Page</th><th class="r">Bot hits</th><th class="r">Facebook preview</th><th class="r">Search engine</th></tr></thead>
+            <tbody>
+              <% paths.forEach((r) => { %>
+                <tr>
+                  <td><a href="<%= r.path %>" class="text-break"><%= String(r.path).slice(0, 70) %></a></td>
+                  <td class="r"><%= r.hits %></td><td class="r"><%= r.fb %></td><td class="r"><%= r.search %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+      <p class="an-note mb-0">Jis page par "Facebook preview" zyada ho, us link ko log Facebook / Messenger mein share ya paste kar rahe hain.</p>
+    </div>
+
+    <div class="an-card mb-3">
+      <h5 class="an-h">🕒 Recent bot hits</h5>
+      <% if (recent.length === 0) { %><p class="an-empty">Abhi data nahi.</p><% } else { %>
+        <div class="table-responsive">
+          <table class="an-tbl">
+            <thead><tr><th>Time</th><th>Bot</th><th>Page</th><th>IP</th><th>Country</th><th>User-Agent</th></tr></thead>
+            <tbody>
+              <% recent.forEach((r) => { %>
+                <tr>
+                  <td class="text-body-secondary small text-nowrap"><%= new Date(r.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %></td>
+                  <td><span class="tag <%= kcls(r.kind) %>"><%= r.bot %></span></td>
+                  <td class="small text-break"><%= String(r.path || '').slice(0, 50) %></td>
+                  <td><code><%= r.ip || '-' %></code></td>
+                  <td><%= r.country || '-' %></td>
+                  <td class="small text-body-secondary text-break" style="max-width:280px;"><%= String(r.ua || '').slice(0, 90) %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+      <p class="an-note mb-0">Bot ki pehchan User-Agent se hoti hai. Koi bhi script khud ko "Googlebot" keh sakti hai, isliye ye andaza hai, pakka saboot nahi. Bot rows 90 din baad khud delete ho jati hain.</p>
+    </div>
+  </section>
+  <% } %>
+</div>
+
+<%- include('partials/footer') %>

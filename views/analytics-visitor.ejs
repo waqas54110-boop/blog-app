@@ -1,0 +1,94 @@
+<%- include('partials/header') %>
+
+<%
+  const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const fmt = (ms, o) => new Date(ms).toLocaleString('en-GB', o);
+  const DT = { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' };
+  const gap = (ms) => ms < 60000 ? Math.max(1, Math.round(ms / 1000)) + ' sec' : ms < 3600000 ? Math.round(ms / 60000) + ' min' : (Math.round(ms / 360000) / 10) + ' hr';
+  const label = who ? who : 'Guest #' + vid.slice(-4);
+  const sm = summary;
+%>
+
+<%- include('partials/analytics-style') %>
+
+<div class="an">
+  <header class="an-hero">
+    <div class="an-top">
+      <div>
+        <h1>🧭 Visitor journey</h1>
+        <p><%= label %><% if (who) { %> <span class="vbadge">member</span><% } %> · pehli visit se ab tak ka poora safar</p>
+      </div>
+      <div class="an-tools"><a class="an-btn" href="/analytics#audience">← Back to Analytics</a></div>
+    </div>
+  </header>
+
+  <% if (sessions.length === 0) { %>
+    <div class="an-card"><p class="an-empty mb-0">Is visitor ka koi visit record nahi mila.</p></div>
+  <% } else { %>
+
+  <div class="an-aud">
+    <div class="an-stat g1" style="--i: 0;"><div class="lbl">👁️ Page views</div><div class="num"><%= sm.total %></div></div>
+    <div class="an-stat g2" style="--i: 1;"><div class="lbl">🔁 Sessions</div><div class="num"><%= sm.sessions %></div></div>
+    <div class="an-stat g3" style="--i: 2;"><div class="lbl">🛒 Orders</div><div class="num"><%= sm.orders %></div></div>
+    <div class="an-stat g4" style="--i: 3;"><div class="lbl">🧲 First came from</div><div class="num" style="font-size:1.35rem;"><%= sm.firstSource || '-' %></div></div>
+  </div>
+
+  <div class="an-card mb-3">
+    <h5 class="an-h">ℹ️ Who is this? <small>pehli visit: <%= fmt(sm.first, DT) %> · aakhri: <%= fmt(sm.last, DT) %></small></h5>
+    <div class="mb-2">
+      <b class="small">Country:</b>
+      <% if (sm.countries.length === 0) { %><span class="text-body-secondary small">unknown</span><% } %>
+      <% sm.countries.forEach((c) => { %><span class="tag dev"><%= c.flag %> <%= c.name %></span><% }) %>
+    </div>
+    <div class="mb-2">
+      <b class="small">Devices:</b>
+      <% if (sm.devices.length === 0) { %><span class="text-body-secondary small">abhi data nahi (migration_v55 ke baad ke visits se aayega)</span><% } %>
+      <% sm.devices.forEach((d) => { %><span class="tag dev"><%= d %></span><% }) %>
+    </div>
+    <div>
+      <b class="small">Network:</b>
+      <% if (sm.networks.length === 0) { %><span class="text-body-secondary small">abhi data nahi</span><% } %>
+      <% sm.networks.forEach((n) => { %>
+        <span class="tag dev"><code><%= n.ip %></code><% if (n.isp) { %> · <%= String(n.isp).slice(0, 30) %><% } %></span>
+        <% if (n.vpn) { %><span class="tag vpn">VPN / Proxy</span><% } else if (n.hosting) { %><span class="tag host">Datacenter</span><% } else if (n.mobile) { %><span class="tag mob">Mobile data</span><% } %>
+      <% }) %>
+    </div>
+    <% if (who) { %><p class="an-note mb-0">Login wale banda ka journey har device ka mila hua hai. <a href="/u/<%= encodeURIComponent(who) %>">Profile dekhein</a></p>
+    <% } else { %><p class="an-note mb-0">Guest browser cookie se pehchana jata hai: cookie saaf karne ya naya browser use karne par naya visitor ban jata hai.</p><% } %>
+  </div>
+
+  <% sessions.forEach((ses, si) => { %>
+    <div class="an-card jr-ses mb-3">
+      <h6>Session <%= sessions.length - si %> · <%= fmt(ses.start, DT) %> · <%= ses.steps.length %> step<%= ses.steps.length > 1 ? 's' : '' %><% if (ses.steps.length > 1) { %> · <%= gap(ses.end - ses.start) %><% } %></h6>
+      <ol class="jr">
+        <% ses.steps.forEach((st, i) => { %>
+          <% if (st.kind === 'order') { %>
+            <li class="order">
+              <div class="tm"><%= fmt(st.t, { hour: '2-digit', minute: '2-digit' }) %><% if (i > 0) { %> · +<%= gap(st.gap) %><% } %></div>
+              <div class="ttl">🛒 Order kiya: <%= st.title %> × <%= st.qty %> <span class="tag isp">Rs <%= st.total_rs %></span> <span class="tag dev"><%= st.status %></span></div>
+            </li>
+          <% } else { %>
+            <li class="<%= st.kind %>">
+              <div class="tm">
+                <%= fmt(st.t, { hour: '2-digit', minute: '2-digit' }) %><% if (i > 0) { %> · +<%= gap(st.gap) %><% } %>
+                · <% if (i === 0) { %>came from <b><%= st.source || 'direct' %></b><% if (st.campaign) { %> (<%= st.campaign %>)<% } %><% if (st.referrer && st.source !== 'direct') { %> <span class="text-body-secondary">via <%= st.referrer %></span><% } %><% } else { %>via <%= st.source || 'direct' %><% } %>
+              </div>
+              <div class="ttl">
+                <% if (st.kind === 'post') { %>📰 <a href="/posts/<%= st.slug %>"><%= st.title %></a>
+                <% } else { %>🛍️ Product: <%= st.title %><% } %>
+              </div>
+              <% if (st.device) { %><div class="small"><span class="tag dev"><%= st.device %></span><% if (st.brand) { %><span class="tag dev"><%= st.brand %></span><% } %><span class="tag dev"><%= st.browser %></span><% if (st.inapp) { %><span class="tag app">in-app</span><% } %>
+                <% if (st.is_vpn || st.is_proxy || st.is_tor) { %><span class="tag vpn">VPN / Proxy</span><% } else if (st.is_hosting) { %><span class="tag host">Datacenter</span><% } %>
+              </div><% } %>
+            </li>
+          <% } %>
+        <% }) %>
+      </ol>
+    </div>
+  <% }) %>
+
+  <p class="an-note">Ek session = lagatar visits jin ke beech 30 minute se kam ka gap ho. Bots is page par nahi aate (wo alag Bots tab mein hain).</p>
+  <% } %>
+</div>
+
+<%- include('partials/footer') %>

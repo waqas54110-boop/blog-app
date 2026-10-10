@@ -2,7 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const { AGE_GROUPS, countryName, flag } = require('../lib/demographics');
 const config = require('../config');
-const { uaLabel } = require('../lib/analytics');
+const ipinfo = require('../lib/ipinfo');
 
 const router = express.Router();
 const TZ = config.timezone;
@@ -62,6 +62,7 @@ router.get('/unsubscribe/:token', async (req, res) => {
 // ---------- ANALYTICS (admin) ----------
 router.get('/analytics', requireAdmin, async (req, res) => {
   const days = [7, 30, 90].includes(parseInt(req.query.days, 10)) ? parseInt(req.query.days, 10) : 30;
+  if (req.query.tab === 'bots') return botsTab(req, res, days);
 
   try {
     const since = `now() - ($1::int * interval '1 day')`;
@@ -290,7 +291,7 @@ router.get('/analytics', requireAdmin, async (req, res) => {
     // Audience: age / gender / country / repeat clicks (alag try: migration_v23 na chali ho to baaqi analytics phir bhi chale)
     let audience = null;
     try {
-      const [tot, ages, genders, countries, buckets, top, recent, topIps] = await Promise.all([
+      const [tot, ages, genders, countries, buckets, top, recent] = await Promise.all([
         pool.query(
           `SELECT COUNT(*)::int AS clicks,
                   COUNT(DISTINCT visitor)::int AS people,
@@ -333,33 +334,26 @@ router.get('/analytics', requireAdmin, async (req, res) => {
            GROUP BY visitor ORDER BY clicks DESC, last_seen DESC LIMIT 10`,
           [days]
         ),
-        // Recent visitors: IP, User-Agent, Referrer, us IP ki total requests (migration_v50 / v53 na chali ho to
-        // purani query ya khali list, baaqi analytics na ruke)
-        (async () => {
-          const q = (ua) => pool.query(
-            `SELECT v.created_at, v.ip, v.city, v.country, v.source, v.referrer, ${ua ? 'v.user_agent' : 'NULL::text AS user_agent'},
-                    v.visitor, v.user_id, p.title, p.slug, ipc.reqs, ipc.pages
-             FROM post_visits v
-             JOIN posts p ON p.id = v.post_id
-             JOIN (SELECT ip, COUNT(*)::int AS reqs, COUNT(DISTINCT post_id)::int AS pages
-                   FROM post_visits WHERE created_at > ${since} AND ip IS NOT NULL GROUP BY ip) ipc ON ipc.ip = v.ip
+        // Recent visitors with IP (migration_v50 na chali ho to khali, baaqi analytics na ruke)
+        pool.query(
+          `SELECT v.created_at, v.ip, v.city, v.country, v.source, v.visitor, v.user_id, p.title, p.slug,
+                  v.device, v.os, v.browser, v.brand, v.inapp,
+                  i.isp, i.is_vpn, i.is_proxy, i.is_tor, i.is_hosting, i.is_mobile
+           FROM post_visits v JOIN posts p ON p.id = v.post_id
+           LEFT JOIN ip_info i ON i.ip = v.ip
+           WHERE v.created_at > ${since} AND v.ip IS NOT NULL
+           ORDER BY v.created_at DESC LIMIT 50`,
+          [days]
+        ).catch((e) => {
+          if (e.code !== '42703' && e.code !== '42P01') throw e; // migration_v55 baaqi: purani query
+          return pool.query(
+            `SELECT v.created_at, v.ip, v.city, v.country, v.source, v.visitor, v.user_id, p.title, p.slug
+             FROM post_visits v JOIN posts p ON p.id = v.post_id
              WHERE v.created_at > ${since} AND v.ip IS NOT NULL
              ORDER BY v.created_at DESC LIMIT 50`,
             [days]
-          );
-          try { return await q(true); } catch (e) {
-            if (e.code !== '42703') throw e;
-            try { return await q(false); } catch (e2) { if (e2.code !== '42703') throw e2; return { rows: [] }; }
-          }
-        })(),
-        // Sab se zyada requests karne wale IP (bot / shared network pakadne ke liye)
-        pool.query(
-          `SELECT ip, COUNT(*)::int AS reqs, COUNT(DISTINCT post_id)::int AS pages, COUNT(DISTINCT visitor)::int AS devices,
-                  MAX(country) AS country, MAX(city) AS city, MAX(created_at) AS last_seen
-           FROM post_visits WHERE created_at > ${since} AND ip IS NOT NULL
-           GROUP BY ip ORDER BY reqs DESC, last_seen DESC LIMIT 10`,
-          [days]
-        ).catch((e) => { if (e.code !== '42703') throw e; return { rows: [] }; }),
+          ).catch((e2) => { if (e2.code !== '42703') throw e2; return { rows: [] }; });
+        }),
       ]);
 
       // Top visitors mein jo members hain unke naam
@@ -382,14 +376,8 @@ router.get('/analytics', requireAdmin, async (req, res) => {
         genders: genders.rows,
         countries: countries.rows.map((r) => ({ ...r, name: countryName(r.code), flag: flag(r.code) })),
         buckets: buckets.rows,
-        topIps: topIps.rows.map((r) => ({
-          ...r,
-          countryName: r.country ? countryName(r.country) : '-',
-          flag: r.country ? flag(r.country) : '',
-        })),
         recent: recent.rows.map((r) => ({
           ...r,
-          ua: uaLabel(r.user_agent),
           who: r.user_id && names[r.user_id] ? names[r.user_id] : 'Guest #' + String(r.visitor || '').slice(-4),
           member: !!(r.user_id && names[r.user_id]),
           countryName: r.country ? countryName(r.country) : '-',
@@ -405,6 +393,58 @@ router.get('/analytics', requireAdmin, async (req, res) => {
       };
     } catch (err) {
       console.error('[analytics] audience (migration_v23.sql chali?):', err.message);
+    }
+
+    // Device + Browser aur ISP / VPN (alag try: migration_v55 na chali ho to baaqi analytics phir bhi chale)
+    let tech = null, techMissing = false;
+    try {
+      const sinceV = `v.created_at > now() - ($1::int * interval '1 day')`;
+      const [dev, brw, osr, brd, appr, ispTot, ispTop] = await Promise.all([
+        pool.query(`SELECT COALESCE(device, 'unknown') AS label, COUNT(*)::int AS clicks, COUNT(DISTINCT visitor)::int AS people
+                    FROM post_visits v WHERE ${sinceV} AND device IS NOT NULL GROUP BY 1 ORDER BY clicks DESC`, [days]),
+        pool.query(`SELECT browser AS label, COUNT(*)::int AS clicks FROM post_visits v
+                    WHERE ${sinceV} AND browser IS NOT NULL GROUP BY 1 ORDER BY clicks DESC LIMIT 8`, [days]),
+        pool.query(`SELECT os AS label, COUNT(*)::int AS clicks FROM post_visits v
+                    WHERE ${sinceV} AND os IS NOT NULL GROUP BY 1 ORDER BY clicks DESC LIMIT 6`, [days]),
+        pool.query(`SELECT brand AS label, COUNT(*)::int AS clicks FROM post_visits v
+                    WHERE ${sinceV} AND brand IS NOT NULL GROUP BY 1 ORDER BY clicks DESC LIMIT 8`, [days]),
+        pool.query(`SELECT COUNT(*) FILTER (WHERE device IS NOT NULL)::int AS known,
+                           COUNT(*) FILTER (WHERE inapp)::int AS inapp
+                    FROM post_visits v WHERE ${sinceV}`, [days]),
+        pool.query(`SELECT COUNT(*) FILTER (WHERE v.ip IS NOT NULL)::int AS with_ip,
+                           COUNT(i.ip)::int AS looked,
+                           COUNT(*) FILTER (WHERE i.is_vpn OR i.is_proxy OR i.is_tor)::int AS vpn,
+                           COUNT(*) FILTER (WHERE i.is_hosting AND NOT (i.is_vpn OR i.is_proxy OR i.is_tor))::int AS hosting,
+                           COUNT(*) FILTER (WHERE i.is_mobile AND NOT (i.is_vpn OR i.is_proxy OR i.is_tor OR i.is_hosting))::int AS mobile,
+                           COUNT(DISTINCT v.ip) FILTER (WHERE v.ip IS NOT NULL AND i.ip IS NULL)::int AS pending_ips
+                    FROM post_visits v LEFT JOIN ip_info i ON i.ip = v.ip WHERE ${sinceV}`, [days]),
+        pool.query(`SELECT COALESCE(i.isp, 'Unknown') AS isp,
+                           BOOL_OR(i.is_vpn OR i.is_proxy OR i.is_tor) AS vpn, BOOL_OR(i.is_hosting) AS hosting, BOOL_OR(i.is_mobile) AS mobile,
+                           COUNT(*)::int AS clicks, COUNT(DISTINCT v.visitor)::int AS people
+                    FROM post_visits v JOIN ip_info i ON i.ip = v.ip WHERE ${sinceV}
+                    GROUP BY 1 ORDER BY clicks DESC LIMIT 10`, [days]),
+      ]);
+      const sumC = (rows) => rows.reduce((a, r) => a + r.clicks, 0);
+      const withPct = (rows) => { const t = sumC(rows) || 1; return rows.map((r) => ({ ...r, pct: Math.round((r.clicks * 100) / t) })); };
+      const it = ispTot.rows[0];
+      tech = {
+        known: appr.rows[0].known,
+        inapp: appr.rows[0].inapp,
+        inappPct: appr.rows[0].known ? Math.round((appr.rows[0].inapp * 100) / appr.rows[0].known) : 0,
+        devices: withPct(dev.rows), browsers: withPct(brw.rows), oses: withPct(osr.rows), brands: withPct(brd.rows),
+        isp: {
+          withIp: it.with_ip, looked: it.looked, pending: it.pending_ips,
+          vpn: it.vpn, hosting: it.hosting, mobile: it.mobile,
+          vpnPct: it.looked ? Math.round((it.vpn * 100) / it.looked) : 0,
+          hostingPct: it.looked ? Math.round((it.hosting * 100) / it.looked) : 0,
+          mobilePct: it.looked ? Math.round((it.mobile * 100) / it.looked) : 0,
+          top: ispTop.rows,
+        },
+      };
+      ipinfo.backfill(40); // purane IPs ka ISP bhi dheere dheere bharta rahe (background)
+    } catch (err) {
+      if (err.code === '42703' || err.code === '42P01') techMissing = true;
+      console.error('[analytics] tech (migration_v55.sql chali?):', err.message);
     }
 
     // Group-wise performance (alag try: migration_v42 na chali ho to baaqi analytics phir bhi chale)
@@ -442,9 +482,140 @@ router.get('/analytics', requireAdmin, async (req, res) => {
       audience,
       extra,
       groupStats,
+      tech,
+      techMissing,
     });
   } catch (err) {
     console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+// ---------- BOTS TAB (admin) ----------
+async function botsTab(req, res, days) {
+  try {
+    const since = `created_at > now() - ($1::int * interval '1 day')`;
+    const [tot, kinds, bots, paths, recent, daily, human] = await Promise.all([
+      pool.query(`SELECT COUNT(*)::int AS hits, COUNT(DISTINCT bot)::int AS bots, COUNT(DISTINCT ip)::int AS ips,
+                         COUNT(*) FILTER (WHERE bot = 'Facebook preview')::int AS fb_preview,
+                         COUNT(*) FILTER (WHERE kind = 'search')::int AS search_hits
+                  FROM bot_visits WHERE ${since}`, [days]),
+      pool.query(`SELECT kind AS label, COUNT(*)::int AS clicks FROM bot_visits WHERE ${since} GROUP BY 1 ORDER BY clicks DESC`, [days]),
+      pool.query(`SELECT bot, kind, COUNT(*)::int AS hits, COUNT(DISTINCT path)::int AS pages, MAX(created_at) AS last_seen
+                  FROM bot_visits WHERE ${since} GROUP BY bot, kind ORDER BY hits DESC LIMIT 15`, [days]),
+      pool.query(`SELECT path, COUNT(*)::int AS hits, COUNT(*) FILTER (WHERE bot = 'Facebook preview')::int AS fb,
+                         COUNT(*) FILTER (WHERE kind = 'search')::int AS search
+                  FROM bot_visits WHERE ${since} AND path IS NOT NULL GROUP BY path ORDER BY hits DESC LIMIT 10`, [days]),
+      pool.query(`SELECT created_at, bot, kind, path, ip, country, ua FROM bot_visits WHERE ${since} ORDER BY created_at DESC LIMIT 40`, [days]),
+      pool.query(
+        `SELECT to_char(d, 'DD Mon') AS label, COUNT(b.id)::int AS hits
+         FROM generate_series(
+                date_trunc('day', now() AT TIME ZONE $2::text) - (($1::int - 1) * interval '1 day'),
+                date_trunc('day', now() AT TIME ZONE $2::text), interval '1 day') AS d
+         LEFT JOIN bot_visits b ON date_trunc('day', b.created_at AT TIME ZONE $2::text) = d
+         GROUP BY d ORDER BY d`, [days, TZ]),
+      pool.query(`SELECT COUNT(*)::int AS n FROM post_visits WHERE ${since}`, [days]),
+    ]);
+    const t = tot.rows[0];
+    const kt = kinds.rows.reduce((a, r) => a + r.clicks, 0) || 1;
+    res.render('analytics-bots', {
+      title: 'Analytics · Bots',
+      days,
+      missing: false,
+      totals: { ...t, human: human.rows[0].n, botPct: (t.hits + human.rows[0].n) ? Math.round((t.hits * 100) / (t.hits + human.rows[0].n)) : 0 },
+      kinds: kinds.rows.map((r) => ({ ...r, pct: Math.round((r.clicks * 100) / kt) })),
+      bots: bots.rows,
+      paths: paths.rows,
+      recent: recent.rows,
+      daily: daily.rows,
+    });
+  } catch (err) {
+    const missing = err.code === '42P01';
+    if (!missing) console.error('[analytics] bots:', err.message);
+    res.render('analytics-bots', { title: 'Analytics · Bots', days, missing, totals: null, kinds: [], bots: [], paths: [], recent: [], daily: [] });
+  }
+}
+
+// ---------- VISITOR JOURNEY (admin) ----------
+// Ek visitor ne kab, kahan se aa kar, kaun kaun si post / product dekhi, aur order kiya ya nahi.
+router.get('/analytics/visitor/:vid', requireAdmin, async (req, res) => {
+  const vid = String(req.params.vid || '');
+  if (!/^(u\d{1,9}|[a-f0-9]{16})$/.test(vid)) {
+    return res.status(404).render('404', { code: 404, title: 'Not found', message: 'Visitor id galat hai.' });
+  }
+  // naya query (device / ISP) pehle, na ho to purana; dono na chalein to khali
+  const q = async (a, b) => {
+    try { return (await pool.query(a, [vid])).rows; }
+    catch (e) {
+      if (e.code !== '42703' && e.code !== '42P01') throw e;
+      try { return (await pool.query(b, [vid])).rows; }
+      catch (e2) { if (e2.code === '42703' || e2.code === '42P01') return []; throw e2; }
+    }
+  };
+  try {
+    const DEV = `v.ip, v.city, v.country, v.device, v.os, v.browser, v.brand, v.inapp,
+                 i.isp, i.is_vpn, i.is_proxy, i.is_tor, i.is_hosting, i.is_mobile`;
+    const [posts, prods, orders] = await Promise.all([
+      q(`SELECT 'post' AS kind, v.created_at, v.source, v.medium, v.campaign, v.referrer, p.title, p.slug, ${DEV}
+         FROM post_visits v JOIN posts p ON p.id = v.post_id LEFT JOIN ip_info i ON i.ip = v.ip
+         WHERE v.visitor = $1 ORDER BY v.created_at DESC LIMIT 300`,
+        `SELECT 'post' AS kind, v.created_at, v.source, v.medium, v.referrer, p.title, p.slug
+         FROM post_visits v JOIN posts p ON p.id = v.post_id WHERE v.visitor = $1 ORDER BY v.created_at DESC LIMIT 300`),
+      q(`SELECT 'product' AS kind, v.created_at, v.source, v.medium, v.campaign, v.referrer, pr.name AS title, ${DEV}
+         FROM product_visits v JOIN products pr ON pr.id = v.product_id LEFT JOIN ip_info i ON i.ip = v.ip
+         WHERE v.visitor = $1 ORDER BY v.created_at DESC LIMIT 300`,
+        `SELECT 'product' AS kind, v.created_at, v.source, v.medium, v.referrer, pr.name AS title
+         FROM product_visits v JOIN products pr ON pr.id = v.product_id WHERE v.visitor = $1 ORDER BY v.created_at DESC LIMIT 300`),
+      q(`SELECT 'order' AS kind, created_at, product_name AS title, qty, total_rs, status FROM orders WHERE visitor = $1 ORDER BY created_at DESC LIMIT 50`,
+        `SELECT 'order' AS kind, created_at, product_name AS title, qty, total_rs, status FROM orders WHERE visitor = $1 ORDER BY created_at DESC LIMIT 50`),
+    ]);
+
+    const steps = [...posts, ...prods, ...orders]
+      .map((r) => ({ ...r, t: new Date(r.created_at).getTime() }))
+      .sort((a, b) => a.t - b.t);
+
+    // Session: 30 minute se zyada gap = nayi session
+    const GAP = 30 * 60 * 1000;
+    const sessions = [];
+    steps.forEach((st) => {
+      let cur = sessions[sessions.length - 1];
+      if (!cur || st.t - cur.end > GAP) { cur = { start: st.t, end: st.t, steps: [] }; sessions.push(cur); }
+      st.gap = cur.steps.length ? st.t - cur.steps[cur.steps.length - 1].t : 0;
+      cur.steps.push(st); cur.end = st.t;
+    });
+    sessions.reverse(); // sab se nayi pehle
+
+    const views = steps.filter((x) => x.kind !== 'order');
+    const uniq = (arr) => [...new Set(arr.filter(Boolean))];
+    const devices = uniq(views.map((x) => x.device ? [x.brand, x.device, x.browser].filter(Boolean).join(' · ') : null));
+    const ispMap = {};
+    views.forEach((x) => {
+      if (x.ip) ispMap[x.ip] = { ip: x.ip, isp: x.isp || null, vpn: !!(x.is_vpn || x.is_proxy || x.is_tor), hosting: !!x.is_hosting, mobile: !!x.is_mobile, city: x.city, country: x.country };
+    });
+
+    let who = null;
+    const m = vid.match(/^u(\d+)$/);
+    if (m) who = (await pool.query('SELECT username FROM users WHERE id = $1', [parseInt(m[1], 10)])).rows[0] || null;
+
+    res.render('analytics-visitor', {
+      title: 'Visitor journey',
+      vid,
+      who: who ? who.username : null,
+      summary: {
+        total: views.length,
+        sessions: sessions.length,
+        orders: orders.length,
+        first: steps.length ? steps[0].t : null,
+        last: steps.length ? steps[steps.length - 1].t : null,
+        firstSource: views.length ? (views[0].source || 'direct') : null,
+        countries: uniq(views.map((x) => x.country)).map((c) => ({ name: countryName(c), flag: flag(c) })),
+        devices,
+        networks: Object.values(ispMap),
+      },
+      sessions,
+    });
+  } catch (err) {
+    console.error('[analytics] journey:', err);
     res.status(500).send('Server error');
   }
 });
