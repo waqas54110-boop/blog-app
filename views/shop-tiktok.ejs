@@ -44,6 +44,28 @@
       <div class="col-12 col-md-7">
         <div class="card border-0 shadow-sm mb-3">
           <div class="card-body">
+            <h6 class="fw-bold mb-1">🎭 Video style: 2-person funny chat</h6>
+            <p class="small text-body-secondary mb-2">Do log baat karte hain (speech bubbles), product dikhate hain, hairan hote hain, bhaagte hain. Prompt likho, <strong>Make script</strong> dabao, phir chaho to script khud edit karo.</p>
+            <select class="form-select form-select-sm mb-2" id="ttStyle">
+              <option value="duo" selected>🎭 2-person funny chat (new)</option>
+              <option value="classic">🛍️ Classic product video</option>
+            </select>
+            <div id="ttDuoBox">
+              <input class="form-control form-control-sm mb-2" id="ttPrompt" placeholder="Prompt, e.g. dost late aata hai, ghari dikhao, hairan ho, bhaag jaye">
+              <div class="row g-2 mb-2">
+                <div class="col-4"><select class="form-select form-select-sm" id="ttLang"><option value="en">English</option><option value="ur">Roman Urdu</option></select></div>
+                <div class="col-4"><select class="form-select form-select-sm" id="ttFaceA"><option>🧔</option><option>😎</option><option>👨</option><option>👩</option><option>👵</option><option>🧑‍🦱</option></select></div>
+                <div class="col-4"><select class="form-select form-select-sm" id="ttFaceB"><option>👩</option><option>🧔</option><option>😎</option><option>👨</option><option>👴</option><option>🧑‍🦱</option></select></div>
+              </div>
+              <textarea class="form-control form-control-sm mb-1" id="ttDuo" rows="9" placeholder="A: Hello! [show]&#10;B: Wow! [shock]"></textarea>
+              <div class="small text-body-secondary mb-2">Har line: <code>A: text [action]</code> ya <code>B: text [action]</code>. Actions: <code>show shock laugh cry price buy run point dance</code>. Action na likho to text se khud chuna jata hai.</div>
+              <button type="button" class="btn btn-warning btn-sm fw-semibold" id="ttGen">✨ Make script from prompt</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-3">
+          <div class="card-body">
             <h6 class="fw-bold mb-1">🎙️ Funny voice (optional)</h6>
             <p class="small text-body-secondary mb-2">The video already has automatic funny captions and sounds. For a voice-over, pick a script, make the voice file (free, see the command) and upload it here. The script then shows as subtitles.</p>
             <div class="d-flex flex-wrap gap-2 mb-2" id="ttPresets">
@@ -127,6 +149,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var GOLD = '#fbbf24', RED = '#ef4444';
   var recording = false, blobUrl = null;
+  var duo = true, duoLines = [];
 
   // ---- photos ----
   var imgs = P.images.map(function (src) {
@@ -209,6 +232,7 @@
   function shortName() { return P.name.length > 26 ? P.name.slice(0, 25) + '…' : P.name; }
   function priceTxt(n) { return 'Rs ' + Number(n).toLocaleString('en-US'); }
   function buildCues() {
+    if (duo) return duoCues();
     var span = (GAL_B - GAL_A) / 4;
     var cues = [[0, 3, 'WAIT!! Don\'t scroll! 🛑'], [3, 5, 'Your wallet is not ready for this… 💸'], [5, 8, 'Meet: ' + shortName() + ' 😍'], [8, 12, 'Yes, it is as good as it looks.']];
     for (var i = 0; i < 4; i++) cues.push([GAL_A + i * span, GAL_A + (i + 1) * span, GAL_LINES[i]]);
@@ -218,6 +242,113 @@
     cues.push([50, 54, P.stock > 0 && P.stock <= 10 ? 'Only ' + P.stock + ' left! Hurry! ⏰' : 'Selling fast! ⏰'], [54, 60, 'Link in bio. Grab it now! 👆']);
     return cues;
   }
+
+  // ================= 2-person funny chat =================
+  var ACTS = ['show', 'shock', 'laugh', 'cry', 'price', 'buy', 'run', 'point', 'dance'];
+  var ACT_FACE = { shock: '😱', laugh: '🤣', cry: '😭', buy: '🤑', run: '😨', price: '😵', point: '🤔', dance: '🥳', show: '😮' };
+  var ACT_SFX = { show: 'whoosh', shock: 'boing', laugh: 'pop', cry: 'boing', price: 'cash', buy: 'cash', run: 'whoosh', point: 'ding', dance: 'drum' };
+  function guessAct(t) {
+    t = t.toLowerCase();
+    if (/rs\s*\d|price|qeemat|sasta|cheap|only|sirf|% off/.test(t)) return 'price';
+    if (/run|bhag|bhaag|daud|late for|hurry|jaldi/.test(t)) return 'run';
+    if (/order|buy|khareed|take my|le lo|sold|paisa le/.test(t)) return 'buy';
+    if (/look|dekh|meet|ye lo|ye dekho|show/.test(t)) return 'show';
+    if (/what|kya|omg|wow|real|asli|sach|no way/.test(t)) return 'shock';
+    if (/haha|lol|laugh|hans|never be late|kabhi late nahi/.test(t)) return 'laugh';
+    if (/wallet|cry|ro raha|liar|jhooti|sad/.test(t)) return 'cry';
+    if (/dance|nach|party|celebrate/.test(t)) return 'dance';
+    return 'point';
+  }
+  function parseDuo() {
+    var raw = ($('ttDuo').value || '').split(/\n+/), out = [], nextW = 0;
+    raw.forEach(function (line) {
+      line = line.trim(); if (!line) return;
+      var m = line.match(/^([ABab12])\s*[:\-]\s*(.*)$/), w = nextW, body = line;
+      if (m) { w = /[Bb2]/.test(m[1]) ? 1 : 0; body = m[2]; }
+      var am = body.match(/\[\s*(\w+)\s*\]\s*$/), act = null;
+      if (am) { body = body.slice(0, am.index).trim(); act = am[1].toLowerCase(); }
+      if (!body) return;
+      if (ACTS.indexOf(act) < 0) act = guessAct(body);
+      out.push({ w: w, s: body, act: act });
+      nextW = 1 - w;
+    });
+    duoLines = out.slice(0, 12);
+  }
+  function genDuo() {
+    var N = shortName(), pr = priceTxt(P.price), ur = $('ttLang').value === 'ur';
+    var pt = ($('ttPrompt').value || '').toLowerCase();
+    var isWatch = /watch|ghari|ghadi|wrist|time/.test((P.name + ' ' + pt).toLowerCase());
+    var codEn = P.cod ? ' Cash on delivery too!' : '', codUr = P.cod ? ' Delivery par paise dena!' : '';
+    var L;
+    if (isWatch && !ur) L = ['A: Bro, you are ALWAYS late! [point]', 'B: My old watch is a liar, okay?! [cry]', 'A: Then meet ' + N + '! [show]', 'B: WHAT?! Is that real?! [shock]', 'A: Looks expensive, only ' + pr + '!' + codEn + ' [price]', 'B: Shut up and take my money! [buy]', 'A: Now you will never be late again! [laugh]', 'B: Oh no, I am late for the wedding! Bye! [run]'];
+    else if (isWatch) L = ['A: Yaar tum hamesha late hote ho! [point]', 'B: Meri purani ghari jhooti hai, bhai! [cry]', 'A: To ye dekho ' + N + '! [show]', 'B: Kya?! Ye asli hai?! [shock]', 'A: Dikhne mein mehenga, qeemat sirf ' + pr + '!' + codUr + ' [price]', 'B: Chup kar! Mera paisa le lo! [buy]', 'A: Ab tum kabhi late nahi hoge! [laugh]', 'B: Oh no! Shaadi ka time ho gaya! Bhaag! [run]'];
+    else if (!ur) L = ['A: Bro, why are you staring at your phone? [point]', 'B: Looking for something awesome… [cry]', 'A: Then meet ' + N + '! [show]', 'B: WOW! Is this real?! [shock]', 'A: Only ' + pr + '!' + codEn + ' [price]', 'B: My wallet is crying, but I am buying! [buy]', 'A: Order from the link in bio! [laugh]', 'B: Wait! Do not sell the last piece! [run]'];
+    else L = ['A: Bhai phone mein kya dhoond rahe ho? [point]', 'B: Kuch zabardast cheez chahiye… [cry]', 'A: To ye lo, ' + N + '! [show]', 'B: Wooow! Ye asli hai?! [shock]', 'A: Sirf ' + pr + '!' + codUr + ' [price]', 'B: Wallet ro raha hai, par main khareed raha hoon! [buy]', 'A: Bio mein link se order karo! [laugh]', 'B: Ruko! Aakhri piece mat bechna! [run]'];
+    // prompt keywords add extra beats before the last line
+    var extra = [];
+    if (/dance|nach|party/.test(pt)) extra.push(ur ? 'A: Chalo celebrate karein! [dance]' : 'A: Let us celebrate! [dance]');
+    if (/sasta|cheap|discount|off|sale/.test(pt) && P.off > 0) extra.push((ur ? 'A: Upar se ' : 'A: Plus ') + P.off + (ur ? '% discount bhi! [price]' : '% off! [price]'));
+    if (/haha|funny|hans|joke|laugh/.test(pt)) extra.push(ur ? 'B: Haha, meri biwi bhi hans degi! [laugh]' : 'B: Ha ha, even my cat will laugh at this price! [laugh]');
+    L.splice.apply(L, [L.length - 1, 0].concat(extra));
+    $('ttDuo').value = L.join('\n');
+    refreshDuo();
+  }
+  function duoCues() {
+    var n = duoLines.length || 1, span = (SKIT_B - REVEAL) / n;
+    return duoLines.map(function (l, i) { return [REVEAL + i * span, REVEAL + (i + 1) * span, l.s]; });
+  }
+  function bubble(str, tx, topY, side) {
+    ctx.font = '800 38px ' + FONT;
+    var ls = wrap(str, 500).slice(0, 4), bw = 560, bh = ls.length * 48 + 40, bx = Math.min(W - 40 - bw, Math.max(40, tx - bw / 2));
+    ctx.fillStyle = '#fff'; rr(bx, topY, bw, bh, 30); ctx.fill();
+    var tailX = Math.min(bx + bw - 60, Math.max(bx + 60, tx));
+    ctx.beginPath(); ctx.moveTo(tailX - 28, topY + bh - 2); ctx.lineTo(tailX, topY + bh + 44); ctx.lineTo(tailX + 28, topY + bh - 2); ctx.closePath(); ctx.fill();
+    ls.forEach(function (ln, i) { text(ln, bx + bw / 2, topY + 56 + i * 48, 38, '#0f172a'); });
+    return bh;
+  }
+  function person(x, y, face, color, rot, sc) {
+    ctx.save(); ctx.translate(x, y); ctx.rotate(rot); ctx.scale(sc, sc);
+    ctx.fillStyle = color; rr(-72, 0, 144, 170, 56); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.22)'; rr(-40, 22, 80, 18, 9); ctx.fill();
+    text(face, 0, -8, 150);
+    ctx.restore();
+  }
+  function sceneDuo(u, top, h) {
+    var n = duoLines.length;
+    if (!n) { text('Write the chat script 👉', W / 2, top + h / 2, 44, '#fff'); return; }
+    var span = (SKIT_B - REVEAL) / n, k = Math.min(n - 1, Math.max(0, Math.floor((u - REVEAL) / span))), loc = (u - REVEAL) - k * span;
+    var ln = duoLines[k], sp = ln.w, ls = 1 - sp, act = ln.act;
+    var faces = [$('ttFaceA').value, $('ttFaceB').value], cols = ['#7c3aed', '#db2777'];
+    var baseY = top + h - 175, enter = back((u - REVEAL) / 0.9), step = u - REVEAL < 0.9 ? Math.abs(Math.sin(u * 14)) * 10 : 0;
+    var xs = [150 - (1 - enter) * 260, W - 150 + (1 - enter) * 260], ys = [baseY - step, baseY - step], rot = [0, 0], face = [faces[0], faces[1]], scl = [1, 1];
+    var bnc = Math.abs(Math.sin(loc * 9)) * 20;
+    ys[sp] -= bnc; rot[sp] = Math.sin(loc * 9) * 0.05;
+    ys[ls] -= Math.abs(Math.sin(loc * 3)) * 5;
+    var floatEm = null;
+    if (act === 'shock') { xs[ls] += Math.sin(loc * 50) * 9; face[ls] = ACT_FACE.shock; floatEm = ['❗', xs[ls], ys[ls] - 130]; }
+    else if (act === 'laugh') { ys[0] -= Math.abs(Math.sin(loc * 11)) * 26; ys[1] -= Math.abs(Math.sin(loc * 11 + 1)) * 26; face[0] = face[1] = ACT_FACE.laugh; rot[ls] = Math.sin(loc * 12) * 0.12; }
+    else if (act === 'cry') { face[ls] = ACT_FACE.cry; rot[ls] = Math.sin(loc * 6) * 0.07; floatEm = ['💧', xs[ls] + 40, ys[ls] + 20 + (loc * 120) % 90]; }
+    else if (act === 'buy') { face[ls] = ACT_FACE.buy; face[sp] = '😎'; floatEm = ['💸', xs[ls] + Math.sin(loc * 5) * 60, ys[ls] - 120 - (loc * 90) % 120]; }
+    else if (act === 'run') { var rp = c01((loc - 0.7) / 1.3); xs[ls] += (ls === 1 ? 1 : -1) * rp * rp * 520; face[ls] = ACT_FACE.run; ys[ls] -= rp * Math.abs(Math.sin(loc * 20)) * 30; rot[ls] = (ls === 1 ? 1 : -1) * rp * 0.25; floatEm = ['💨', xs[ls] - (ls === 1 ? -1 : 1) * 80, ys[ls] + 110]; }
+    else if (act === 'point') { face[ls] = ACT_FACE.point; }
+    else if (act === 'dance') { face[0] = face[1] = ACT_FACE.dance; [0, 1].forEach(function (i) { ys[i] -= Math.abs(Math.sin(loc * 10 + i * 1.5)) * 40; rot[i] = Math.sin(loc * 10 + i) * 0.22; }); floatEm = ['🎵', W / 2 + Math.sin(loc * 4) * 120, top + 260 - (loc * 80) % 100]; }
+    else if (act === 'show') { face[ls] = ACT_FACE.show; }
+    else if (act === 'price') { face[ls] = ACT_FACE.price; xs[ls] += Math.sin(loc * 40) * 5; }
+    person(xs[0], ys[0], face[0], cols[0], rot[0], scl[0]);
+    person(xs[1], ys[1], face[1], cols[1], rot[1], scl[1]);
+    // product: small in A's hand, big in the middle when "show"
+    var pop = back(loc / 0.45);
+    if (act === 'show') polaroid(0, W / 2, top + h / 2 + 80, 360, 360, Math.sin(curT * 4) * 0.06, 1, Math.sin(curT) * 0.2, 0);
+    else polaroid(0, xs[0] + 105, ys[0] + 120, 170, 170, 0.15 + Math.sin(curT * 3) * 0.04, 1, 0, 0);
+    if (act === 'price' || (act === 'buy' && P.off > 0)) sticker(priceTxt(P.price), W / 2, top + h / 2 + 90, -0.07, pop * (1 + 0.05 * Math.sin(curT * 8)), GOLD, '#111', 56);
+    if (act === 'price' && P.compare > P.price) sticker('-' + P.off + '%', W / 2 + 170, top + h / 2 - 20, 0.12, pop, RED, '#fff', 40);
+    if (floatEm) text(floatEm[0], floatEm[1], floatEm[2], 90);
+    // speech bubble above the speaker
+    ctx.save(); ctx.translate(0, 0); ctx.globalAlpha = c01(loc / 0.2);
+    bubble(ln.s, xs[sp], top + 6 - (1 - pop) * 20, sp);
+    ctx.restore();
+  }
+  function refreshDuo() { parseDuo(); computeCues(); if (!recording) draw(previewT()); }
 
   function sceneHook(u, top, h) {
     var cy = top + h / 2, s = 1 + 0.08 * Math.sin(u * 18);
@@ -360,10 +491,11 @@
     ctx.restore();
     var areaTop = ty + tl.length * tlh + 20, areaBottom = funny ? 790 : 900, areaH = areaBottom - areaTop;
 
-    var shk = (u >= 33 && u < 34.3) ? (1 - (u - 33) / 1.3) * 14 : 0;
+    var shk = (!duo && u >= 33 && u < 34.3) ? (1 - (u - 33) / 1.3) * 14 : 0;
     ctx.save();
     if (shk) ctx.translate(Math.sin(t * 95) * shk, Math.cos(t * 83) * shk);
     if (u < REVEAL) sceneHook(u, areaTop, areaH);
+    else if (duo && u < SKIT_B) sceneDuo(u, areaTop, areaH);
     else if (u < GAL_A) sceneReveal(u, areaTop, areaH);
     else if (u < GAL_B) sceneGallery(u, areaTop, areaH);
     else if (u < PRICE_B) scenePrice(u, areaTop, areaH);
@@ -418,7 +550,7 @@
     parts.forEach(function (x) { var d = span * x.length / total; subs.push({ s: x, a: cur, b: cur + d }); cur += d; });
   }
   function computeCues() { var k = DUR / TL; cues = buildCues().map(function (c) { return { a: c[0] * k, b: c[1] * k, s: c[2] }; }); }
-  function previewT() { return DUR * 0.95; }
+  function previewT() { return duo ? DUR * 0.3 : DUR * 0.95; }
   function setLabel() { $('ttMake').textContent = '▶ Create video (' + DUR + ' sec)'; }
   function cmdText() {
     var txt = ($('ttScript').value || '').replace(/\s*\n\s*/g, ' ').replace(/(["\\$`])/g, '\\$1').trim() || 'Write your script here';
@@ -454,6 +586,11 @@
     else if (type === 'siren') { tone(dest, when, 'sawtooth', 500, 900, 0.6, 0.14); tone(dest, when + 0.6, 'sawtooth', 900, 500, 0.6, 0.14); }
   }
   function sfxPlan() {
+    if (duo) {
+      var dspan = (SKIT_B - REVEAL) / (duoLines.length || 1), dv = [[0, 'siren'], [3.2, 'pop'], [REVEAL, 'whoosh']];
+      duoLines.forEach(function (l, i) { dv.push([REVEAL + i * dspan + 0.15, ACT_SFX[l.act] || 'pop']); });
+      return dv.concat([[50, 'beep'], [51, 'beep'], [52, 'beep'], [53, 'horn'], [54, 'ding'], [56, 'pop'], [58, 'cash']]);
+    }
     var span = (GAL_B - GAL_A) / 4;
     var ev = [[0, 'siren'], [3.2, 'pop'], [REVEAL, 'whoosh'], [REVEAL + 1, 'pop'], [REVEAL + 2, 'pop'], [8, 'drum']];
     for (var i = 0; i < 4; i++) ev.push([GAL_A + i * span, 'boing']);
@@ -572,6 +709,11 @@
   });
 
   // ---- copy buttons ----
+  $('ttStyle').addEventListener('change', function () { duo = this.value === 'duo'; $('ttDuoBox').classList.toggle('d-none', !duo); computeCues(); if (!recording) draw(previewT()); });
+  $('ttGen').addEventListener('click', genDuo);
+  ['ttDuo', 'ttFaceA', 'ttFaceB'].forEach(function (id) { $(id).addEventListener('input', refreshDuo); $(id).addEventListener('change', refreshDuo); });
+  genDuo();
+
   document.addEventListener('click', function (e) {
     var b = e.target.closest('[data-copy]'); if (!b) return;
     var el = $(b.dataset.copy), old = b.textContent;
