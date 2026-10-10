@@ -468,21 +468,50 @@
       <% } else { %>
         <div class="table-responsive">
           <table class="an-tbl">
-            <thead><tr><th>Time</th><th>Visitor</th><th>IP</th><th>Location</th><th>Source</th><th>Post</th></tr></thead>
+            <thead><tr><th>Time</th><th>Visitor</th><th>IP</th><th>Requests (is IP ki)</th><th>Location</th><th>Browser / Device</th><th>Source</th><th>Referrer</th><th>Post</th></tr></thead>
             <tbody>
               <% au.recent.forEach((v) => { %>
                 <tr>
                   <td class="text-body-secondary small"><%= new Date(v.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %></td>
                   <td><% if (v.member) { %><a href="/u/<%= encodeURIComponent(v.who) %>"><%= v.who %></a><span class="vbadge">member</span><% } else { %><span class="text-body-secondary"><%= v.who %></span><% } %></td>
                   <td><code><%= v.ip %></code></td>
+                  <td class="small"><b><%= v.reqs %></b> req &middot; <%= v.pages %> page<%= v.pages === 1 ? '' : 's' %></td>
                   <td><%= v.flag %> <%= v.city ? v.city + ', ' : '' %><%= v.countryName %></td>
+                  <td class="small" title="<%= v.user_agent || '' %>"><%= v.ua %></td>
                   <td><%= v.source || 'direct' %></td>
+                  <td class="small text-body-secondary"><%= v.referrer || '-' %></td>
                   <td><a href="/posts/<%= v.slug %>"><%= String(v.title).slice(0, 40) %></a></td>
                 </tr>
               <% }) %>
             </tbody>
           </table>
         </div>
+      <% } %>
+    </div>
+
+    <div class="an-card mb-3">
+      <h5 class="an-h">🌐 Busiest IPs <small>ek IP ne kitni baar aur kitne pages khole</small></h5>
+      <% if (!au.topIps || au.topIps.length === 0) { %>
+        <p class="an-empty">Abhi IP data nahi.</p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="an-tbl">
+            <thead><tr><th>IP</th><th class="r">Requests</th><th class="r">Pages</th><th class="r">Devices (cookies)</th><th>Location</th><th>Last seen</th></tr></thead>
+            <tbody>
+              <% au.topIps.forEach((v) => { %>
+                <tr>
+                  <td><code><%= v.ip %></code></td>
+                  <td class="r"><%= v.reqs %></td>
+                  <td class="r"><%= v.pages %></td>
+                  <td class="r"><%= v.devices %></td>
+                  <td><%= v.flag %> <%= v.city ? v.city + ', ' : '' %><%= v.countryName %></td>
+                  <td class="text-body-secondary small"><%= new Date(v.last_seen).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <p class="an-note mb-0">Ek IP par bohat saari "devices" ho to aksar mobile network (CGNAT) ya office/wifi hota hai, ek insaan nahi. Ek device se bohat zyada requests bot ka ishara ho sakti hain.</p>
       <% } %>
     </div>
   </section>

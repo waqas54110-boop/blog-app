@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const { AGE_GROUPS, countryName, flag } = require('../lib/demographics');
 const config = require('../config');
+const { uaLabel } = require('../lib/analytics');
 
 const router = express.Router();
 const TZ = config.timezone;
@@ -289,7 +290,7 @@ router.get('/analytics', requireAdmin, async (req, res) => {
     // Audience: age / gender / country / repeat clicks (alag try: migration_v23 na chali ho to baaqi analytics phir bhi chale)
     let audience = null;
     try {
-      const [tot, ages, genders, countries, buckets, top, recent] = await Promise.all([
+      const [tot, ages, genders, countries, buckets, top, recent, topIps] = await Promise.all([
         pool.query(
           `SELECT COUNT(*)::int AS clicks,
                   COUNT(DISTINCT visitor)::int AS people,
@@ -332,12 +333,31 @@ router.get('/analytics', requireAdmin, async (req, res) => {
            GROUP BY visitor ORDER BY clicks DESC, last_seen DESC LIMIT 10`,
           [days]
         ),
-        // Recent visitors with IP (migration_v50 na chali ho to khali, baaqi analytics na ruke)
+        // Recent visitors: IP, User-Agent, Referrer, us IP ki total requests (migration_v50 / v53 na chali ho to
+        // purani query ya khali list, baaqi analytics na ruke)
+        (async () => {
+          const q = (ua) => pool.query(
+            `SELECT v.created_at, v.ip, v.city, v.country, v.source, v.referrer, ${ua ? 'v.user_agent' : 'NULL::text AS user_agent'},
+                    v.visitor, v.user_id, p.title, p.slug, ipc.reqs, ipc.pages
+             FROM post_visits v
+             JOIN posts p ON p.id = v.post_id
+             JOIN (SELECT ip, COUNT(*)::int AS reqs, COUNT(DISTINCT post_id)::int AS pages
+                   FROM post_visits WHERE created_at > ${since} AND ip IS NOT NULL GROUP BY ip) ipc ON ipc.ip = v.ip
+             WHERE v.created_at > ${since} AND v.ip IS NOT NULL
+             ORDER BY v.created_at DESC LIMIT 50`,
+            [days]
+          );
+          try { return await q(true); } catch (e) {
+            if (e.code !== '42703') throw e;
+            try { return await q(false); } catch (e2) { if (e2.code !== '42703') throw e2; return { rows: [] }; }
+          }
+        })(),
+        // Sab se zyada requests karne wale IP (bot / shared network pakadne ke liye)
         pool.query(
-          `SELECT v.created_at, v.ip, v.city, v.country, v.source, v.visitor, v.user_id, p.title, p.slug
-           FROM post_visits v JOIN posts p ON p.id = v.post_id
-           WHERE v.created_at > ${since} AND v.ip IS NOT NULL
-           ORDER BY v.created_at DESC LIMIT 50`,
+          `SELECT ip, COUNT(*)::int AS reqs, COUNT(DISTINCT post_id)::int AS pages, COUNT(DISTINCT visitor)::int AS devices,
+                  MAX(country) AS country, MAX(city) AS city, MAX(created_at) AS last_seen
+           FROM post_visits WHERE created_at > ${since} AND ip IS NOT NULL
+           GROUP BY ip ORDER BY reqs DESC, last_seen DESC LIMIT 10`,
           [days]
         ).catch((e) => { if (e.code !== '42703') throw e; return { rows: [] }; }),
       ]);
@@ -362,8 +382,14 @@ router.get('/analytics', requireAdmin, async (req, res) => {
         genders: genders.rows,
         countries: countries.rows.map((r) => ({ ...r, name: countryName(r.code), flag: flag(r.code) })),
         buckets: buckets.rows,
+        topIps: topIps.rows.map((r) => ({
+          ...r,
+          countryName: r.country ? countryName(r.country) : '-',
+          flag: r.country ? flag(r.country) : '',
+        })),
         recent: recent.rows.map((r) => ({
           ...r,
+          ua: uaLabel(r.user_agent),
           who: r.user_id && names[r.user_id] ? names[r.user_id] : 'Guest #' + String(r.visitor || '').slice(-4),
           member: !!(r.user_id && names[r.user_id]),
           countryName: r.country ? countryName(r.country) : '-',

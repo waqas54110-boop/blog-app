@@ -90,15 +90,18 @@
     <p class="text-body-secondary mb-0">Abhi IP data nahi. <code>migration_v50.sql</code> chalayen; uske baad naye visits yahan dikhenge.</p>
   <% } else { %>
     <div class="table-responsive"><table class="an-t">
-      <thead><tr><th>Time</th><th>Visitor</th><th>IP</th><th>Location</th><th>Source</th><th>Product</th></tr></thead>
+      <thead><tr><th>Time</th><th>Visitor</th><th>IP</th><th>Requests (is IP ki)</th><th>Location</th><th>Browser / Device</th><th>Source</th><th>Referrer</th><th>Product</th></tr></thead>
       <tbody>
         <% recent.forEach(v => { %>
           <tr>
             <td class="small text-body-secondary"><%= new Date(v.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %></td>
             <td><%= v.who %></td>
             <td><code><%= v.ipShown %></code></td>
+            <td class="small"><b><%= v.reqs %></b> req &middot; <%= v.products %> product<%= v.products === 1 ? '' : 's' %></td>
             <td><%= v.flag %> <%= v.city ? v.city + ', ' : '' %><%= v.countryName %></td>
+            <td class="small"><%= v.ua %></td>
             <td><%= v.source || 'direct' %></td>
+            <td class="small text-body-secondary"><%= v.referrer || '-' %></td>
             <td><%= v.product %></td>
           </tr>
         <% }) %>

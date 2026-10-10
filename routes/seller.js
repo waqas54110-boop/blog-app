@@ -6,6 +6,7 @@ const pool = require('../db');
 const config = require('../config');
 const S = require('../lib/shop');
 const { maskIp, countryName, flag } = require('../lib/demographics');
+const { uaLabel } = require('../lib/analytics');
 const Restricted = require('../lib/restricted');
 const Images = require('../lib/images');
 const { slugify } = require('../lib/slug');
@@ -550,16 +551,25 @@ router.get('/seller/analytics', guard, async (req, res) => {
     let recent = [];
     try {
       const isAdmin = req.session.user && req.session.user.role === 'admin';
-      const rows = (await pool.query(
-        `SELECT v.created_at, v.ip, v.city, v.country, v.source, v.campaign, v.visitor, v.user_id, p.name AS product, u.username
+      const q = (ua) => pool.query(
+        `SELECT v.created_at, v.ip, v.city, v.country, v.source, v.campaign, v.referrer, ${ua ? 'v.user_agent' : 'NULL::text AS user_agent'},
+                v.visitor, v.user_id, p.name AS product, u.username, ipc.reqs, ipc.products
          FROM product_visits v
          JOIN products p ON p.id = v.product_id
          LEFT JOIN users u ON u.id = v.user_id
+         JOIN (SELECT ip, COUNT(*)::int AS reqs, COUNT(DISTINCT product_id)::int AS products
+               FROM product_visits WHERE shop_id = $1 AND created_at > ${since} AND ip IS NOT NULL GROUP BY ip) ipc ON ipc.ip = v.ip
          WHERE v.shop_id = $1 AND v.created_at > ${since} AND v.ip IS NOT NULL
-         ORDER BY v.created_at DESC LIMIT 50`, [id, days])).rows;
+         ORDER BY v.created_at DESC LIMIT 50`, [id, days]);
+      let rows;
+      try { rows = (await q(true)).rows; } catch (e) {
+        if (e.code !== '42703') throw e;
+        rows = (await q(false)).rows; // migration_v53 baaqi
+      }
       recent = rows.map((r) => ({
         ...r,
         ipShown: isAdmin ? r.ip : maskIp(r.ip),
+        ua: uaLabel(r.user_agent),
         who: r.username || 'Guest #' + String(r.visitor || '').slice(-4),
         countryName: r.country ? countryName(r.country) : '-',
         flag: r.country ? flag(r.country) : '',
