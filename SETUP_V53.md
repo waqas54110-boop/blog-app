@@ -1,19 +1,23 @@
-# V53: 2-person funny chat TikTok video (shop products) 🎭
-
-Koi SQL migration nahi. Naya package nahi.
+# V53: Analytics mein User-Agent, Referrer, Requests per IP
 
 ## Kya naya hai
-Shop > My products > 🎬 TikTok video page par naya style: **2-person funny chat**.
-- Do log (A aur B) speech bubbles mein baat karte hain, product dikhate hain.
-- Movement script ke hisaab se: show (product bada), shock (hilna + ❗), laugh, cry (💧), price (price sticker), buy (💸), run (bhaag jana), point, dance.
-- Prompt likho (jaise "dost late aata hai, ghari dikhao, hairan ho, bhaag jaye") aur **Make script** dabao. Product ghari ho to ghari wali funny script banti hai, warna general.
-- Script khud edit kar sakte ho. Format: `A: text [action]` / `B: text [action]`. Action na likho to text se khud chuna jata hai.
-- English ya Roman Urdu script, aur dono characters ka emoji chunne ka option.
-- Funny sounds har line ke action ke saath khud bajti hain. Purana "Classic product video" style dropdown se wapas mil jata hai.
+Admin `/analytics` -> "Recent visitors" table (aur shop ke `/seller/analytics` wali table) mein ab:
+- **Requests (is IP ki)**: us IP ne is period mein kitni baar aur kitne pages / products khole.
+- **Browser / Device**: User-Agent se chhota label (jaise "Chrome - Android", "TikTok app"). Mouse upar le jao to poora User-Agent.
+- **Referrer**: visitor kis site se aaya (host). Pehle se save hota tha, ab table mein dikhta hai.
 
-## Note
-Script banana rule-based (templates + prompt ke keywords) hai, AI nahi. Isliye prompt mein ye lafz kaam karte hain: dance/nach, sasta/discount, funny/hans.
+Naya card **"Busiest IPs"** (sirf admin analytics): top 10 IP, requests, pages, aur us IP par kitni alag devices (cookies).
+
+## Setup
+1. `migration_v53.sql` Neon SQL Editor mein chalayen (sirf `user_agent` column add hota hai).
+2. Files copy karo, git push karo. Koi naya package nahi.
+3. Naye visits se User-Agent aana shuru hoga. Purane visits mein "-" dikhega.
+   Migration na chale to bhi analytics chalta rehta hai, bas Browser / Device khali rehta hai.
+
+## Dhyan rakhein
+- Pakistan ke mobile networks (Jazz, Zong, Telenor...) mein bohat saare log ek hi IP share karte hain (CGNAT). Isliye ek IP = ek insaan nahi.
+- Location "-" aane ka matlab hai server ko country/city nahi mili. Render par Cloudflare headers nahi hote, to `npm i geoip-lite` chalao (code pehle se use karta hai, bas install chahiye).
 
 ## Files
-Badli: `views/shop-tiktok.ejs`   Naya: `SETUP_V53.md`
-Istemal: file copy karo, git push, product ka TikTok video page kholo, Create video dabao.
+Naye: `migration_v53.sql`, `SETUP_V53.md`
+Badle: `lib/analytics.js`, `lib/shop.js`, `routes/engage.js`, `routes/seller.js`, `views/analytics.ejs`, `views/seller-analytics.ejs`
