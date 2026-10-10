@@ -1,0 +1,31 @@
+<%- include('partials/header') %>
+<%- include('partials/shop-style') %>
+
+<div style="max-width:640px;margin:0 auto;">
+  <div class="text-center py-3">
+    <div style="font-size:3rem;">🎉</div>
+    <h1 class="fs-3 fw-bold mb-1">Orders ho gaye!</h1>
+    <p class="text-body-secondary mb-0">Aap ke cart se <b><%= orders.length %> alag orders</b> bane (har shop ka ek).</p>
+  </div>
+
+  <% orders.forEach(o => { %>
+    <div class="sh-card">
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <div>
+          <div class="fw-bold">🏪 <%= o.shop_name %> · Order #<%= o.id %></div>
+          <% o.items.forEach(it => { %>
+            <div class="sh-stat"><%= it.product_name %><%= it.variant_label ? ' (' + it.variant_label + ')' : '' %> x <%= it.qty %></div>
+          <% }) %>
+          <% if (o.discount_rs > 0) { %><div class="sh-stat text-success">Coupon <%= o.coupon_code %>: Rs <%= rs(o.discount_rs) %> chhoot</div><% } %>
+        </div>
+        <div class="text-end"><div class="fw-bold" style="color:#12a37f;">Rs <%= rs(o.total_rs) %></div></div>
+      </div>
+      <a class="btn btn-sm btn-success rounded-pill mt-2" href="/order/<%= o.token %>">Order ki halat dekhein</a>
+    </div>
+  <% }) %>
+
+  <p class="sh-stat text-center">Har order ka alag link hai; unhein bookmark kar lein.</p>
+  <div class="text-center mb-4"><a class="btn btn-outline-secondary rounded-pill" href="/shop">Shop par wapas</a></div>
+</div>
+
+<%- include('partials/footer') %>

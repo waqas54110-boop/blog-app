@@ -42,15 +42,37 @@
     <div class="sh-stat mt-2">Ye page bookmark kar lein: yahin se order ki halat dekh sakte hain.</div>
   </div>
 
-  <div class="sh-card">
-    <div class="d-flex gap-3">
-      <% if (o.image_id) { %><img src="/img/<%= o.image_id %>" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:12px;"><% } %>
-      <div class="flex-grow-1">
-        <div class="fw-bold"><% if (o.product_slug) { %><a class="text-decoration-none text-body" href="/shop/<%= o.shop_slug %>/<%= o.product_slug %>"><%= o.product_name %></a><% } else { %><%= o.product_name %><% } %></div>
-        <div class="sh-stat">Rs <%= rs(o.unit_price_rs) %> x <%= o.qty %></div>
+  <% if (courier) { %>
+  <div class="sh-card" style="border-color:#3b82f6;">
+    <div class="sh-h">📦 Courier aur tracking</div>
+    <div><b><%= courier.name %></b><% if (courier.no) { %> · Tracking number: <b id="trkNo"><%= courier.no %></b><% } %></div>
+    <% if (courier.no && courier.link) { %>
+      <div class="d-flex gap-2 flex-wrap mt-2">
+        <a class="btn btn-primary rounded-pill" id="trkBtn" target="_blank" rel="noopener noreferrer" href="<%= courier.link.url %>" data-copy="<%= courier.link.direct ? '' : courier.no %>">🔎 Track karein</a>
+        <button type="button" class="btn btn-outline-secondary rounded-pill" id="trkCopy" data-copy="<%= courier.no %>">📋 Number copy</button>
       </div>
-    </div>
+      <% if (!courier.link.direct) { %><div class="sh-stat mt-1"><%= courier.name %> ke official page par ye number paste karein (“Track karein” dabane par number khud copy ho jata hai).</div><% } %>
+    <% } else if (courier.no) { %>
+      <div class="sh-stat mt-1">Is number se courier ki website / app par parcel track karein.</div>
+    <% } %>
+  </div>
+  <% } %>
+
+  <div class="sh-card">
+    <% o.items.forEach((it, idx) => { %>
+      <div class="d-flex gap-3 <%= idx ? 'pt-2 mt-2 border-top' : '' %>">
+        <% if (!idx && o.image_id && o.items.length === 1) { %><img src="/img/<%= o.image_id %>" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:12px;"><% } %>
+        <div class="flex-grow-1">
+          <div class="fw-bold"><% if (it.product_slug) { %><a class="text-decoration-none text-body" href="/shop/<%= o.shop_slug %>/<%= it.product_slug %>"><%= it.product_name %></a><% } else { %><%= it.product_name %><% } %></div>
+          <% if (it.variant_label) { %><div class="sh-stat">Option: <b><%= it.variant_label %></b></div><% } %>
+          <div class="sh-stat">Rs <%= rs(it.unit_price_rs) %> x <%= it.qty %></div>
+        </div>
+        <div class="fw-semibold text-nowrap">Rs <%= rs(it.unit_price_rs * it.qty) %></div>
+      </div>
+    <% }) %>
     <hr class="my-2">
+    <% if (o.items.length > 1 || o.discount_rs > 0) { %><div class="d-flex justify-content-between small"><span>Saman</span><span>Rs <%= rs(o.subtotal_rs) %></span></div><% } %>
+    <% if (o.discount_rs > 0) { %><div class="d-flex justify-content-between small text-success"><span>Coupon <%= o.coupon_code || '' %></span><span>- Rs <%= rs(o.discount_rs) %></span></div><% } %>
     <div class="d-flex justify-content-between small"><span>Delivery</span><span><%= o.delivery_rs ? 'Rs ' + rs(o.delivery_rs) : 'Free' %></span></div>
     <div class="d-flex justify-content-between fw-bold fs-5"><span>Kul</span><span style="color:#12a37f;">Rs <%= rs(o.total_rs) %></span></div>
     <div class="sh-stat"><%= PAY_LABEL[o.payment_method] || o.payment_method %></div>
@@ -68,5 +90,21 @@
     <a class="btn btn-outline-secondary rounded-pill" href="/shop/<%= o.shop_slug %>">Shop par wapas</a>
   </div>
 </div>
+
+<script>
+(function () {
+  function copy(t, done) {
+    if (!t) return;
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(done || function () {}, function () {});
+    else { var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); if (done) done(); } catch (e) {} ta.remove(); }
+  }
+  var b = document.getElementById('trkBtn');
+  if (b) b.addEventListener('click', function () { copy(b.getAttribute('data-copy')); }); /* link khulte hi number copy */
+  var c = document.getElementById('trkCopy');
+  if (c) c.addEventListener('click', function () {
+    copy(c.getAttribute('data-copy'), function () { var o = c.textContent; c.textContent = '✓ Copy ho gaya'; setTimeout(function () { c.textContent = o; }, 1400); });
+  });
+})();
+</script>
 
 <%- include('partials/footer') %>

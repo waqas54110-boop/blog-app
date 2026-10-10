@@ -192,6 +192,7 @@
       <a href="/trends" class="<%= _path.indexOf('/trends') === 0 ? 'on' : '' %>">Trend Radar</a>
       <a href="/businesses" class="<%= _path.indexOf('/businesses') === 0 ? 'on' : '' %>">Local Businesses</a>
       <a href="/shop" class="<%= (_path.indexOf('/shop') === 0 || _path.indexOf('/order') === 0) ? 'on' : '' %>">🛍️ Shop</a>
+      <% if (locals.cartCount > 0) { %><a href="/cart" class="<%= _path.indexOf('/cart') === 0 ? 'on' : '' %>">🛒 Cart (<%= cartCount %>)</a><% } %>
       <a href="/rates" class="<%= _path.indexOf('/rates') === 0 ? 'on' : '' %>">💱 Rates</a>
       <% navCategories.forEach(c => { %>
         <a href="/blog?category=<%= encodeURIComponent(c) %>" class="<%= _cat === c ? 'on' : '' %>"><%= c %></a>

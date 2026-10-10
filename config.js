@@ -72,4 +72,17 @@ module.exports = {
   shopAdminOnly: process.env.SHOP_ADMIN_ONLY === '1',
   // Ek shop mein zyada se zyada kitne products
   shopMaxProducts: Math.min(Math.max(parseInt(process.env.SHOP_MAX_PRODUCTS, 10) || 200, 1), 5000),
+  // V56: Cart. Ek cart mein zyada se zyada kitni alag cheezein (variant ke hisaab se)
+  cartMaxLines: Math.min(Math.max(parseInt(process.env.CART_MAX_LINES, 10) || 20, 1), 50),
+  // V56: Social proof (sirf ASLI ginti). Itne se kam ginti ho to line dikhayi hi nahi jati ("aaj 1 ne dekha" achha nahi lagta)
+  proofMinViews: Math.min(Math.max(isNaN(parseInt(process.env.PROOF_MIN_VIEWS, 10)) ? 3 : parseInt(process.env.PROOF_MIN_VIEWS, 10), 1), 1000),
+  proofMinOrders: Math.min(Math.max(isNaN(parseInt(process.env.PROOF_MIN_ORDERS, 10)) ? 1 : parseInt(process.env.PROOF_MIN_ORDERS, 10), 1), 1000),
+  // V56: Order ke baad customer ko WhatsApp message (Meta WhatsApp Cloud API). Token + phone id na hon to auto message band rehta hai.
+  waToken: process.env.WHATSAPP_TOKEN || '',
+  waPhoneId: process.env.WHATSAPP_PHONE_ID || '',
+  waApiVersion: /^v\d{1,2}\.\d$/.test(process.env.WHATSAPP_API_VERSION || '') ? process.env.WHATSAPP_API_VERSION : 'v25.0',
+  waLang: process.env.WHATSAPP_TEMPLATE_LANG || 'en',
+  waTplPlaced: process.env.WHATSAPP_TEMPLATE_PLACED || 'order_received',
+  waTplDispatched: process.env.WHATSAPP_TEMPLATE_DISPATCHED || 'order_dispatched',
+  orderEta: (process.env.ORDER_ETA_TEXT || '1 se 2 din').slice(0, 40),
 };

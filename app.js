@@ -44,6 +44,8 @@ const groupsRouter = require('./routes/groups');
 const posterRouter = require('./routes/poster');
 const shopRouter = require('./routes/shop');
 const sellerRouter = require('./routes/seller');
+const cartRouter = require('./routes/cart');
+const cartLib = require('./lib/cart');
 const shopLib = require('./lib/shop');
 const ratesRouter = require('./routes/rates');
 const { startRates } = require('./lib/rates');
@@ -226,6 +228,8 @@ app.post('/advertise/:id/:action', limiter(10, 40, 'Too many requests. Please wa
 app.get('/ads/:id/go', limiter(5, 60, 'Too many requests. Please try again in a few minutes.'));
 // V46: Shop. Order spam se bachao (galat form 400 count nahi hota); shop kholne par sakht limit
 app.post('/order', limiter(60, 12, 'You are placing orders too fast. Please try again in a little while.', { skipFailedRequests: true }));
+app.post('/cart/checkout', limiter(60, 12, 'You are placing orders too fast. Please try again in a little while.', { skipFailedRequests: true }));
+app.post('/track', limiter(60, 15, 'Too many lookups. Please try again in a little while.'));
 app.post('/seller/open', limiter(60, 5, 'Too many attempts. Please try again later.', { skipFailedRequests: true }));
 app.post('/seller/share/groups', limiter(60, 30, 'Too many requests. Please try again later.'));
 
@@ -332,6 +336,7 @@ app.use(async (req, res, next) => {
     : [];
 
   res.locals.unreadCount = 0;
+  res.locals.cartCount = cartLib.count(req); // V56: cart mein kitni cheezein (session se, database nahi)
   res.locals.navCategories = [];
   res.locals.currentPath = req.path;
   // Masthead ki tareekh (English), site ke timezone mein, jaise "Tuesday, 6 October 2026"
@@ -486,6 +491,7 @@ app.use('/', storiesRouter);
 app.use('/', groupsRouter);
 app.use('/', posterRouter);
 app.use('/', shopRouter);
+app.use('/', cartRouter);
 app.use('/', sellerRouter);
 app.use('/', ratesRouter);
 app.use('/', earningsRouter);

@@ -1,0 +1,18 @@
+<%- include('partials/header') %>
+<%- include('partials/shop-style') %>
+
+<div style="max-width:460px;margin:0 auto;">
+  <h1 class="fs-3 fw-bold mb-1">📦 Mera order dhoondo</h1>
+  <p class="text-body-secondary small">Order number aur wohi phone number likhein jo order dete waqt diya tha. Order number aap ko order page ya WhatsApp message mein milta hai (jaise #123).</p>
+  <form action="/track" method="POST" class="sh-card">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <% if (error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
+    <label class="form-label small mb-1" for="tId">Order number</label>
+    <input class="form-control mb-2" id="tId" name="id" inputmode="numeric" required maxlength="12" value="<%= f.id %>" placeholder="123">
+    <label class="form-label small mb-1" for="tPhone">Phone number</label>
+    <input class="form-control mb-3" id="tPhone" name="phone" type="tel" inputmode="tel" required maxlength="20" value="<%= f.phone %>" placeholder="0300 1234567">
+    <button class="btn btn-success w-100 rounded-pill fw-semibold">Order dikhao</button>
+  </form>
+</div>
+
+<%- include('partials/footer') %>

@@ -1,0 +1,92 @@
+<%- include('partials/header') %>
+<%- include('partials/shop-style') %>
+<%- include('partials/seller-nav') %>
+
+<h1 class="fs-4 fw-bold mb-1">🏷️ Coupons</h1>
+<p class="text-body-secondary small">Coupon code se customer ko chhoot dein, aur dekhein ke kitne orders kis coupon se aaye. Jaise <b>TIKTOK10</b> sirf TikTok se aane walon ke liye 10% chhoot: isse pata chalta hai ke TikTok se kitne orders aaye.</p>
+
+<form action="/seller/coupons" method="POST" class="sh-card">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <div class="sh-h">➕ Naya coupon</div>
+  <% if (error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
+  <div class="row g-2">
+    <div class="col-12 col-sm-4">
+      <label class="form-label small mb-1" for="cCode">Code</label>
+      <input class="form-control" id="cCode" name="code" required maxlength="30" value="<%= f.code %>" placeholder="TIKTOK10" style="text-transform:uppercase;" autocomplete="off">
+    </div>
+    <div class="col-6 col-sm-4">
+      <label class="form-label small mb-1" for="cKind">Kism</label>
+      <select class="form-select" id="cKind" name="kind">
+        <option value="percent" <%= f.kind === 'percent' ? 'selected' : '' %>>Percent (%)</option>
+        <option value="flat" <%= f.kind === 'flat' ? 'selected' : '' %>>Seedhi raqam (Rs)</option>
+      </select>
+    </div>
+    <div class="col-6 col-sm-4">
+      <label class="form-label small mb-1" for="cVal">Chhoot</label>
+      <input class="form-control" id="cVal" name="value" inputmode="numeric" required maxlength="7" value="<%= f.value %>" placeholder="10">
+    </div>
+    <div class="col-6 col-sm-4">
+      <label class="form-label small mb-1" for="cMin">Kam az kam order (Rs) <span class="text-body-secondary">(optional)</span></label>
+      <input class="form-control" id="cMin" name="min_order_rs" inputmode="numeric" maxlength="7" value="<%= f.min %>" placeholder="1000">
+    </div>
+    <div class="col-6 col-sm-4">
+      <label class="form-label small mb-1" for="cMax">Kitni dafa chale <span class="text-body-secondary">(optional)</span></label>
+      <input class="form-control" id="cMax" name="max_uses" inputmode="numeric" maxlength="6" value="<%= f.max %>" placeholder="100">
+    </div>
+    <div class="col-12 col-sm-4">
+      <label class="form-label small mb-1" for="cExp">Aakhri tareekh <span class="text-body-secondary">(optional)</span></label>
+      <input class="form-control" id="cExp" name="expires" type="date" value="<%= f.expires %>">
+    </div>
+    <div class="col-12">
+      <label class="form-label small mb-1" for="cSrc">Kahan se aane walon ke liye</label>
+      <select class="form-select" id="cSrc" name="only_source">
+        <option value="">Sab ke liye</option>
+        <% SOURCES.forEach(x => { %><option value="<%= x %>" <%= f.source === x ? 'selected' : '' %>>Sirf <%= x %> se aane walon ke liye</option><% }) %>
+      </select>
+      <div class="form-text">Source tab pehchana jata hai jab customer aap ke share kiye link (UTM / TikTok bio link) se product page par aaye. Seedha ya kisi aur link se aane wale ko ye coupon nahi lagta.</div>
+    </div>
+  </div>
+  <button class="btn btn-success rounded-pill mt-3 px-4">Coupon banao</button>
+</form>
+
+<% if (!coupons.length) { %>
+  <div class="sh-card text-center text-body-secondary">Abhi koi coupon nahi.</div>
+<% } %>
+
+<% coupons.forEach(c => {
+     const expired = c.expires_at && new Date(c.expires_at) <= new Date();
+     const full = c.max_uses != null && c.used_count >= c.max_uses;
+     const live = c.is_active && !expired && !full;
+%>
+  <div class="sh-card" style="border-left:5px solid <%= live ? '#12a37f' : '#9ca3af' %>;">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+      <div>
+        <div class="fw-bold fs-5"><%= c.code %> <span class="sh-pill" style="background:<%= live ? '#12a37f' : '#6b7280' %>;"><%= !c.is_active ? 'Band' : expired ? 'Expire' : full ? 'Limit poori' : 'Chalu' %></span></div>
+        <div class="small"><%= couponText(c) %>
+          <% if (c.min_order_rs > 0) { %> · Rs <%= rs(c.min_order_rs) %> se upar<% } %>
+          <% if (c.only_source) { %> · sirf <b><%= c.only_source %></b> se<% } %>
+        </div>
+        <div class="sh-stat">
+          <%= c.used_count %><%= c.max_uses != null ? ' / ' + c.max_uses : '' %> dafa istemal
+          <% if (c.expires_at) { %> · <%= new Date(c.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: TZ }) %> tak<% } %>
+        </div>
+      </div>
+      <div class="text-end">
+        <div class="fw-bold"><%= c.orders %> order</div>
+        <div class="sh-stat">Sale Rs <%= rs(c.sales) %><br>Chhoot di Rs <%= rs(c.off) %></div>
+      </div>
+    </div>
+    <div class="d-flex gap-2 mt-2 flex-wrap">
+      <form action="/seller/coupons/<%= c.id %>/toggle" method="POST" class="d-inline">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-secondary rounded-pill"><%= c.is_active ? 'Band karo' : 'Dobara chalu karo' %></button>
+      </form>
+      <form action="/seller/coupons/<%= c.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Coupon <%= c.code %> hata dein? Purane orders par coupon ka naam likha rahega.')">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-link text-danger">Hatao</button>
+      </form>
+    </div>
+  </div>
+<% }) %>
+
+<div class="sh-stat">Link mein coupon pehle se lagana: product ya cart link ke aakhir mein <b>?coupon=<%= coupons[0] ? coupons[0].code : 'TIKTOK10' %></b> lagayein (TikTok bio link: <b>/tp/PRODUCT_ID?coupon=CODE</b>).</div>
+
+<%- include('partials/footer') %>

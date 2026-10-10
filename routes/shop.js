@@ -5,9 +5,9 @@ const pool = require('../db');
 const config = require('../config');
 const S = require('../lib/shop');
 const { visitorId } = require('../lib/demographics');
-const { notifyUser } = require('../lib/notify');
 const shopwall = require('../lib/shopwall');
 const { isBot } = require('../lib/analytics');
+const couriers = require('../lib/couriers');
 
 const router = express.Router();
 const PER_PAGE = 24;
@@ -89,9 +89,12 @@ async function renderProduct(req, res, shop, product, { error = null, form = nul
     `SELECT ${S.CARD_COLS} FROM products p JOIN shops s ON s.id = p.shop_id
      WHERE p.shop_id = $1 AND p.id <> $2 AND p.is_active = true ORDER BY (p.stock > 0) DESC, p.created_at DESC LIMIT 4`, [shop.id, product.id])).rows;
 
+  const variants = await S.variantsOf(product.id);
+  const proof = await S.socialProof(product.id);
+
   let f = form;
   if (!f) {
-    f = { qty: 1, name: '', phone: '', city: shop.city || '', address: '', note: '', method: shop.cod_enabled ? 'cod' : 'whatsapp' };
+    f = { qty: 1, name: '', phone: '', city: shop.city || '', address: '', note: '', method: shop.cod_enabled ? 'cod' : 'whatsapp', variant: '', coupon: req.session.cartCoupon || '' };
     if (me) { // pichle order se bhar do
       try {
         const last = (await pool.query('SELECT customer_name, phone, city, address FROM orders WHERE user_id = $1 ORDER BY id DESC LIMIT 1', [me.id])).rows[0];
@@ -117,7 +120,8 @@ async function renderProduct(req, res, shop, product, { error = null, form = nul
     ogImageCard: false, ogUrl: url, ogType: 'website',
     jsonLd: product.is_active && shop.status === 'active' ? ld : [],
     robots: product.is_active && shop.status === 'active' ? null : 'noindex,nofollow',
-    shop, product, images, related, mine, f, error, soldOut,
+    shop, product, images, related, mine, f, error, soldOut, variants, proof,
+    variantRows: variants.map((v) => ({ id: v.id, label: S.variantLabel(v), price: v.price_rs != null ? v.price_rs : product.price_rs, stock: v.stock })),
     delivery: S.deliveryFor(shop, product.price_rs), rs: S.rs, MAX_QTY: S.MAX_QTY, shareUrl: url,
     lastStock: !soldOut && product.stock <= 5,
   });
@@ -141,7 +145,8 @@ router.get('/shop/:shop/:product', async (req, res) => {
       res.locals.wallDesc = shopwall.teaser(product.description, config.shopWallChars);
     }
     res.locals.shopWall = wall;
-    await renderProduct(req, res, shop, product);
+    if (req.query.coupon) req.session.cartCoupon = S.cleanCode(req.query.coupon); // ?coupon=TIKTOK10 wale link
+    await renderProduct(req, res, shop, product, { error: req.query.cart_error ? String(req.query.cart_error).slice(0, 200) : null });
   } catch (err) { noShop(res, err); }
 });
 
@@ -155,7 +160,8 @@ router.get('/tp/:id', async (req, res, next) => {
       `SELECT p.slug, s.slug AS shop_slug FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = $1 AND p.is_active = true AND s.status = 'active'`, [id])).rows[0];
     if (!r) return notFound(res, 'Ye product abhi available nahi.');
     const camp = S.oneLine(req.query.c, 40).toLowerCase().replace(/[^a-z0-9_\-]/g, '');
-    res.redirect(302, `/shop/${r.shop_slug}/${r.slug}?utm_source=tiktok&utm_medium=bio` + (camp ? '&utm_campaign=' + camp : ''));
+    const cpn = S.cleanCode(req.query.coupon); // /tp/12?coupon=TIKTOK10
+    res.redirect(302, `/shop/${r.shop_slug}/${r.slug}?utm_source=tiktok&utm_medium=bio` + (camp ? '&utm_campaign=' + camp : '') + (cpn ? '&coupon=' + cpn : ''));
   } catch (err) { noShop(res, err); }
 });
 
@@ -199,7 +205,7 @@ router.get('/shop/:shop/:product/tiktok', async (req, res) => {
   } catch (err) { noShop(res, err); }
 });
 
-// ---------- POST /order ----------
+// ---------- POST /order (seedha order: ek product, ek variant) ----------
 router.post('/order', async (req, res) => {
   try {
     const b = req.body || {};
@@ -212,47 +218,67 @@ router.post('/order', async (req, res) => {
 
     const me = req.session.user;
     const qty = Math.max(1, Math.min(S.MAX_QTY, parseInt(b.qty, 10) || 1));
-    const f = {
-      qty,
-      name: S.oneLine(b.name, 80),
-      phone: S.oneLine(b.phone, 20),
-      city: S.oneLine(b.city, 60),
-      address: S.multiLine(b.address, 300).replace(/\n/g, ', '),
-      note: S.oneLine(b.note, 300),
-      method: b.method === 'whatsapp' ? 'whatsapp' : 'cod',
-    };
+    const f = { ...S.readOrderForm(b), qty, variant: String(S.toId(b.variant_id) || '') };
     const fail = (m, code = 400) => renderProduct(req, res, shop, product, { error: m, form: f, code });
 
     if (b.website) return res.redirect(`/shop/${shop.slug}/${product.slug}`); // honeypot (bots)
-    if (f.method === 'cod' && !shop.cod_enabled) return fail('Is shop mein Cash on Delivery band hai.');
-    if (f.method === 'whatsapp' && !(shop.wa_enabled && shop.whatsapp)) return fail('Is shop mein WhatsApp order band hai.');
-    if (f.name.length < 3) return fail('Apna poora naam likhein (kam az kam 3 huroof).');
-    const phone = S.cleanPhone(f.phone);
-    if (!phone) return fail('Sahi phone number likhein, jaise 0300 1234567.');
-    if (f.city.length < 2) return fail('Shehar ka naam likhein.');
-    if (f.address.length < 10) return fail('Poora pata likhein (ghar / gali / mohalla), taake rider tak pahunch sake.');
-    if (product.stock <= 0) return fail('Ye product Sold out ho chuka hai.', 409);
-    if (qty > product.stock) return fail(`Sirf ${product.stock} bache hain. Kam quantity likhein.`, 409);
+
+    const variants = await S.variantsOf(product.id);
+    let variant = null;
+    if (variants.length) {
+      variant = variants.find((v) => String(v.id) === f.variant) || null;
+      if (!variant) return fail('Pehle rang / size chunein.');
+    }
+    const bad = S.checkOrderForm(f, [shop]);
+    if (bad) return fail(bad);
+    const avail = variant ? variant.stock : product.stock;
+    if (avail <= 0) return fail(variant ? 'Ye option Sold out ho chuka hai.' : 'Ye product Sold out ho chuka hai.', 409);
+    if (qty > avail) return fail(`Sirf ${avail} bache hain. Kam quantity likhein.`, 409);
+
+    const attr = S.attrFor(req, product.id);
+    let coupon = null;
+    if (f.coupon) {
+      const unit = variant && variant.price_rs != null ? variant.price_rs : product.price_rs;
+      const row = await S.findCoupon(shop.id, f.coupon);
+      const problem = row ? S.couponProblem(row, unit * qty, new Set([attr.source])) : 'Ye coupon sahi nahi ya is shop ka nahi.';
+      if (problem) return fail(problem);
+      coupon = row;
+    }
 
     // Double click: wohi phone, wohi product, 2 minute ke andar -> pehla order dikha do
     const dup = (await pool.query(
       `SELECT token FROM orders WHERE product_id = $1 AND phone = $2 AND created_at > now() - interval '2 minutes' ORDER BY id DESC LIMIT 1`,
-      [product.id, phone])).rows[0];
+      [product.id, f.phoneClean])).rows[0];
     if (dup) return res.redirect('/order/' + dup.token);
 
-    const attr = S.attrFor(req, product.id);
-    const result = await S.placeOrder({
-      shop, product, qty, f: { ...f, phone }, method: f.method, attr,
-      visitor: visitorId(req, res), userId: me ? me.id : null,
+    const result = await S.placeOrders({
+      groups: [{ shop, coupon, lines: [{ product, variant, qty }] }],
+      f: { ...f, phone: f.phoneClean }, method: f.method,
+      visitor: visitorId(req, res), userId: me ? me.id : null, attrOf: () => attr,
     });
-    if (result.error === 'soldout') return fail('Maaf kijiye, abhi abhi ye product Sold out ho gaya.', 409);
+    if (result.error === 'soldout') return fail('Maaf kijiye, abhi abhi ye Sold out ho gaya.', 409);
+    if (result.error === 'coupon') return fail('Ye coupon ab lag nahi sakta (limit poori ya expire). Hata kar dobara try karein.', 409);
 
-    // Seller ko khabar (in-app + email agar SMTP set ho)
-    notifyUser(shop.owner_id,
-      `🛒 Naya order #${result.id}: ${product.name} x ${qty} (${f.city}) - ${f.method === 'cod' ? 'Cash on Delivery' : 'WhatsApp'}`,
-      '/seller/orders', { email: true, emailSubject: `Naya order #${result.id} - ${shop.name}` }).catch(() => {});
+    S.afterOrdersPlaced(result.orders, f); // seller ko khabar + customer ko WhatsApp message
+    res.redirect('/order/' + result.orders[0].token + '?new=1');
+  } catch (err) { noShop(res, err); }
+});
 
-    res.redirect('/order/' + result.token + '?new=1');
+// ---------- Mera order dhoondo (order number + phone se) ----------
+router.get('/track', (req, res) => {
+  res.render('shop-track', { title: 'Mera order dhoondo', robots: 'noindex,nofollow', error: null, f: { id: '', phone: '' } });
+});
+router.post('/track', async (req, res) => {
+  try {
+    const b = req.body || {};
+    const f = { id: S.oneLine(b.id, 12).replace('#', ''), phone: S.oneLine(b.phone, 20) };
+    const id = S.toId(f.id);
+    const phone = S.cleanPhone(f.phone);
+    const bad = (m) => res.status(400).render('shop-track', { title: 'Mera order dhoondo', robots: 'noindex,nofollow', error: m, f });
+    if (!id || !phone) return bad('Order number (jaise 123) aur wohi phone number likhein jo order mein diya tha.');
+    const o = (await pool.query('SELECT token FROM orders WHERE id = $1 AND phone = $2', [id, phone])).rows[0];
+    if (!o) return bad('Is order number aur phone se koi order nahi mila. Dobara check karein.');
+    res.redirect('/order/' + o.token);
   } catch (err) { noShop(res, err); }
 });
 
@@ -265,10 +291,14 @@ router.get('/order/:token', async (req, res) => {
               p.slug AS product_slug, (SELECT pi.image_id FROM product_images pi WHERE pi.product_id = o.product_id ORDER BY pi.position LIMIT 1) AS image_id
        FROM orders o JOIN shops s ON s.id = o.shop_id LEFT JOIN products p ON p.id = o.product_id WHERE o.token = $1`, [req.params.token])).rows[0];
     if (!o) return notFound(res, 'Order nahi mila.');
+    await S.attachItems([o]);
     const wa = S.waOrderLink({ whatsapp: o.shop_whatsapp }, o, S.baseUrlOf(req));
+    const courier = o.courier
+      ? { name: couriers.nameOf(o.courier) || o.courier, no: o.tracking_no, link: o.tracking_no ? couriers.trackLink(o.courier, o.tracking_no) : null }
+      : null;
     res.render('shop-order', {
       title: `Order #${o.id} - ${o.shop_name}`, robots: 'noindex,nofollow',
-      o, wa, rs: S.rs, showPhone: S.showPhone,
+      o, wa, courier, rs: S.rs, showPhone: S.showPhone,
       STATUS_LABEL: S.STATUS_LABEL, STATUSES: S.STATUSES, PAY_LABEL: S.PAY_LABEL,
       fresh: req.query.new === '1',
     });

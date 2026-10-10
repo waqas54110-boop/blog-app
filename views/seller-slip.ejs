@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ur">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title><%= title %></title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 16px; color: #111; background: #f3f4f6; }
+  .slip { max-width: 420px; margin: 0 auto; background: #fff; border: 2px dashed #333; padding: 14px; }
+  h1 { font-size: 18px; margin: 0 0 2px; }
+  .muted { color: #555; font-size: 12px; }
+  .box { border: 1px solid #333; padding: 8px; margin-top: 10px; }
+  .box b.big { font-size: 17px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+  td { padding: 3px 0; vertical-align: top; }
+  td.r { text-align: right; white-space: nowrap; }
+  .cod { font-size: 20px; font-weight: 700; text-align: center; border: 3px solid #000; padding: 8px; margin-top: 10px; }
+  .noprint { max-width: 420px; margin: 0 auto 12px; display: flex; gap: 8px; }
+  .noprint button, .noprint a { padding: 8px 14px; border: 0; border-radius: 99px; background: #12a37f; color: #fff; font-weight: 700; text-decoration: none; cursor: pointer; font-size: 14px; }
+  .noprint a { background: #6b7280; }
+  @media print { body { background: #fff; padding: 0; } .noprint { display: none; } .slip { border: 1px solid #000; } }
+</style>
+</head>
+<body>
+<div class="noprint"><button onclick="window.print()">🖨️ Print</button><a href="/seller/orders">← Wapas</a></div>
+<div class="slip">
+  <h1><%= shop.name %></h1>
+  <div class="muted">Order #<%= o.id %> · <%= new Date(o.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %><%= shop.whatsapp ? ' · WhatsApp ' + shop.whatsapp : '' %></div>
+
+  <div class="box">
+    <div class="muted">BHEJNA HAI (To)</div>
+    <b class="big"><%= o.customer_name %></b><br>
+    <b><%= showPhone(o.phone) %></b><br>
+    <%= o.address %><br>
+    <b><%= o.city %></b>
+  </div>
+
+  <% if (courierName || o.tracking_no) { %>
+    <div class="box"><span class="muted">Courier:</span> <b><%= courierName || '-' %></b> · <span class="muted">Tracking:</span> <b><%= o.tracking_no || '-' %></b></div>
+  <% } %>
+
+  <div class="box">
+    <div class="muted">SAMAN</div>
+    <table>
+      <% o.items.forEach(it => { %>
+        <tr><td><%= it.product_name %><%= it.variant_label ? ' (' + it.variant_label + ')' : '' %> x <%= it.qty %></td><td class="r">Rs <%= rs(it.unit_price_rs * it.qty) %></td></tr>
+      <% }) %>
+      <% if (o.discount_rs > 0) { %><tr><td>Coupon <%= o.coupon_code || '' %></td><td class="r">- Rs <%= rs(o.discount_rs) %></td></tr><% } %>
+      <tr><td>Delivery</td><td class="r"><%= o.delivery_rs ? 'Rs ' + rs(o.delivery_rs) : 'Free' %></td></tr>
+      <tr><td><b>Kul</b></td><td class="r"><b>Rs <%= rs(o.total_rs) %></b></td></tr>
+    </table>
+  </div>
+
+  <% if (cod) { %>
+    <div class="cod">COD: Rs <%= rs(o.total_rs) %> wasool karein</div>
+  <% } else { %>
+    <div class="cod" style="font-size:15px;"><%= PAY_LABEL[o.payment_method] || o.payment_method %> (payment seller se tay)</div>
+  <% } %>
+  <% if (o.note) { %><div class="muted" style="margin-top:8px;">Note: <%= o.note %></div><% } %>
+</div>
+</body>
+</html>

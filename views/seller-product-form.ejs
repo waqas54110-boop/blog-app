@@ -22,7 +22,45 @@
     <div class="row g-2 mb-3">
       <div class="col-6 col-sm-4"><label class="form-label" for="pPrice">Price (Rs)</label><input class="form-control" id="pPrice" name="price_rs" inputmode="numeric" required maxlength="10" value="<%= f.price %>" placeholder="1500"></div>
       <div class="col-6 col-sm-4"><label class="form-label" for="pCmp">Compare Price <span class="text-body-secondary">(optional)</span></label><input class="form-control" id="pCmp" name="compare_price_rs" inputmode="numeric" maxlength="10" value="<%= f.compare %>" placeholder="2000"></div>
-      <div class="col-12 col-sm-4"><label class="form-label" for="pStock">Stock</label><input class="form-control" id="pStock" name="stock" inputmode="numeric" required maxlength="7" value="<%= f.stock %>" placeholder="10"><div class="form-text">0 likhein = Sold out</div></div>
+      <div class="col-12 col-sm-4"><label class="form-label" for="pStock">Stock</label><input class="form-control" id="pStock" name="stock" inputmode="numeric" maxlength="7" value="<%= f.stock %>" placeholder="10"><div class="form-text">0 likhein = Sold out</div></div>
+    </div>
+
+    <!-- Variants (V56): rang / size / qisam. Har ka apna stock; qeemat khali ho to upar wali price lagti hai -->
+    <div class="mb-3 p-2 border rounded-3">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+          <div class="form-label mb-0">🎨 Variants <span class="text-body-secondary">(optional: rang, size, qisam)</span></div>
+          <div class="form-text mt-0">Jaise Rang: Black, Size: 40ml. Variants hon to customer ko pehle option chunna hota hai, aur stock har variant ka alag ginta hai (upar wala Stock un ka jama ban jata hai).</div>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-success rounded-pill" id="vAdd">➕ Variant</button>
+      </div>
+      <div class="table-responsive mt-2" id="vWrap" <%= (f.variants && f.variants.length) ? '' : 'hidden' %>>
+        <table class="table table-sm align-middle mb-0" style="min-width:560px;">
+          <thead><tr class="small text-body-secondary"><th>Rang</th><th>Size</th><th>Qisam</th><th>Price (Rs)</th><th>Stock</th><th></th></tr></thead>
+          <tbody id="vBody">
+            <% (f.variants || []).forEach(v => { %>
+              <tr>
+                <td><input type="hidden" name="v_id" value="<%= v.id || '' %>"><input class="form-control form-control-sm" name="v_color" maxlength="30" value="<%= v.color %>" placeholder="Black"></td>
+                <td><input class="form-control form-control-sm" name="v_size" maxlength="30" value="<%= v.size %>" placeholder="40ml"></td>
+                <td><input class="form-control form-control-sm" name="v_kind" maxlength="30" value="<%= v.kind %>" placeholder="Oily skin"></td>
+                <td><input class="form-control form-control-sm" name="v_price" inputmode="numeric" maxlength="10" value="<%= v.price %>" placeholder="same" style="width:90px;"></td>
+                <td><input class="form-control form-control-sm" name="v_stock" inputmode="numeric" maxlength="7" value="<%= v.stock %>" style="width:80px;"></td>
+                <td><button type="button" class="btn btn-sm btn-link text-danger v-del" title="Hatao">✕</button></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <template id="vRow">
+        <tr>
+          <td><input type="hidden" name="v_id" value=""><input class="form-control form-control-sm" name="v_color" maxlength="30" placeholder="Black"></td>
+          <td><input class="form-control form-control-sm" name="v_size" maxlength="30" placeholder="40ml"></td>
+          <td><input class="form-control form-control-sm" name="v_kind" maxlength="30" placeholder="Oily skin"></td>
+          <td><input class="form-control form-control-sm" name="v_price" inputmode="numeric" maxlength="10" placeholder="same" style="width:90px;"></td>
+          <td><input class="form-control form-control-sm" name="v_stock" inputmode="numeric" maxlength="7" value="5" style="width:80px;"></td>
+          <td><button type="button" class="btn btn-sm btn-link text-danger v-del" title="Hatao">✕</button></td>
+        </tr>
+      </template>
     </div>
 
     <div class="mb-3">
@@ -47,5 +85,33 @@
     <a href="/seller/products" class="btn btn-outline-secondary rounded-pill ms-1">Cancel</a>
   </form>
 </div>
+
+<script>
+(function () {
+  var MAXV = 30;
+  var body = document.getElementById('vBody'), wrap = document.getElementById('vWrap'), tpl = document.getElementById('vRow');
+  var add = document.getElementById('vAdd'), stock = document.getElementById('pStock');
+  function sync() {
+    var rows = body.querySelectorAll('tr');
+    wrap.hidden = rows.length === 0;
+    add.disabled = rows.length >= MAXV;
+    if (rows.length) { // variants hon to upar ka stock un ka jama hai (sirf dikhane ke liye)
+      var t = 0;
+      rows.forEach(function (r) { t += parseInt(r.querySelector('[name=v_stock]').value, 10) || 0; });
+      stock.value = t; stock.readOnly = true; stock.style.opacity = '.6';
+    } else { stock.readOnly = false; stock.style.opacity = ''; }
+  }
+  add.addEventListener('click', function () {
+    body.appendChild(tpl.content.firstElementChild.cloneNode(true));
+    sync();
+    var last = body.lastElementChild.querySelector('[name=v_color]'); if (last) last.focus();
+  });
+  body.addEventListener('click', function (e) {
+    if (e.target.classList.contains('v-del')) { e.target.closest('tr').remove(); sync(); }
+  });
+  body.addEventListener('input', sync);
+  sync();
+})();
+</script>
 
 <%- include('partials/footer') %>

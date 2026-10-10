@@ -18,4 +18,8 @@
   .sh-stat { font-size: .78rem; color: var(--bs-secondary-color); }
   .sh-pill { display: inline-block; padding: .12rem .6rem; border-radius: 99px; font-size: .75rem; font-weight: 700; color: #fff; }
   .sh-logo { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--bs-tertiary-bg); display: inline-flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; }
+  .sh-chip { display: inline-block; padding: .2rem .65rem; border-radius: 99px; font-size: .78rem; background: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color); }
+  .sh-cart-fab { position: fixed; right: 1rem; bottom: 1rem; z-index: 1030; background: #12a37f; color: #fff; text-decoration: none; font-weight: 700; padding: .6rem 1rem; border-radius: 99px; box-shadow: 0 6px 18px rgba(16,24,40,.25); }
+  .sh-cart-fab:hover { color: #fff; filter: brightness(1.05); }
 </style>
+<% if (locals.cartCount > 0 && !locals.seller && !locals.noCartFab) { %><a class="sh-cart-fab" href="/cart" aria-label="Cart kholein">🛒 Cart (<%= cartCount %>)</a><% } %>

@@ -10,6 +10,7 @@
     <a href="/seller/orders?status=<%= s %>" class="btn btn-sm rounded-pill <%= status === s ? 'btn-dark' : 'btn-outline-secondary' %>"><%= STATUS_LABEL[s] %> (<%= counts[s] || 0 %>)</a>
   <% }) %>
 </div>
+<div class="mb-2"><a class="btn btn-sm btn-outline-success rounded-pill" href="/seller/orders.csv<%= status ? '?status=' + status : '' %>">⬇️ Excel / CSV download<%= status ? ' (' + STATUS_LABEL[status] + ')' : '' %></a></div>
 <form method="GET" action="/seller/orders" class="d-flex gap-2 mb-3" style="max-width:420px;">
   <% if (status) { %><input type="hidden" name="status" value="<%= status %>"><% } %>
   <input class="form-control form-control-sm rounded-pill" type="search" name="q" value="<%= q %>" placeholder="Name / Phone / City / Order #">
@@ -22,16 +23,27 @@
 
 <% orders.forEach(o => {
   const waCust = 'https://wa.me/' + o.phone + '?text=' + encodeURIComponent('Assalam o Alaikum ' + o.customer_name + '! Aap ka order #' + o.id + ' (' + o.product_name + ') ' + (o.status === 'shipped' ? 'bhej diya gaya hai.' : 'mil gaya hai. Confirm karne ke liye likh rahe hain.'));
+  const wm = (waStatus && waStatus[o.id]) || {};
+  const WA_LABEL = { sent: '✓ gaya', failed: '✗ nahi gaya', skipped: '— band', pending: '… bhej raha' };
+  const WA_KIND = { placed: 'Order mil gaya', dispatched: 'Bhej diya', tracking: 'Tracking' };
 %>
   <div class="sh-card" style="border-left:5px solid <%= STATUS_COLOR[o.status] %>;">
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
       <div>
-        <div class="fw-bold">#<%= o.id %> · <%= o.product_name %> x <%= o.qty %></div>
+        <div class="fw-bold">#<%= o.id %><% if (o.items.length === 1) { %> · <%= o.items[0].product_name %><%= o.items[0].variant_label ? ' (' + o.items[0].variant_label + ')' : '' %> x <%= o.items[0].qty %><% } else { %> · <%= o.items.length %> cheezein<% } %></div>
+        <% if (o.items.length > 1) { %>
+          <ul class="small mb-0 ps-3">
+            <% o.items.forEach(it => { %><li><%= it.product_name %><%= it.variant_label ? ' (' + it.variant_label + ')' : '' %> x <%= it.qty %></li><% }) %>
+          </ul>
+        <% } else if (o.items[0].variant_label) { %>
+          <div class="sh-stat">Option: <b><%= o.items[0].variant_label %></b></div>
+        <% } %>
         <div class="sh-stat"><%= new Date(o.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Karachi' }) %> · <%= PAY_LABEL[o.payment_method] || o.payment_method %></div>
       </div>
       <div class="text-end">
         <div class="fw-bold fs-5" style="color:#12a37f;">Rs <%= rs(o.total_rs) %></div>
         <div class="sh-stat"><%= o.delivery_rs ? 'delivery Rs ' + rs(o.delivery_rs) + ' shamil' : 'delivery free' %></div>
+        <% if (o.discount_rs > 0) { %><div class="sh-stat text-success">🏷️ <%= o.coupon_code %>: - Rs <%= rs(o.discount_rs) %></div><% } %>
       </div>
     </div>
 
@@ -49,7 +61,44 @@
     <div class="d-flex gap-2 flex-wrap mt-2">
       <a class="btn btn-sm btn-outline-primary rounded-pill" href="tel:+<%= o.phone %>">📞 Call</a>
       <a class="btn btn-sm btn-outline-success rounded-pill" target="_blank" rel="noopener noreferrer" href="<%= waCust %>">💬 WhatsApp</a>
+      <a class="btn btn-sm btn-outline-secondary rounded-pill" target="_blank" href="/seller/orders/<%= o.id %>/slip">🖨️ Slip</a>
     </div>
+
+    <%# Customer ko khud-bakhud WhatsApp message: kaunsa gaya / nahi gaya, aur haath se bhejne ka tayyar link %>
+    <div class="sh-stat mt-2">
+      <% if (!waAuto) { %>
+        Auto WhatsApp message band hai (setup nahi).
+      <% } else if (!Object.keys(wm).length) { %>
+        Customer ko auto message: abhi koi nahi gaya.
+      <% } else { %>
+        Customer ko auto message:
+        <% Object.keys(wm).forEach(k => { %>
+          <span class="sh-chip" title="<%= wm[k].error || '' %>"><%= WA_KIND[k] || k %> <%= WA_LABEL[wm[k].status] || wm[k].status %></span>
+        <% }) %>
+      <% } %>
+      <% const _failed = Object.keys(wm).some(k => wm[k].status === 'failed' || wm[k].status === 'skipped'); %>
+      <% if (o.waManual && (!waAuto || _failed)) { %><a class="ms-1" target="_blank" rel="noopener noreferrer" href="<%= o.waManual %>">💬 Tayyar message haath se bhejo</a><% } %>
+    </div>
+
+    <% if (o.courier && o.tracking_no) { %>
+      <div class="small mt-2">📦 <b><%= couriers.nameOf(o.courier) || o.courier %></b> · <b><%= o.tracking_no %></b></div>
+    <% } %>
+    <% if (o.status !== 'returned' && o.status !== 'delivered') { %>
+      <details class="mt-2">
+        <summary class="small fw-semibold" style="cursor:pointer;">📦 <%= o.tracking_no ? 'Tracking badlein' : 'Courier aur tracking number likhein' %></summary>
+        <form action="/seller/orders/<%= o.id %>/ship" method="POST" class="d-flex gap-2 flex-wrap mt-2 align-items-center">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="hidden" name="back" value="<%= status %>">
+          <select name="courier" class="form-select form-select-sm" style="width:auto;" required>
+            <option value="">Courier</option>
+            <% COURIERS.forEach(c => { %><option value="<%= c.key %>" <%= o.courier === c.key ? 'selected' : '' %>><%= c.name %></option><% }) %>
+          </select>
+          <input name="tracking_no" class="form-control form-control-sm" style="width:190px;" maxlength="30" placeholder="Tracking number" value="<%= o.tracking_no || '' %>" required>
+          <button class="btn btn-sm btn-primary rounded-pill">Save<%= o.status === 'new' ? ' + Bhej diya' : '' %></button>
+        </form>
+        <div class="sh-stat mt-1">Customer ke order page par "Track karein" aa jaye ga<%= waAuto ? ' aur use WhatsApp message jaye ga' : '' %>.</div>
+      </details>
+    <% } %>
 
     <form action="/seller/orders/<%= o.id %>/status" method="POST" class="d-flex gap-1 flex-wrap mt-2 align-items-center">
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">

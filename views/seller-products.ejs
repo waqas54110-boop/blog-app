@@ -23,12 +23,12 @@
           <% if (sold) { %><span class="badge text-bg-danger">Sold out</span><% } else if (p.stock <= 5) { %><span class="badge text-bg-warning">Low stock</span><% } %>
           <% if (!p.is_active) { %><span class="badge text-bg-secondary">Hidden</span><% } %>
         </div>
-        <div class="sh-stat mb-2"><%= p.sold %> sold out</div>
+        <div class="sh-stat mb-2"><%= p.sold %> sold out<% if (p.variant_count > 0) { %> · 🎨 <%= p.variant_count %> variants<% } %></div>
 
         <form action="/seller/products/<%= p.id %>/quick" method="POST" class="d-flex gap-2 align-items-end flex-wrap">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <div><label class="sh-stat d-block">Price (Rs)</label><input class="form-control form-control-sm" name="price_rs" inputmode="numeric" value="<%= p.price_rs %>" style="width:110px;"></div>
-          <div><label class="sh-stat d-block">Stock</label><input class="form-control form-control-sm" name="stock" inputmode="numeric" value="<%= p.stock %>" style="width:90px;"></div>
+          <div><label class="sh-stat d-block">Stock</label><input class="form-control form-control-sm" name="stock" inputmode="numeric" value="<%= p.stock %>" style="width:90px;" <%= p.variant_count > 0 ? 'readonly title="Variants ka stock Edit page par badlein"' : '' %>></div>
           <button class="btn btn-sm btn-primary rounded-pill">Update</button>
         </form>
 

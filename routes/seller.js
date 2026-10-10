@@ -12,10 +12,14 @@ const Images = require('../lib/images');
 const { slugify } = require('../lib/slug');
 const { cleanLink } = require('../lib/ads');
 const { notifyUser } = require('../lib/notify');
+const WA = require('../lib/whatsapp');
+const couriers = require('../lib/couriers');
 
 const router = express.Router();
 const TZ = config.timezone;
 const MAX_GROUPS = 300;
+const MAX_VARIANTS = 30;
+const MAX_COUPONS = 100;
 
 const flashOf = (req) => ({
   msg: req.query.msg ? String(req.query.msg).slice(0, 200) : null,
@@ -170,11 +174,24 @@ router.get('/seller', requireLogin, async (req, res) => {
 // ============================================================
 // PRODUCTS
 // ============================================================
-const blankProduct = () => ({ name: '', category: '', description: '', price: '', compare: '', stock: '10', active: true, images: [] });
-const productFormOf = (p, images) => ({
+const blankProduct = () => ({ name: '', category: '', description: '', price: '', compare: '', stock: '10', active: true, images: [], variants: [] });
+const productFormOf = (p, images, variants = []) => ({
   name: p.name, category: p.category || '', description: p.description || '', price: String(p.price_rs),
   compare: p.compare_price_rs ? String(p.compare_price_rs) : '', stock: String(p.stock), active: p.is_active, images,
+  variants: variants.map((v) => ({ id: v.id, color: v.color || '', size: v.size || '', kind: v.kind || '', price: v.price_rs != null ? String(v.price_rs) : '', stock: String(v.stock) })),
 });
+// Variant rows form se: v_id[], v_color[], v_size[], v_kind[], v_price[], v_stock[]. Bilkul khali rows chhod di jati hain.
+function readVariants(b) {
+  const A = (x) => (Array.isArray(x) ? x : x == null ? [] : [x]);
+  const id = A(b.v_id); const color = A(b.v_color); const size = A(b.v_size); const kind = A(b.v_kind);
+  const price = A(b.v_price); const stock = A(b.v_stock);
+  const n = Math.min(Math.max(color.length, size.length, kind.length, stock.length), MAX_VARIANTS + 10);
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    rows.push({ id: S.toId(id[i]), color: S.oneLine(color[i], 30), size: S.oneLine(size[i], 30), kind: S.oneLine(kind[i], 30), price: S.oneLine(price[i], 10), stock: S.oneLine(stock[i], 7) });
+  }
+  return rows.filter((r) => r.color || r.size || r.kind);
+}
 function readProductForm(b) {
   const ids = String(b.image_ids || '').split(',').map((x) => S.toId(x.trim())).filter(Boolean);
   return {
@@ -182,10 +199,11 @@ function readProductForm(b) {
     description: S.multiLine(b.description, 3000),
     price: S.oneLine(b.price_rs, 10), compare: S.oneLine(b.compare_price_rs, 10), stock: S.oneLine(b.stock, 7),
     active: b.is_active === '1', images: [...new Set(ids)].slice(0, S.MAX_PRODUCT_PHOTOS),
+    variants: readVariants(b),
   };
 }
 async function checkProductForm(f) {
-  if (await Restricted.find([f.name, f.description, f.category].join('\n'))) return { error: Restricted.MSG_UR };
+  if (await Restricted.find([f.name, f.description, f.category, ...f.variants.map((v) => S.variantLabel(v))].join('\n'))) return { error: Restricted.MSG_UR };
   if (f.name.length < 3) return { error: 'Product ka naam likhein (kam az kam 3 huroof).' };
   const price = S.toRs(f.price);
   if (!price || price > 9999999) return { error: 'Qeemat sahi likhein (sirf number, jaise 1500).' };
@@ -195,9 +213,31 @@ async function checkProductForm(f) {
     if (!compare || compare > 9999999) return { error: 'Purani qeemat sahi likhein ya khali chhorein.' };
     if (compare <= price) compare = null; // purani qeemat nayi se zyada ho tabhi dikhti hai
   }
-  const stock = f.stock === '' ? 0 : S.toRs(f.stock);
-  if (stock === null || stock > 99999) return { error: 'Stock sahi likhein (0 se 99999).' };
-  return { price, compare, stock };
+  // Variants (rang / size / qisam): har ka apna stock aur (chahein to) apni qeemat
+  if (f.variants.length > MAX_VARIANTS) return { error: `Ek product ke ${MAX_VARIANTS} se zyada variants nahi ho sakte.` };
+  const variants = [];
+  const seen = new Set();
+  for (const r of f.variants) {
+    const label = S.variantLabel(r);
+    if (seen.has(label.toLowerCase())) return { error: `Variant "${label}" do dafa likha hai.` };
+    seen.add(label.toLowerCase());
+    const vs = r.stock === '' ? 0 : S.toRs(r.stock);
+    if (vs === null || vs > 99999) return { error: `Variant "${label}" ka stock sahi likhein (0 se 99999).` };
+    let vp = null;
+    if (r.price !== '') {
+      vp = S.toRs(r.price);
+      if (!vp || vp > 9999999) return { error: `Variant "${label}" ki qeemat sahi likhein ya khali chhorein.` };
+    }
+    variants.push({ id: r.id, color: r.color || null, size: r.size || null, kind: r.kind || null, price: vp, stock: vs });
+  }
+  let stock;
+  if (variants.length) {
+    stock = variants.reduce((a, v) => a + v.stock, 0); // variant wale product ka stock = variants ka jama
+  } else {
+    stock = f.stock === '' ? 0 : S.toRs(f.stock);
+    if (stock === null || stock > 99999) return { error: 'Stock sahi likhein (0 se 99999).' };
+  }
+  return { price, compare, stock, variants };
 }
 const renderProductForm = (res, req, { code = 200, f, error = null, edit = null }) =>
   render(res, 'seller-product-form', { code, title: edit ? 'Edit product' : 'New product', f, error, edit, CATEGORIES: S.CATEGORIES, MAX_PHOTOS: S.MAX_PRODUCT_PHOTOS, seller: 'products' });
@@ -216,11 +256,34 @@ async function saveProductImages(productId, userId, ids) {
   for (const id of old.filter((x) => !keep.includes(x))) await Images.dropIfOrphan(id, null).catch(() => {});
 }
 
+// Variants save: jin ki id isi product ki ho wo update, naye insert, baqi hata do (purane orders mein naam / qeemat saved rehti hai)
+async function saveVariants(productId, variants) {
+  const have = (await pool.query('SELECT id FROM product_variants WHERE product_id = $1', [productId])).rows.map((r) => r.id);
+  const keep = [];
+  for (let i = 0; i < variants.length; i++) {
+    const v = variants[i];
+    if (v.id && have.includes(v.id)) {
+      await pool.query('UPDATE product_variants SET color=$2, size=$3, kind=$4, price_rs=$5, stock=$6, position=$7 WHERE id=$1 AND product_id=$8',
+        [v.id, v.color, v.size, v.kind, v.price, v.stock, i, productId]);
+      keep.push(v.id);
+    } else {
+      const r = await pool.query('INSERT INTO product_variants (product_id, color, size, kind, price_rs, stock, position) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id',
+        [productId, v.color, v.size, v.kind, v.price, v.stock, i]);
+      keep.push(r.rows[0].id);
+    }
+  }
+  await pool.query('DELETE FROM product_variants WHERE product_id = $1 AND NOT (id = ANY($2::int[]))', [productId, keep]);
+  if (keep.length) {
+    await pool.query('UPDATE products SET stock = (SELECT COALESCE(SUM(stock), 0) FROM product_variants WHERE product_id = $1), updated_at = now() WHERE id = $1', [productId]);
+  }
+}
+
 router.get('/seller/products', guard, async (req, res) => {
   try {
     const items = (await pool.query(
       `SELECT p.id, p.slug, p.name, p.price_rs, p.compare_price_rs, p.stock, p.is_active, ${S.MAIN_IMG} AS image_id,
-              (SELECT COALESCE(SUM(qty), 0)::int FROM orders o WHERE o.product_id = p.id AND o.status <> 'returned') AS sold
+              (SELECT COALESCE(SUM(oi.qty), 0)::int FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = p.id AND o.status <> 'returned') AS sold,
+              (SELECT COUNT(*)::int FROM product_variants v WHERE v.product_id = p.id) AS variant_count
        FROM products p WHERE p.shop_id = $1 ORDER BY p.created_at DESC`, [req.shop.id])).rows;
     render(res, 'seller-products', { title: 'My products', items, seller: 'products', ...flashOf(req) });
   } catch (err) { dbError(res, err); }
@@ -241,6 +304,7 @@ router.post('/seller/products', guard, async (req, res) => {
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
       [req.shop.id, slug, f.name, f.category || null, f.description || null, c.price, c.compare, c.stock, f.active]);
     await saveProductImages(ins.rows[0].id, req.session.user.id, f.images);
+    await saveVariants(ins.rows[0].id, c.variants);
     go(res, '/seller/products', 'Product add ho gaya.');
   } catch (err) { dbError(res, err); }
 });
@@ -256,7 +320,7 @@ router.get('/seller/products/:id/edit', guard, async (req, res) => {
     const p = await ownProduct(req.shop.id, req.params.id);
     if (!p) return go(res, '/seller/products', 'Product nahi mila.', 'error');
     const imgs = (await pool.query('SELECT image_id FROM product_images WHERE product_id = $1 ORDER BY position, image_id', [p.id])).rows.map((r) => r.image_id);
-    renderProductForm(res, req, { f: productFormOf(p, imgs), edit: p });
+    renderProductForm(res, req, { f: productFormOf(p, imgs, await S.variantsOf(p.id)), edit: p });
   } catch (err) { dbError(res, err); }
 });
 
@@ -271,6 +335,7 @@ router.post('/seller/products/:id', guard, async (req, res) => {
       `UPDATE products SET name=$2, category=$3, description=$4, price_rs=$5, compare_price_rs=$6, stock=$7, is_active=$8, updated_at=now() WHERE id=$1`,
       [p.id, f.name, f.category || null, f.description || null, c.price, c.compare, c.stock, f.active]);
     await saveProductImages(p.id, req.session.user.id, f.images);
+    await saveVariants(p.id, c.variants);
     go(res, '/seller/products', 'Product update ho gaya.');
   } catch (err) { dbError(res, err); }
 });
@@ -284,10 +349,12 @@ router.post('/seller/products/:id/quick', guard, async (req, res) => {
     const stock = S.toRs(req.body.stock);
     if (!price || price > 9999999) return go(res, '/seller/products', 'Qeemat sahi likhein.', 'error');
     if (stock === null || stock > 99999) return go(res, '/seller/products', 'Stock sahi likhein.', 'error');
+    // Variants wale product ka stock yahan se nahi badalta (har variant ka stock edit page par)
+    const hasVariants = (await pool.query('SELECT 1 FROM product_variants WHERE product_id = $1 LIMIT 1', [p.id])).rowCount > 0;
     await pool.query(
-      `UPDATE products SET price_rs = $2, stock = $3, updated_at = now(),
+      `UPDATE products SET price_rs = $2, stock = CASE WHEN $4::boolean THEN stock ELSE $3 END, updated_at = now(),
          compare_price_rs = CASE WHEN compare_price_rs IS NOT NULL AND compare_price_rs > $2 THEN compare_price_rs ELSE NULL END WHERE id = $1`,
-      [p.id, price, stock]);
+      [p.id, price, stock, hasVariants]);
     go(res, '/seller/products', `"${p.name.slice(0, 40)}" update ho gaya.`);
   } catch (err) { dbError(res, err); }
 });
@@ -295,7 +362,10 @@ router.post('/seller/products/:id/quick', guard, async (req, res) => {
 router.post('/seller/products/:id/soldout', guard, async (req, res) => {
   try {
     const p = await ownProduct(req.shop.id, req.params.id);
-    if (p) await pool.query('UPDATE products SET stock = 0, updated_at = now() WHERE id = $1', [p.id]);
+    if (p) {
+      await pool.query('UPDATE product_variants SET stock = 0 WHERE product_id = $1', [p.id]);
+      await pool.query('UPDATE products SET stock = 0, updated_at = now() WHERE id = $1', [p.id]);
+    }
     go(res, '/seller/products', p ? 'Product ab Sold out hai.' : 'Product nahi mila.', p ? 'msg' : 'error');
   } catch (err) { dbError(res, err); }
 });
@@ -337,15 +407,22 @@ router.get('/seller/orders', guard, async (req, res) => {
       params.push('%' + q.replace(/[%_\\]/g, '\\$&') + '%');
       const idN = /^#?\d{1,9}$/.test(q) ? parseInt(q.replace('#', ''), 10) : 0;
       params.push(idN);
-      where += ` AND (o.customer_name ILIKE $${params.length - 1} OR o.phone ILIKE $${params.length - 1} OR o.city ILIKE $${params.length - 1} OR o.product_name ILIKE $${params.length - 1} OR o.id = $${params.length})`;
+      where += ` AND (o.customer_name ILIKE $${params.length - 1} OR o.phone ILIKE $${params.length - 1} OR o.city ILIKE $${params.length - 1} OR o.product_name ILIKE $${params.length - 1} OR o.tracking_no ILIKE $${params.length - 1} OR o.id = $${params.length})`;
     }
     const total = (await pool.query(`SELECT COUNT(*)::int AS n FROM orders o WHERE ${where}`, params)).rows[0].n;
     const orders = (await pool.query(
       `SELECT o.*, g.name AS group_name, g.platform AS group_platform
        FROM orders o LEFT JOIN shop_groups g ON g.shop_id = o.shop_id AND g.utm = o.campaign
        WHERE ${where} ORDER BY o.id DESC LIMIT ${PAGE} OFFSET ${(page - 1) * PAGE}`, params)).rows;
+    await S.attachItems(orders);
+    const waStatus = await WA.statusMap(orders.map((o) => o.id));
+    const base = S.baseUrlOf(req);
+    orders.forEach((o) => {
+      const kind = o.status === 'new' ? 'placed' : 'tracking';
+      o.waManual = WA.manualLink(kind, o, req.shop.name, base); // auto message band / fail ho to seller khud bhej sake
+    });
     render(res, 'seller-orders', {
-      title: 'Orders', orders, counts, status, q, page, pages: Math.max(1, Math.ceil(total / PAGE)), total,
+      title: 'Orders', orders, waStatus, waAuto: WA.enabled(), COURIERS: couriers.COURIERS, couriers, counts, status, q, page, pages: Math.max(1, Math.ceil(total / PAGE)), total,
       allCount: Object.values(counts).reduce((a, b) => a + b, 0),
       STATUSES: S.STATUSES, STATUS_LABEL: S.STATUS_LABEL, STATUS_COLOR: S.STATUS_COLOR, PAY_LABEL: S.PAY_LABEL,
       seller: 'orders', ...flashOf(req),
@@ -367,7 +444,162 @@ router.post('/seller/orders/:id/status', guard, async (req, res) => {
       const row = (await pool.query('SELECT token FROM orders WHERE id = $1', [id])).rows[0];
       notifyUser(o.user_id, `Aap ka order #${id} (${o.product_name}): ${S.STATUS_LABEL[o.status]}`, '/order/' + row.token).catch(() => {});
     }
+    // Bhej diya: customer ko "dispatched" WhatsApp (tracking number pehle se likha ho to tracking wala message)
+    if (o.status === 'shipped' && prev.status !== 'shipped') {
+      WA.sendOrderMessage(id, o.tracking_no ? 'tracking' : 'dispatched').catch(() => {});
+    }
     go(res, back, `Order #${id}: ${S.STATUS_LABEL[o.status]}` + (o.status === 'returned' ? ' (stock wapas jur gaya)' : ''));
+  } catch (err) { dbError(res, err); }
+});
+
+// ---------- CSV export (Excel mein khulti hai) ----------
+const csvCell = (v) => {
+  let t = v == null ? '' : String(v);
+  if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; // Excel formula injection se bachao
+  return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+};
+router.get('/seller/orders.csv', guard, async (req, res) => {
+  try {
+    const status = S.STATUSES.includes(req.query.status) ? req.query.status : '';
+    const params = [req.shop.id];
+    let where = 'o.shop_id = $1';
+    if (status) { params.push(status); where += ' AND o.status = $2'; }
+    const orders = (await pool.query(`SELECT o.* FROM orders o WHERE ${where} ORDER BY o.id DESC LIMIT 5000`, params)).rows;
+    await S.attachItems(orders);
+    const head = ['Order #', 'Tareekh', 'Status', 'Naam', 'Phone', 'Shehar', 'Pata', 'Cheezein', 'Delivery Rs', 'Chhoot Rs', 'Coupon', 'Kul Rs', 'Payment', 'Courier', 'Tracking', 'Source', 'Note'];
+    const lines = [head.map(csvCell).join(',')];
+    orders.forEach((o) => {
+      lines.push([
+        o.id, new Date(o.created_at).toLocaleString('en-GB', { timeZone: TZ }), S.STATUS_LABEL[o.status] || o.status,
+        o.customer_name, S.showPhone(o.phone), o.city, o.address,
+        o.items.map((it) => `${it.product_name}${it.variant_label ? ' (' + it.variant_label + ')' : ''} x ${it.qty}`).join(' | '),
+        o.delivery_rs, o.discount_rs || 0, o.coupon_code || '', o.total_rs, S.PAY_LABEL[o.payment_method] || o.payment_method,
+        o.courier ? couriers.nameOf(o.courier) || o.courier : '', o.tracking_no || '', o.source || 'direct', o.note || '',
+      ].map(csvCell).join(','));
+    });
+    res.set({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="orders-${req.shop.slug}${status ? '-' + status : ''}.csv"` });
+    res.send('\ufeff' + lines.join('\r\n'));
+  } catch (err) { dbError(res, err); }
+});
+
+// ---------- Packing slip / shipping label (chhapne ke liye) ----------
+router.get('/seller/orders/:id/slip', guard, async (req, res) => {
+  try {
+    const id = S.toId(req.params.id);
+    const o = id ? (await pool.query('SELECT * FROM orders WHERE id = $1 AND shop_id = $2', [id, req.shop.id])).rows[0] : null;
+    if (!o) return go(res, '/seller/orders', 'Order nahi mila.', 'error');
+    await S.attachItems([o]);
+    res.render('seller-slip', {
+      title: 'Slip #' + o.id, robots: 'noindex,nofollow', o, shop: req.shop, rs: S.rs, showPhone: S.showPhone,
+      PAY_LABEL: S.PAY_LABEL, courierName: o.courier ? couriers.nameOf(o.courier) || o.courier : '',
+      cod: o.payment_method === 'cod', csrfToken: res.locals.csrfToken,
+    });
+  } catch (err) { dbError(res, err); }
+});
+
+// Courier + tracking number: order ko "Bhej diya" kar deta hai (agar abhi Naya ho), customer ke order page par "Track karein"
+// aata hai aur customer ko tracking wala WhatsApp message jata hai (har order ka ek hi baar).
+router.post('/seller/orders/:id/ship', guard, async (req, res) => {
+  const back = '/seller/orders' + (S.STATUSES.includes(req.body.back) ? '?status=' + req.body.back : '');
+  try {
+    const id = S.toId(req.params.id);
+    if (!id) return go(res, back, 'Order nahi mila.', 'error');
+    const cur = (await pool.query('SELECT * FROM orders WHERE id = $1 AND shop_id = $2', [id, req.shop.id])).rows[0];
+    if (!cur) return go(res, back, 'Order nahi mila.', 'error');
+    if (cur.status === 'returned') return go(res, back, 'Wapas aa chuke order mein tracking nahi lag sakti.', 'error');
+    const courier = couriers.byKey(String(req.body.courier || ''));
+    if (!courier) return go(res, back, 'Courier chunein.', 'error');
+    const no = couriers.cleanTracking(req.body.tracking_no);
+    if (!no) return go(res, back, 'Tracking number sahi likhein (4 se 30 huroof / hindsay, jaise TCS123456789).', 'error');
+    await pool.query('UPDATE orders SET courier = $2, tracking_no = $3, updated_at = now() WHERE id = $1', [id, courier.key, no]);
+    let now = cur;
+    if (cur.status === 'new') now = (await S.setOrderStatus(req.shop.id, id, 'shipped')) || cur;
+    if (cur.user_id) {
+      notifyUser(cur.user_id, `Aap ka order #${id} ${courier.name} se bhej diya gaya. Tracking: ${no}`, '/order/' + cur.token).catch(() => {});
+    }
+    WA.sendOrderMessage(id, 'tracking').catch(() => {});
+    go(res, back, `Order #${id}: ${courier.name} tracking ${no} save ho gayi` + (cur.status === 'new' && now.status === 'shipped' ? ' aur order "Bhej diya" ho gaya.' : '.'));
+  } catch (err) { dbError(res, err); }
+});
+
+// ============================================================
+// COUPONS (V56): jaise TIKTOK10 = TikTok se aane walon ko 10% chhoot. Har coupon ke orders / sale ginti mein.
+// ============================================================
+function readCouponForm(b) {
+  return {
+    code: S.cleanCode(b.code),
+    kind: b.kind === 'flat' ? 'flat' : 'percent',
+    value: S.oneLine(b.value, 7),
+    min: S.oneLine(b.min_order_rs, 7),
+    max: S.oneLine(b.max_uses, 6),
+    source: S.COUPON_SOURCES.includes(b.only_source) ? b.only_source : '',
+    expires: /^\d{4}-\d{2}-\d{2}$/.test(String(b.expires || '')) ? String(b.expires) : '',
+  };
+}
+function checkCouponForm(f) {
+  if (f.code.length < 3) return { error: 'Coupon code kam az kam 3 huroof / hindsay ka likhein (jaise TIKTOK10).' };
+  const value = S.toRs(f.value);
+  if (!value) return { error: 'Chhoot ki miqdar sahi likhein.' };
+  if (f.kind === 'percent' && value > 90) return { error: 'Percent chhoot 1 se 90 ke beech likhein.' };
+  if (f.kind === 'flat' && value > 999999) return { error: 'Chhoot ki raqam bohat zyada hai.' };
+  const min = f.min === '' ? 0 : S.toRs(f.min);
+  if (min === null || min > 9999999) return { error: 'Kam az kam order ki raqam sahi likhein ya khali chhorein.' };
+  let max = null;
+  if (f.max !== '') { max = S.toRs(f.max); if (!max || max > 999999) return { error: 'Kitni dafa chal sakta hai: sahi number likhein ya khali chhorein.' }; }
+  // Aakhri tareekh poore din tak chalti hai (site ke timezone ke hisaab se)
+  const expires = f.expires ? f.expires + ' 23:59:59' : null;
+  return { value, min, max, expires };
+}
+const renderCoupons = async (req, res, { code = 200, f = null, error = null } = {}) => {
+  const coupons = (await pool.query(
+    `SELECT c.*, COALESCE(o.orders, 0)::int AS orders, COALESCE(o.sales, 0)::int AS sales, COALESCE(o.off, 0)::int AS off
+       FROM coupons c
+       LEFT JOIN (SELECT coupon_id, COUNT(*) AS orders, SUM(total_rs) AS sales, SUM(discount_rs) AS off FROM orders
+                   WHERE shop_id = $1 AND coupon_id IS NOT NULL AND status <> 'returned' GROUP BY coupon_id) o ON o.coupon_id = c.id
+      WHERE c.shop_id = $1 ORDER BY c.is_active DESC, c.created_at DESC`, [req.shop.id])).rows;
+  render(res, 'seller-coupons', {
+    code, title: 'Coupons', coupons, f: f || { code: '', kind: 'percent', value: '10', min: '', max: '', source: '', expires: '' }, error,
+    SOURCES: S.COUPON_SOURCES, couponText: S.couponText, seller: 'coupons', TZ, ...flashOf(req),
+  });
+};
+router.get('/seller/coupons', guard, async (req, res) => {
+  try { await renderCoupons(req, res); } catch (err) { dbError(res, err); }
+});
+router.post('/seller/coupons', guard, async (req, res) => {
+  try {
+    const f = readCouponForm(req.body || {});
+    const c = checkCouponForm(f);
+    if (c.error) return renderCoupons(req, res, { code: 400, f, error: c.error });
+    const n = (await pool.query('SELECT COUNT(*)::int AS n FROM coupons WHERE shop_id = $1', [req.shop.id])).rows[0].n;
+    if (n >= MAX_COUPONS) return renderCoupons(req, res, { code: 400, f, error: `Ek shop ke ${MAX_COUPONS} se zyada coupons nahi ho sakte. Purane hata dein.` });
+    try {
+      await pool.query(
+        `INSERT INTO coupons (shop_id, code, kind, value, min_order_rs, max_uses, only_source, expires_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7, CASE WHEN $8::text IS NULL THEN NULL ELSE ($8::timestamp AT TIME ZONE $9::text) END)`,
+        [req.shop.id, f.code, f.kind, c.value, c.min, c.max, f.source || null, c.expires, TZ]);
+    } catch (err) {
+      if (err.code === '23505') return renderCoupons(req, res, { code: 400, f, error: `Coupon "${f.code}" pehle se maujood hai.` });
+      throw err;
+    }
+    go(res, '/seller/coupons', `Coupon ${f.code} ban gaya.`);
+  } catch (err) { dbError(res, err); }
+});
+const ownCoupon = async (shopId, id) => {
+  const cid = S.toId(id);
+  return cid ? (await pool.query('SELECT * FROM coupons WHERE id = $1 AND shop_id = $2', [cid, shopId])).rows[0] || null : null;
+};
+router.post('/seller/coupons/:id/toggle', guard, async (req, res) => {
+  try {
+    const c = await ownCoupon(req.shop.id, req.params.id);
+    if (c) await pool.query('UPDATE coupons SET is_active = NOT is_active WHERE id = $1', [c.id]);
+    go(res, '/seller/coupons', c ? (c.is_active ? `Coupon ${c.code} band kar diya.` : `Coupon ${c.code} dobara chalu.`) : 'Coupon nahi mila.', c ? 'msg' : 'error');
+  } catch (err) { dbError(res, err); }
+});
+router.post('/seller/coupons/:id/delete', guard, async (req, res) => {
+  try {
+    const c = await ownCoupon(req.shop.id, req.params.id);
+    if (c) await pool.query('DELETE FROM coupons WHERE id = $1', [c.id]); // purane orders par coupon_code likha rehta hai
+    go(res, '/seller/coupons', c ? `Coupon ${c.code} hata diya.` : 'Coupon nahi mila.', c ? 'msg' : 'error');
   } catch (err) { dbError(res, err); }
 });
 
@@ -531,8 +763,8 @@ router.get('/seller/analytics', guard, async (req, res) => {
     const byProduct = (await pool.query(
       `SELECT p.id, p.name, p.slug, p.stock,
               (SELECT COUNT(*)::int FROM product_visits v WHERE v.product_id = p.id AND v.created_at > ${since}) AS visits,
-              (SELECT COUNT(*)::int FROM orders o WHERE o.product_id = p.id AND o.created_at > ${since}) AS orders,
-              (SELECT COALESCE(SUM(o.total_rs), 0)::int FROM orders o WHERE o.product_id = p.id AND o.status <> 'returned' AND o.created_at > ${since}) AS revenue
+              (SELECT COUNT(DISTINCT oi.order_id)::int FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = p.id AND o.created_at > ${since}) AS orders,
+              (SELECT COALESCE(SUM(oi.unit_price_rs * oi.qty), 0)::int FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = p.id AND o.status <> 'returned' AND o.created_at > ${since}) AS revenue
        FROM products p WHERE p.shop_id = $1 ORDER BY orders DESC, visits DESC LIMIT 50`, [id, days])).rows;
 
     // Blog post ke "Ye product kharido" card se aaye log
