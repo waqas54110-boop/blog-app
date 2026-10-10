@@ -1,6 +1,6 @@
 const express = require('express');
 const pool = require('../db');
-const { AGE_GROUPS, countryName, flag } = require('../lib/demographics');
+const { AGE_GROUPS, countryName, flag, readCookie } = require('../lib/demographics');
 const config = require('../config');
 const ipinfo = require('../lib/ipinfo');
 
@@ -484,11 +484,23 @@ router.get('/analytics', requireAdmin, async (req, res) => {
       groupStats,
       tech,
       techMissing,
+      ignoring: readCookie(req, 'kz_ign') === '1',
     });
   } catch (err) {
     console.error(err);
     res.status(500).send('Server error');
   }
+});
+
+// ---------- IGNORE THIS BROWSER (admin) ----------
+// Admin apne browser ke visits analytics se hata sakta hai (logout ho kar ya doosre account se dekhne par bhi).
+router.get('/analytics/ignore-me', requireAdmin, (req, res) => {
+  if (req.query.on === '1') {
+    res.cookie('kz_ign', '1', { maxAge: 365 * 24 * 3600 * 1000, httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' });
+  } else {
+    res.clearCookie('kz_ign');
+  }
+  res.redirect('/analytics');
 });
 
 // ---------- BOTS TAB (admin) ----------

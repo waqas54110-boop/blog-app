@@ -44,6 +44,7 @@
         <div class="an-seg" role="tablist" aria-label="Date range">
           <% [7, 30, 90].forEach(d => { %><a href="/analytics?days=<%= d %>" class="<%= d === days ? 'on' : '' %>">Last <%= d %>d</a><% }) %>
         </div>
+        <a class="an-btn" href="/analytics/ignore-me?on=<%= locals.ignoring ? 0 : 1 %>" title="Is browser ke visits analytics mein gine hi na jayen"><%= locals.ignoring ? '✅ Ye browser ignore ho raha hai (band karo)' : '🙈 Is browser ko ignore karo' %></a>
         <a class="an-btn" href="/analytics/export.csv?days=<%= days %>" title="Daily visits, sources aur top posts CSV mein">⬇ Export CSV</a>
       </div>
     </div>
