@@ -292,6 +292,7 @@ app.use(
 app.use(async (req, res, next) => {
   res.locals.user = req.session.user || null;
   res.locals.isAdmin = !!(req.session.user && req.session.user.role === 'admin');
+  res.locals.siteTz = config.timezone; // views mein dates site ke time zone (Asia/Karachi) mein dikhane ke liye
   res.locals.liveCanStart = !!(req.session.user && (!config.liveAdminOnly || res.locals.isAdmin)); // post box ka "🔴 Live" button
   res.locals.liveMax = config.liveMaxViewers;
   res.locals.metaDescription = 'Notes and tutorials on cricket, video editing, AI, freelancing and web development.';

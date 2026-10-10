@@ -94,7 +94,7 @@
       <tbody>
         <% recent.forEach(v => { %>
           <tr>
-            <td class="small text-body-secondary"><%= new Date(v.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %></td>
+            <td class="small text-body-secondary"><%= new Date(v.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: siteTz }) %></td>
             <td><%= v.who %></td>
             <td><code><%= v.ipShown %></code></td>
             <td class="small"><b><%= v.reqs %></b> req &middot; <%= v.products %> product<%= v.products === 1 ? '' : 's' %></td>

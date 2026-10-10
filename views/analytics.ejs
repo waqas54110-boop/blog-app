@@ -340,7 +340,7 @@
                   <td class="r"><%= g.people %></td>
                   <td class="r"><%= g.shared ? (g.visits / g.shared).toFixed(1) : '-' %></td>
                   <td style="max-width:220px;"><% if (g.top_slug) { %><a href="/posts/<%= g.top_slug %>" class="text-truncate d-inline-block" style="max-width:210px;"><%= g.top_title %></a><% } else { %>-<% } %></td>
-                  <td><%= g.last_visit ? new Date(g.last_visit).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '-' %></td>
+                  <td><%= g.last_visit ? new Date(g.last_visit).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: siteTz }) : '-' %></td>
                 </tr>
               <% }) %>
             </tbody>
@@ -451,7 +451,7 @@
                   <td><%= v.age_group || '-' %></td>
                   <td class="r"><%= v.posts %></td>
                   <td class="r"><span class="click-badge"><%= v.clicks %></span></td>
-                  <td class="r text-body-secondary small"><%= new Date(v.last_seen).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) %></td>
+                  <td class="r text-body-secondary small"><%= new Date(v.last_seen).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: siteTz }) %></td>
                 </tr>
               <% }) %>
             </tbody>
@@ -472,7 +472,7 @@
             <tbody>
               <% au.recent.forEach((v) => { %>
                 <tr>
-                  <td class="text-body-secondary small"><%= new Date(v.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %></td>
+                  <td class="text-body-secondary small"><%= new Date(v.created_at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: siteTz }) %></td>
                   <td><% if (v.member) { %><a href="/u/<%= encodeURIComponent(v.who) %>"><%= v.who %></a><span class="vbadge">member</span><% } else { %><span class="text-body-secondary"><%= v.who %></span><% } %></td>
                   <td><code><%= v.ip %></code></td>
                   <td class="small"><b><%= v.reqs %></b> req &middot; <%= v.pages %> page<%= v.pages === 1 ? '' : 's' %></td>
@@ -505,7 +505,7 @@
                   <td class="r"><%= v.pages %></td>
                   <td class="r"><%= v.devices %></td>
                   <td><%= v.flag %> <%= v.city ? v.city + ', ' : '' %><%= v.countryName %></td>
-                  <td class="text-body-secondary small"><%= new Date(v.last_seen).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) %></td>
+                  <td class="text-body-secondary small"><%= new Date(v.last_seen).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: siteTz }) %></td>
                 </tr>
               <% }) %>
             </tbody>
