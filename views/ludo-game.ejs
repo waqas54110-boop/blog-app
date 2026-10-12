@@ -1,102 +1,822 @@
 <%- include('partials/header') %>
+
 <style>
-  .ld { font-family: var(--kz-sans); max-width: 760px; margin: 0 auto; }
-  .ld h1, .ld h2, .ld h3 { font-family: var(--kz-serif); letter-spacing: -.01em; }
-  .ld-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
-  .ld-code { font: 800 15px/1 monospace; letter-spacing: .14em; background: var(--bs-secondary-bg); padding: 6px 10px; border-radius: 8px; }
-  .ld-card { background: var(--kz-paper); border: 1px solid var(--kz-line); border-radius: 14px; padding: 16px; }
-  .ld-btn { display: inline-block; border: 0; border-radius: 10px; padding: 9px 16px; font: 700 14px var(--kz-sans); background: #c8102e; color: #fff; text-decoration: none; cursor: pointer; }
-  .ld-btn:hover { filter: brightness(1.08); color: #fff; }
-  .ld-btn[disabled] { opacity: .45; cursor: not-allowed; filter: none; }
-  .ld-btn.alt { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
-  .ld-btn.wa { background: #25d366; }
-  .ld-btn.sm { padding: 6px 11px; font-size: 13px; }
-  .ld-seat { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--kz-line); }
-  .ld-seat:last-child { border-bottom: 0; }
-  .ld-av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: #94a3b8; flex: none; position: relative; overflow: hidden; }
-  .ld-av img, .ld-mini img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
-  .ld-mini { width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; font: 800 11px var(--kz-sans); color: #fff; vertical-align: middle; margin-right: 6px; position: relative; overflow: hidden; background: var(--pc, #94a3b8); border: 2px solid var(--pc, #94a3b8); flex: none; }
-  .ld-seat.empty { color: var(--kz-muted); }
-  .ld-seat.empty .ld-av { background: transparent; border: 2px dashed var(--kz-line); color: var(--kz-muted); }
-  .ld-tag { font: 700 10px/1 var(--kz-sans); text-transform: uppercase; letter-spacing: .05em; background: var(--bs-secondary-bg); border-radius: 99px; padding: 3px 7px; margin-left: 6px; }
+  :root {
+    --ld-red: #ff2d55;
+    --ld-red-2: #e11d48;
+    --ld-red-dark: #7f1d1d;
+    --ld-gold: #ffd60a;
+    --ld-green: #34d399;
+    --ld-blue: #38bdf8;
+    --ld-purple: #a855f7;
+    --ld-ink: #0a0a14;
+    --ld-panel: color-mix(in srgb, var(--kz-paper) 82%, transparent);
+  }
 
-  .ld-players { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 10px; }
-  .ld-pl { border: 2px solid var(--kz-line); border-radius: 12px; padding: 7px 10px; background: var(--kz-paper); position: relative; transition: box-shadow .2s, border-color .2s, transform .2s; min-width: 0; }
-  .ld-pl b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
-  .ld-pl small { color: var(--kz-muted); font-size: 12px; }
-  .ld-pl .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
-  .ld-pl.turn { box-shadow: 0 0 0 3px var(--pc), 0 6px 18px rgba(0,0,0,.15); border-color: var(--pc); transform: translateY(-2px); }
-  .ld-pl .tm { position: absolute; right: 9px; top: 7px; font: 800 13px var(--kz-sans); color: var(--pc); font-variant-numeric: tabular-nums; }
-  .ld-pl.out { opacity: .55; }
+  /* ================= LAYOUT ================= */
+  .ld {
+    font-family: var(--kz-sans);
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 4px 0 40px;
+    position: relative;
+    isolation: isolate;
+  }
+  .ld h1, .ld h2, .ld h3 {
+    font-family: var(--kz-serif);
+    letter-spacing: -.02em;
+  }
 
-  .ld-boardwrap { width: min(100%, 560px); margin: 0 auto; aspect-ratio: 1; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.18); background: #fff; }
-  .ld-boardwrap svg { display: block; width: 100%; height: 100%; border-radius: 16px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-  .tk { transition: transform .17s ease-in-out; cursor: default; }
-  .tk .ring { fill: none; stroke: #111; stroke-width: .09; opacity: 0; }
-  .tk.can { cursor: pointer; }
-  .tk.can .ring { opacity: 1; animation: ldring 0.9s ease-in-out infinite; }
-  .tk.can .body { animation: ldhop 0.9s ease-in-out infinite; }
-  @keyframes ldring { 50% { stroke-width: .2; opacity: .55; } }
-  @keyframes ldhop { 50% { transform: translateY(-.1px) scale(1.08); } }
-  .tk .body { transform-box: fill-box; transform-origin: center; }
+  /* Ambient background blobs behind everything */
+  .ld::before,
+  .ld::after {
+    content: "";
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    opacity: .3;
+    z-index: -1;
+    pointer-events: none;
+  }
+  .ld::before {
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, #ff2d55, transparent 70%);
+    top: -160px; left: -160px;
+    animation: ldBlob 16s ease-in-out infinite;
+  }
+  .ld::after {
+    width: 540px; height: 540px;
+    background: radial-gradient(circle, #38bdf8, transparent 70%);
+    bottom: -200px; right: -180px;
+    animation: ldBlob 20s ease-in-out infinite reverse;
+  }
+  @keyframes ldBlob {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    50%      { transform: translate(50px, 40px) scale(1.1); }
+  }
 
-  .ld-ctrl { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 14px auto 0; flex-wrap: wrap; }
-  .ld-die { width: 64px; height: 64px; border-radius: 14px; background: #fff; border: 3px solid var(--dc, #999); padding: 8px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); box-shadow: 0 4px 12px rgba(0,0,0,.2); flex: none; user-select: none; }
-  .ld-die i { border-radius: 50%; }
-  .ld-die i.on { background: #111; margin: 1px; }
-  .ld-die.ready { cursor: pointer; animation: ldready 1s ease-in-out infinite; }
-  .ld-die.rolling { animation: ldshake .12s linear infinite; }
+  /* ================= TOP BAR ================= */
+  .ld-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 16px;
+    padding: 12px 16px;
+    background: var(--ld-panel);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid var(--kz-line);
+    border-radius: 18px;
+    box-shadow: 0 12px 32px -22px rgba(0,0,0,.5);
+  }
+  .ld-top .ld-code {
+    font: 900 15px/1 ui-monospace, monospace;
+    letter-spacing: .18em;
+    background: linear-gradient(135deg, rgba(255,45,85,.16), rgba(255,214,10,.2));
+    color: var(--ld-red-dark);
+    padding: 8px 14px;
+    border-radius: 11px;
+    border: 1px solid rgba(255,45,85,.32);
+    box-shadow: 0 6px 18px -8px rgba(255,45,85,.5);
+    position: relative;
+    overflow: hidden;
+  }
+  .ld-top .ld-code::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.55) 50%, transparent 70%);
+    transform: translateX(-120%);
+    animation: ldShine 4s ease-in-out infinite;
+  }
+  @keyframes ldShine {
+    0%, 70%, 100% { transform: translateX(-120%); }
+    85%           { transform: translateX(120%); }
+  }
+
+  /* ================= BUTTONS ================= */
+  .ld-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 13px;
+    padding: 10px 20px;
+    font: 800 14px var(--kz-sans);
+    letter-spacing: .02em;
+    background: linear-gradient(135deg, #ff2d55 0%, #e11d48 55%, #7f1d1d 100%);
+    color: #fff !important;
+    text-decoration: none;
+    cursor: pointer;
+    overflow: hidden;
+    box-shadow:
+      0 12px 28px -12px rgba(255,45,85,.95),
+      0 0 0 1px rgba(255,255,255,.1) inset;
+    transition: transform .22s cubic-bezier(.2,.9,.3,1.5),
+                box-shadow .22s ease,
+                filter .22s ease;
+    white-space: nowrap;
+  }
+  .ld-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.4) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform .8s ease;
+  }
+  .ld-btn:hover {
+    transform: translateY(-2px) scale(1.02);
+    color: #fff !important;
+    filter: brightness(1.08);
+    box-shadow:
+      0 18px 40px -14px rgba(255,45,85,1),
+      0 0 0 1px rgba(255,255,255,.15) inset,
+      0 0 40px -8px rgba(255,45,85,.6);
+  }
+  .ld-btn:hover::before { transform: translateX(120%); }
+  .ld-btn:active { transform: translateY(0) scale(.98); }
+  .ld-btn:focus-visible { outline: 3px solid rgba(255,45,85,.55); outline-offset: 3px; }
+
+  .ld-btn[disabled] {
+    opacity: .4;
+    cursor: not-allowed;
+    filter: grayscale(.4);
+    transform: none !important;
+  }
+  .ld-btn[disabled]:hover { box-shadow: none; }
+  .ld-btn[disabled]::before { display: none; }
+
+  .ld-btn.alt {
+    background: var(--bs-secondary-bg);
+    color: var(--bs-body-color) !important;
+    box-shadow: 0 0 0 1px var(--kz-line) inset;
+  }
+  .ld-btn.alt:hover {
+    color: var(--bs-body-color) !important;
+    box-shadow: 0 0 0 1px rgba(255,45,85,.5) inset, 0 10px 24px -14px rgba(0,0,0,.4);
+  }
+  .ld-btn.alt::before { display: none; }
+
+  .ld-btn.wa {
+    background: linear-gradient(135deg, #25d366, #128c7e);
+    box-shadow: 0 12px 28px -12px rgba(37,211,102,.9);
+  }
+  .ld-btn.wa:hover {
+    box-shadow: 0 18px 40px -14px rgba(37,211,102,1), 0 0 40px -8px rgba(37,211,102,.6);
+  }
+
+  .ld-btn.sm { padding: 7px 13px; font-size: 13px; border-radius: 11px; }
+
+  /* ================= CARDS ================= */
+  .ld-card {
+    position: relative;
+    background: var(--ld-panel);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--kz-line);
+    border-radius: 22px;
+    padding: 22px;
+    overflow: hidden;
+    box-shadow:
+      0 20px 50px -30px rgba(0,0,0,.55),
+      0 1px 0 rgba(255,255,255,.65) inset;
+    animation: ldFadeUp .55s cubic-bezier(.2,.9,.3,1.2) backwards;
+  }
+  .ld-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg,
+      rgba(255,45,85,.45),
+      rgba(255,214,10,.32),
+      rgba(56,189,248,.42),
+      rgba(168,85,247,.42));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity .35s ease;
+    pointer-events: none;
+  }
+  .ld-card:hover::before { opacity: 1; }
+  @keyframes ldFadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .ld-card h2 {
+    font: 800 20px var(--kz-serif);
+    letter-spacing: -.015em;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ld-card h2::before {
+    content: "";
+    width: 4px;
+    height: 22px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #ff2d55, #ffd60a);
+    box-shadow: 0 0 12px rgba(255,45,85,.6);
+  }
+
+  /* ================= SEATS (waiting room) ================= */
+  .ld-seat {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, rgba(255,255,255,.4), transparent);
+    border: 1px solid var(--kz-line);
+    transition: transform .22s ease, box-shadow .22s ease, border-color .22s ease;
+    animation: ldSlideIn .4s ease backwards;
+  }
+  .ld-seat:nth-child(1) { animation-delay: .04s; }
+  .ld-seat:nth-child(2) { animation-delay: .09s; }
+  .ld-seat:nth-child(3) { animation-delay: .14s; }
+  .ld-seat:nth-child(4) { animation-delay: .19s; }
+  @keyframes ldSlideIn {
+    from { opacity: 0; transform: translateX(-12px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .ld-seat:hover {
+    transform: translateX(3px);
+    border-color: rgba(255,45,85,.4);
+    box-shadow: 0 12px 26px -18px rgba(255,45,85,.6);
+  }
+  .ld-seat:last-child { margin-bottom: 0; }
+  .ld-seat.empty {
+    color: var(--kz-muted);
+    background: transparent;
+    border-style: dashed;
+  }
+  .ld-seat.empty .ld-av {
+    background: transparent;
+    border: 2px dashed var(--kz-line);
+    color: var(--kz-muted);
+  }
+
+  .ld-av {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-weight: 900;
+    font-size: 17px;
+    color: #fff;
+    background: #94a3b8;
+    flex: none;
+    position: relative;
+    overflow: hidden;
+    box-shadow:
+      0 8px 20px -8px rgba(0,0,0,.5),
+      0 0 0 3px rgba(255,255,255,.35) inset;
+  }
+  .ld-av::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(255,255,255,.4), transparent 50%);
+    z-index: 1;
+    pointer-events: none;
+  }
+  .ld-av img, .ld-mini img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+    z-index: 2;
+  }
+
+  .ld-mini {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: inline-grid;
+    place-items: center;
+    font: 900 11px var(--kz-sans);
+    color: #fff;
+    vertical-align: middle;
+    margin-right: 6px;
+    position: relative;
+    overflow: hidden;
+    background: var(--pc, #94a3b8);
+    border: 2px solid var(--pc, #94a3b8);
+    flex: none;
+    box-shadow: 0 4px 10px -4px rgba(0,0,0,.4);
+  }
+
+  .ld-tag {
+    font: 800 10px/1 var(--kz-sans);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    background: linear-gradient(135deg, rgba(255,45,85,.16), rgba(255,214,10,.2));
+    color: var(--ld-red-dark);
+    border: 1px solid rgba(255,45,85,.28);
+    border-radius: 99px;
+    padding: 3px 8px;
+    margin-left: 6px;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  /* ================= PLAYER PANELS (in-game) ================= */
+  .ld-players {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .ld-pl {
+    position: relative;
+    border: 2px solid var(--kz-line);
+    border-radius: 16px;
+    padding: 10px 12px;
+    background: var(--ld-panel);
+    backdrop-filter: blur(12px);
+    transition: box-shadow .3s ease, border-color .3s ease, transform .3s cubic-bezier(.2,.9,.3,1.4);
+    min-width: 0;
+    overflow: hidden;
+  }
+  .ld-pl::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 3px;
+    background: linear-gradient(90deg, var(--pc), transparent);
+    opacity: .7;
+  }
+  .ld-pl b {
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+    gap: 4px;
+  }
+  .ld-pl small {
+    display: block;
+    color: var(--kz-muted);
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  .ld-pl.turn {
+    box-shadow:
+      0 0 0 3px var(--pc),
+      0 12px 32px -14px var(--pc),
+      0 0 40px -10px var(--pc);
+    border-color: var(--pc);
+    transform: translateY(-3px);
+    animation: ldTurnPulse 2s ease-in-out infinite;
+  }
+  @keyframes ldTurnPulse {
+    0%, 100% { box-shadow: 0 0 0 3px var(--pc), 0 12px 32px -14px var(--pc), 0 0 40px -10px var(--pc); }
+    50%      { box-shadow: 0 0 0 4px var(--pc), 0 16px 40px -14px var(--pc), 0 0 60px -8px var(--pc); }
+  }
+  .ld-pl.turn::after {
+    content: "▶";
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    color: var(--pc);
+    font-size: 12px;
+    animation: ldArrow 1.2s ease-in-out infinite;
+  }
+  @keyframes ldArrow {
+    0%, 100% { transform: translateX(0); opacity: 1; }
+    50%      { transform: translateX(3px); opacity: .6; }
+  }
+  .ld-pl .tm {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    font: 900 14px var(--kz-sans);
+    color: var(--pc);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 12px var(--pc);
+  }
+  .ld-pl.out { opacity: .5; filter: grayscale(.5); }
+
+  /* ================= BOARD ================= */
+  .ld-boardwrap {
+    position: relative;
+    width: min(100%, 580px);
+    margin: 8px auto 0;
+    aspect-ratio: 1;
+    border-radius: 24px;
+    padding: 14px;
+    background: linear-gradient(135deg, #1a1a2e, #0f0f1a);
+    box-shadow:
+      0 30px 70px -30px rgba(0,0,0,.85),
+      0 0 0 1px rgba(255,255,255,.08) inset,
+      0 0 80px -20px rgba(255,45,85,.35);
+    transform: perspective(1200px) rotateX(2deg);
+    transition: transform .5s cubic-bezier(.2,.9,.3,1.4);
+  }
+  .ld-boardwrap:hover {
+    transform: perspective(1200px) rotateX(0deg) translateY(-4px);
+  }
+  /* Ambient glow under board */
+  .ld-boardwrap::after {
+    content: "";
+    position: absolute;
+    inset: 20% 15% -8% 15%;
+    border-radius: 50%;
+    background: radial-gradient(ellipse, rgba(255,45,85,.5), transparent 70%);
+    filter: blur(40px);
+    z-index: -1;
+    pointer-events: none;
+  }
+  .ld-boardwrap svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    background: #fff;
+    box-shadow:
+      0 0 0 1px rgba(0,0,0,.15) inset,
+      0 8px 20px -8px rgba(0,0,0,.5);
+  }
+
+  /* Token styling */
+  .tk {
+    transition: transform .18s cubic-bezier(.2,.9,.3,1.4);
+    cursor: default;
+    filter: drop-shadow(0 3px 4px rgba(0,0,0,.35));
+  }
+  .tk .ring {
+    fill: none;
+    stroke: #111;
+    stroke-width: .09;
+    opacity: 0;
+  }
+  .tk.can {
+    cursor: pointer;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,.5)) drop-shadow(0 0 6px rgba(255,255,255,.6));
+  }
+  .tk.can .ring {
+    opacity: 1;
+    animation: ldring 1s ease-in-out infinite;
+  }
+  .tk.can .body {
+    animation: ldhop 1s ease-in-out infinite;
+  }
+  @keyframes ldring {
+    0%, 100% { stroke-width: .09; opacity: 1; stroke: #fff; }
+    50%      { stroke-width: .24; opacity: .55; stroke: #ffd60a; }
+  }
+  @keyframes ldhop {
+    0%, 100% { transform: translateY(0) scale(1); }
+    50%      { transform: translateY(-.1px) scale(1.1); }
+  }
+  .tk .body {
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+
+  /* ================= DICE ================= */
+  .ld-ctrl {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 22px;
+    margin: 22px auto 0;
+    flex-wrap: wrap;
+  }
+  .ld-die {
+    width: 82px;
+    height: 82px;
+    border-radius: 20px;
+    background: linear-gradient(145deg, #ffffff, #e8e8f0);
+    border: 3px solid var(--dc, #999);
+    padding: 10px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    box-shadow:
+      0 20px 40px -14px rgba(0,0,0,.65),
+      0 0 0 1px rgba(255,255,255,.5) inset,
+      0 -6px 12px -8px rgba(0,0,0,.15) inset,
+      0 0 40px -10px var(--dc, transparent);
+    flex: none;
+    user-select: none;
+    transition: transform .28s cubic-bezier(.2,.9,.3,1.5),
+                box-shadow .28s ease;
+    position: relative;
+  }
+  .ld-die::after {
+    content: "";
+    position: absolute;
+    top: 8%;
+    left: 8%;
+    right: 8%;
+    height: 20%;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(255,255,255,.9), transparent);
+    pointer-events: none;
+  }
+  .ld-die i {
+    border-radius: 50%;
+    transition: all .15s ease;
+  }
+  .ld-die i.on {
+    background: radial-gradient(circle at 30% 30%, #333, #000);
+    margin: 1.5px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.4) inset;
+  }
+  .ld-die.ready {
+    cursor: pointer;
+    animation: ldready 1.2s ease-in-out infinite;
+  }
+  .ld-die.ready:hover {
+    transform: translateY(-4px) scale(1.06);
+  }
+  @keyframes ldready {
+    0%, 100% {
+      transform: scale(1) rotate(0deg);
+      box-shadow:
+        0 20px 40px -14px rgba(0,0,0,.65),
+        0 0 0 1px rgba(255,255,255,.5) inset,
+        0 0 30px -8px var(--dc);
+    }
+    50% {
+      transform: scale(1.1) rotate(-5deg);
+      box-shadow:
+        0 24px 50px -16px rgba(0,0,0,.7),
+        0 0 0 1px rgba(255,255,255,.7) inset,
+        0 0 60px -6px var(--dc),
+        0 0 0 8px color-mix(in srgb, var(--dc) 25%, transparent);
+    }
+  }
+  .ld-die.rolling {
+    animation: ldshake .12s linear infinite;
+  }
+  @keyframes ldshake {
+    0%   { transform: rotate(-9deg) translateY(-3px); }
+    25%  { transform: rotate(9deg) translateY(3px); }
+    50%  { transform: rotate(-7deg) translateY(-2px); }
+    75%  { transform: rotate(7deg) translateY(2px); }
+    100% { transform: rotate(-9deg) translateY(-3px); }
+  }
   .ld-die.empty { opacity: .55; }
-  @keyframes ldready { 50% { transform: scale(1.1) rotate(-4deg); box-shadow: 0 0 0 6px rgba(244,180,0,.45); } }
-  @keyframes ldshake { 25% { transform: rotate(-9deg) translateY(-2px); } 75% { transform: rotate(9deg) translateY(2px); } }
-  .ld-stat { min-width: 190px; text-align: left; }
-  .ld-stat .big { font: 800 18px var(--kz-serif); }
-  .ld-stat .note { color: var(--kz-muted); font-size: 13px; min-height: 18px; }
-  .ld-toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #111; color: #fff; padding: 10px 16px; border-radius: 10px; font-weight: 600; z-index: 3000; max-width: 90vw; }
-  .ld-over { text-align: center; }
-  .ld-over h2 { font: 800 26px var(--kz-serif); }
-  /* chat + emojis */
-  .ld-chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
-  .ld-chat-head b { font: 800 17px var(--kz-serif); }
-  .ld-chat-list { height: 190px; overflow-y: auto; border: 1px solid var(--kz-line); border-radius: 10px; padding: 8px; background: var(--bs-body-bg); display: flex; flex-direction: column; gap: 8px; }
-  .ld-msg { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; overflow-wrap: anywhere; }
-  .ld-msg .ld-mini { width: 26px; height: 26px; margin-right: 0; }
-  .ld-msg b { display: block; font-size: 12px; color: var(--kz-muted); line-height: 1.2; }
-  .ld-msg.me b { color: #c8102e; }
-  .ld-msg .big { font-size: 28px; line-height: 1.15; }
-  .ld-chat-empty { color: var(--kz-muted); font-size: 13px; margin: auto; text-align: center; }
-  .ld-emojis { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
-  .ld-emo { border: 1px solid var(--kz-line); background: var(--kz-paper); border-radius: 10px; font-size: 22px; line-height: 1; padding: 6px 9px; cursor: pointer; }
-  .ld-emo:active { transform: scale(.9); }
-  .ld-chat-send { display: flex; gap: 8px; }
-  .ld-chat-send input { flex: 1; min-width: 0; border: 1px solid var(--kz-line); border-radius: 10px; padding: 9px 12px; font: 14px var(--kz-sans); background: var(--bs-body-bg); color: var(--bs-body-color); }
-  .ld-pop { position: fixed; z-index: 3100; pointer-events: none; font-size: 38px; line-height: 1; animation: ldpop 2s ease-out forwards; }
-  @keyframes ldpop { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.5); } 15% { opacity: 1; transform: translate(-50%, -10px) scale(1.25); } 100% { opacity: 0; transform: translate(-50%, -70px) scale(1); } }
+
+  .ld-stat {
+    min-width: 220px;
+    text-align: left;
+    padding: 12px 18px;
+    background: var(--ld-panel);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--kz-line);
+    border-radius: 16px;
+    box-shadow: 0 12px 30px -20px rgba(0,0,0,.5);
+  }
+  .ld-stat .big {
+    font: 900 18px var(--kz-serif);
+    letter-spacing: -.01em;
+    line-height: 1.25;
+  }
+  .ld-stat .note {
+    color: var(--kz-muted);
+    font-size: 13px;
+    min-height: 18px;
+    margin-top: 4px;
+  }
+
+  /* ================= TOAST ================= */
+  .ld-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #1a1a2e, #0f0f1a);
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 14px;
+    font-weight: 700;
+    z-index: 3000;
+    max-width: 90vw;
+    box-shadow:
+      0 20px 50px -18px rgba(0,0,0,.9),
+      0 0 0 1px rgba(255,255,255,.1) inset,
+      0 0 40px -10px rgba(255,45,85,.6);
+    animation: ldToastIn .35s cubic-bezier(.2,.9,.3,1.5);
+  }
+  @keyframes ldToastIn {
+    from { opacity: 0; transform: translate(-50%, 12px) scale(.9); }
+    to   { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  }
+
+  /* ================= GAME OVER ================= */
+  .ld-over { text-align: center; padding: 32px 22px; }
+  .ld-over h2 {
+    font: 900 30px var(--kz-serif);
+    margin-bottom: 8px;
+    background: linear-gradient(135deg, #ff2d55, #ffd60a, #34d399);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: ldShimmer 4s ease-in-out infinite;
+  }
+  @keyframes ldShimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+  }
+
+  /* ================= CHAT ================= */
+  .ld-chat-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .ld-chat-head b {
+    font: 900 18px var(--kz-serif);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .ld-chat-list {
+    height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--kz-line);
+    border-radius: 14px;
+    padding: 12px;
+    background: linear-gradient(180deg, rgba(0,0,0,.02), transparent);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scrollbar-width: thin;
+  }
+  .ld-chat-list::-webkit-scrollbar { width: 6px; }
+  .ld-chat-list::-webkit-scrollbar-thumb {
+    background: var(--kz-line);
+    border-radius: 3px;
+  }
+
+  .ld-msg {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+    animation: ldMsgIn .3s cubic-bezier(.2,.9,.3,1.4);
+  }
+  @keyframes ldMsgIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .ld-msg .ld-mini {
+    width: 30px;
+    height: 30px;
+    font-size: 13px;
+    margin-right: 0;
+  }
+  .ld-msg b {
+    display: block;
+    font-size: 12px;
+    color: var(--kz-muted);
+    line-height: 1.2;
+    margin-bottom: 2px;
+  }
+  .ld-msg.me b { color: var(--ld-red); }
+  .ld-msg.me .ld-mini { box-shadow: 0 0 0 2px rgba(255,45,85,.35); }
+  .ld-msg .big {
+    font-size: 32px;
+    line-height: 1.1;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,.15));
+  }
+
+  .ld-chat-empty {
+    color: var(--kz-muted);
+    font-size: 13px;
+    margin: auto;
+    text-align: center;
+  }
+
+  .ld-emojis {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin: 12px 0;
+  }
+  .ld-emo {
+    border: 1px solid var(--kz-line);
+    background: var(--kz-paper);
+    border-radius: 11px;
+    font-size: 22px;
+    line-height: 1;
+    padding: 7px 10px;
+    cursor: pointer;
+    transition: transform .18s cubic-bezier(.2,.9,.3,1.5),
+                background .18s ease,
+                border-color .18s ease;
+  }
+  .ld-emo:hover {
+    transform: translateY(-3px) scale(1.1);
+    background: linear-gradient(135deg, rgba(255,45,85,.1), rgba(255,214,10,.12));
+    border-color: rgba(255,45,85,.4);
+    box-shadow: 0 10px 24px -12px rgba(255,45,85,.6);
+  }
+  .ld-emo:active { transform: scale(.92); }
+
+  .ld-chat-send {
+    display: flex;
+    gap: 8px;
+  }
+  .ld-chat-send input {
+    flex: 1;
+    min-width: 0;
+    border: 2px solid var(--kz-line);
+    border-radius: 13px;
+    padding: 11px 14px;
+    font: 14px var(--kz-sans);
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    transition: border-color .2s ease, box-shadow .2s ease;
+  }
+  .ld-chat-send input:focus {
+    outline: none;
+    border-color: var(--ld-red);
+    box-shadow: 0 0 0 4px rgba(255,45,85,.15);
+  }
+
+  /* ================= FLOATING EMOJI POP ================= */
+  .ld-pop {
+    position: fixed;
+    z-index: 3100;
+    pointer-events: none;
+    font-size: 44px;
+    line-height: 1;
+    filter: drop-shadow(0 6px 12px rgba(0,0,0,.35));
+    animation: ldpop 2.2s cubic-bezier(.2,.9,.3,1.4) forwards;
+  }
+  @keyframes ldpop {
+    0%   { opacity: 0; transform: translate(-50%, 15px) scale(.4) rotate(-15deg); }
+    20%  { opacity: 1; transform: translate(-50%, -15px) scale(1.3) rotate(10deg); }
+    60%  { opacity: 1; transform: translate(-50%, -40px) scale(1.15) rotate(-5deg); }
+    100% { opacity: 0; transform: translate(-50%, -90px) scale(.9) rotate(0deg); }
+  }
+
+  /* ================= UTIL ================= */
   [hidden] { display: none !important; }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .ld::before, .ld::after, .ld-card, .ld-btn, .ld-die, .ld-tk,
+    .ld-pl.turn, .ld-hero h1, .ld-pop, .ld-top .ld-code::after,
+    .ld-msg, .ld-seat { animation: none !important; transition: none !important; }
+    .ld-btn::before, .ld-top .ld-code::after { display: none; }
+  }
 </style>
 
 <div class="ld" id="ld">
+
+  <!-- ================= TOP BAR ================= -->
   <div class="ld-top">
-    <a href="/ludo" class="ld-btn alt sm">&larr; Ludo lobby</a>
-    <div><span class="text-secondary small me-1">Room</span><span class="ld-code"><%= code %></span></div>
+    <a href="/ludo" class="ld-btn alt sm">← Ludo lobby</a>
+    <div>
+      <span class="text-secondary small me-1">Room</span>
+      <span class="ld-code"><%= code %></span>
+    </div>
   </div>
 
-  <!-- Waiting room -->
+  <!-- ================= WAITING ROOM ================= -->
   <div id="ldLobby" class="ld-card" hidden>
     <h2 class="mb-1" style="font-size:22px">Waiting room</h2>
     <p class="text-secondary mb-3" id="ldLobbyHint"></p>
     <div id="ldSeats"></div>
     <div class="mt-3 d-flex gap-2 flex-wrap" id="ldInvite">
-      <button class="ld-btn alt sm" id="ldCopy" type="button">Copy invite link</button>
-      <a class="ld-btn wa sm" id="ldWa" target="_blank" rel="noopener">Share on WhatsApp</a>
+      <button class="ld-btn alt sm" id="ldCopy" type="button">📋 Copy invite link</button>
+      <a class="ld-btn wa sm" id="ldWa" target="_blank" rel="noopener">💬 Share on WhatsApp</a>
     </div>
     <div class="mt-3 d-flex gap-2 flex-wrap" id="ldHostBtns"></div>
   </div>
 
-  <!-- Game -->
+  <!-- ================= GAME ================= -->
   <div id="ldGame" hidden>
     <div class="ld-players" id="ldPlayers"></div>
-    <div class="ld-boardwrap"><svg id="ldBoard" viewBox="0 0 15 15" role="img" aria-label="Ludo board"></svg></div>
+    <div class="ld-boardwrap">
+      <svg id="ldBoard" viewBox="0 0 15 15" role="img" aria-label="Ludo board"></svg>
+    </div>
     <div class="ld-ctrl">
       <div class="ld-die empty" id="ldDie" role="button" tabindex="0" aria-label="Dice"></div>
       <div class="ld-stat">
@@ -107,17 +827,17 @@
     <div class="text-center mt-3" id="ldPlayBtns"></div>
   </div>
 
-  <!-- Finished -->
+  <!-- ================= FINISHED ================= -->
   <div id="ldOver" class="ld-card ld-over mt-3" hidden>
     <h2 id="ldOverTitle"></h2>
     <p class="text-secondary" id="ldOverText"></p>
     <div class="d-flex gap-2 justify-content-center flex-wrap" id="ldOverBtns"></div>
   </div>
 
-  <!-- Chat (only people sitting in this room see it) -->
+  <!-- ================= CHAT ================= -->
   <div id="ldChat" class="ld-card mt-3" hidden>
     <div class="ld-chat-head">
-      <b>&#128172; Chat <span class="ld-tag" id="ldChatNew" hidden></span></b>
+      <b>💬 Chat <span class="ld-tag" id="ldChatNew" hidden></span></b>
       <button type="button" class="ld-btn alt sm" id="ldChatToggle">Hide</button>
     </div>
     <div id="ldChatBody">
@@ -144,8 +864,8 @@
   var $ = function (id) { return document.getElementById(id); };
   var NS = 'http://www.w3.org/2000/svg';
 
-  var S = null;            // latest state shown
-  var shown = null;        // token positions currently drawn (differs from S.tokens during an animation)
+  var S = null;
+  var shown = null;
   var anim = false, pending = null, animId = 0, busy = false, polling = false;
   var offset = 0, pollTimer = null, lastDiceId = 0, dieRolling = false, wasMyTurn = false, boardBuilt = false;
   var toastTimer = null;
@@ -160,50 +880,85 @@
   }
   function inviteLink() { return location.origin + '/ludo/' + code + '?join=1'; }
   function playerName(i) { return S.players[i] ? S.players[i].name : '?'; }
-  // profile photo on top of the first letter (same idea as the site header); only asked for when the server says the player has one
-  function avInner(p) { return p.bot ? '\uD83E\uDD16' : esc((p.name || '?').charAt(0).toUpperCase()); }
+  function avInner(p) { return p.bot ? '🤖' : esc((p.name || '?').charAt(0).toUpperCase()); }
   function avImg(p) { return (p.av && !p.bot && p.name) ? '<img src="/a/' + encodeURIComponent(p.name) + '" alt="" onerror="this.remove()">' : ''; }
 
   // ---------- Board ----------
   function buildBoard() {
-    var h = '<rect width="15" height="15" fill="#fff"/>';
-    var yo = [[0, 0], [9, 0], [9, 9], [0, 9]];   // [x, y] of each yard (red, green, yellow, blue)
+    var h = '<defs>' +
+      '<radialGradient id="gGlow" cx="50%" cy="50%" r="50%">' +
+      '<stop offset="0%" stop-color="rgba(255,255,255,.25)"/>' +
+      '<stop offset="100%" stop-color="rgba(255,255,255,0)"/>' +
+      '</radialGradient>' +
+      '</defs>';
+    h += '<rect width="15" height="15" fill="#fefefe"/>';
+    h += '<rect width="15" height="15" fill="url(#gGlow)"/>';
+
+    var yo = [[0, 0], [9, 0], [9, 9], [0, 9]];
     for (var c = 0; c < 4; c++) {
       var x0 = yo[c][0], y0 = yo[c][1];
-      h += '<rect x="' + x0 + '" y="' + y0 + '" width="6" height="6" fill="' + COL[c] + '"/>';
-      h += '<rect x="' + (x0 + 1) + '" y="' + (y0 + 1) + '" width="4" height="4" rx=".5" fill="#fff"/>';
-      for (var k = 0; k < 4; k++) h += '<circle cx="' + B.yards[c][k][0] + '" cy="' + B.yards[c][k][1] + '" r=".62" fill="' + TINT[c] + '" stroke="' + COL[c] + '" stroke-width=".08"/>';
+      // Outer colored square with soft inner white
+      h += '<rect x="' + x0 + '" y="' + y0 + '" width="6" height="6" rx=".4" fill="' + COL[c] + '"/>';
+      h += '<rect x="' + (x0 + 1) + '" y="' + (y0 + 1) + '" width="4" height="4" rx=".6" fill="#fff" stroke="rgba(0,0,0,.08)" stroke-width=".05"/>';
+      for (var k = 0; k < 4; k++) {
+        h += '<circle cx="' + B.yards[c][k][0] + '" cy="' + B.yards[c][k][1] + '" r=".62" fill="' + TINT[c] + '" stroke="' + COL[c] + '" stroke-width=".09"/>';
+      }
     }
+
+    // Track cells with subtle shadow
     for (var i = 0; i < 52; i++) {
       var p = B.track[i], fill = '#fff', star = '';
       var sc = B.start.indexOf(i);
       if (sc >= 0) fill = COL[sc];
-      else if (B.safe.indexOf(i) >= 0) star = '<text x="' + p[0] + '" y="' + (p[1] + .25) + '" text-anchor="middle" font-size=".75" fill="#8a8a8a">\u2605</text>';
-      h += '<rect x="' + (p[0] - .5) + '" y="' + (p[1] - .5) + '" width="1" height="1" fill="' + fill + '" stroke="#555" stroke-width=".04"/>' + star;
+      else if (B.safe.indexOf(i) >= 0) star = '<text x="' + p[0] + '" y="' + (p[1] + .26) + '" text-anchor="middle" font-size=".78" fill="#8a8a8a" style="font-family:sans-serif">★</text>';
+      h += '<rect x="' + (p[0] - .5) + '" y="' + (p[1] - .5) + '" width="1" height="1" fill="' + fill + '" stroke="rgba(0,0,0,.25)" stroke-width=".045"/>' + star;
     }
+
+    // Home columns
     for (var c2 = 0; c2 < 4; c2++) for (var j = 0; j < 5; j++) {
       var q = B.home[c2][j];
-      h += '<rect x="' + (q[0] - .5) + '" y="' + (q[1] - .5) + '" width="1" height="1" fill="' + COL[c2] + '" stroke="#555" stroke-width=".04"/>';
+      h += '<rect x="' + (q[0] - .5) + '" y="' + (q[1] - .5) + '" width="1" height="1" fill="' + COL[c2] + '" stroke="rgba(0,0,0,.25)" stroke-width=".045"/>';
     }
-    h += '<polygon points="6,6 9,6 7.5,7.5" fill="' + COL[1] + '"/><polygon points="9,6 9,9 7.5,7.5" fill="' + COL[2] + '"/>';
-    h += '<polygon points="6,9 9,9 7.5,7.5" fill="' + COL[3] + '"/><polygon points="6,6 6,9 7.5,7.5" fill="' + COL[0] + '"/>';
-    h += '<rect x="6" y="6" width="3" height="3" fill="none" stroke="#555" stroke-width=".05"/>';
+
+    // Center triangles
+    h += '<polygon points="6,6 9,6 7.5,7.5" fill="' + COL[1] + '"/>' +
+         '<polygon points="9,6 9,9 7.5,7.5" fill="' + COL[2] + '"/>' +
+         '<polygon points="6,9 9,9 7.5,7.5" fill="' + COL[3] + '"/>' +
+         '<polygon points="6,6 6,9 7.5,7.5" fill="' + COL[0] + '"/>' +
+         '<rect x="6" y="6" width="3" height="3" fill="none" stroke="rgba(0,0,0,.3)" stroke-width=".05"/>';
+
+    // Center trophy emoji
+    h += '<text x="7.5" y="7.85" text-anchor="middle" font-size=".65" style="pointer-events:none">🏆</text>';
+
     h += '<g id="ldTokens"></g>';
     $('ldBoard').innerHTML = h;
     $('ldBoard').addEventListener('click', onBoardClick);
     boardBuilt = true;
   }
+
   function tokEl(pi, t) {
     var id = 'tk-' + pi + '-' + t, el = $(id);
     if (el) return el;
     var col = COL[S.players[pi].color];
     el = document.createElementNS(NS, 'g');
-    el.setAttribute('id', id); el.setAttribute('class', 'tk'); el.setAttribute('data-p', pi); el.setAttribute('data-t', t);
-    el.innerHTML = '<circle class="ring" r=".52"/><circle r=".4" cy=".07" fill="rgba(0,0,0,.28)"/>' +
-      '<g class="body"><circle r=".38" fill="' + col + '" stroke="#fff" stroke-width=".08"/><circle r=".22" fill="none" stroke="rgba(255,255,255,.55)" stroke-width=".05"/><circle r=".07" cx="-.12" cy="-.13" fill="rgba(255,255,255,.7)"/></g>';
+    el.setAttribute('id', id);
+    el.setAttribute('class', 'tk');
+    el.setAttribute('data-p', pi);
+    el.setAttribute('data-t', t);
+    // Enhanced token: outer ring, shadow, gradient body, highlight, inner ring
+    el.innerHTML =
+      '<circle class="ring" r=".52"/>' +
+      '<ellipse cx="0" cy=".18" rx=".38" ry=".12" fill="rgba(0,0,0,.25)"/>' +
+      '<g class="body">' +
+        '<circle r=".4" fill="' + col + '" stroke="#fff" stroke-width=".09"/>' +
+        '<circle r=".4" fill="none" stroke="rgba(0,0,0,.2)" stroke-width=".04"/>' +
+        '<circle r=".24" fill="none" stroke="rgba(255,255,255,.7)" stroke-width=".06"/>' +
+        '<circle r=".09" cx="-.13" cy="-.13" fill="rgba(255,255,255,.85)"/>' +
+      '</g>';
     $('ldTokens').appendChild(el);
     return el;
   }
+
   function posXY(pi, t, rel) {
     var color = S.players[pi].color;
     if (rel < 0) return B.yards[color][t];
@@ -264,7 +1019,8 @@
   // ---------- Dice ----------
   function dieHtml(v) { var on = PIPS[v] || [], h = ''; for (var i = 0; i < 9; i++) h += '<i' + (on.indexOf(i) >= 0 ? ' class="on"' : '') + '></i>'; return h; }
   function rollAnim(final) {
-    var d = $('ldDie'), n = 0; dieRolling = true; d.classList.add('rolling'); d.classList.remove('ready', 'empty');
+    var d = $('ldDie'), n = 0; dieRolling = true;
+    d.classList.add('rolling'); d.classList.remove('ready', 'empty');
     var iv = setInterval(function () {
       d.innerHTML = dieHtml(1 + Math.floor(Math.random() * 6));
       if (++n >= 6) { clearInterval(iv); dieRolling = false; d.classList.remove('rolling'); d.innerHTML = dieHtml(final); renderUI(); }
@@ -286,7 +1042,7 @@
       var p = S.players[i];
       if (!p) { h += '<div class="ld-seat empty" data-si="' + i + '"><div class="ld-av">+</div><div>Empty seat</div></div>'; continue; }
       var host = p.userId && p.userId === S.host;
-      h += '<div class="ld-seat" data-si="' + i + '"><div class="ld-av" style="background:' + (p.bot ? '#64748b' : '#0a6b4d') + '">' + avInner(p) + avImg(p) + '</div><div><b>' + esc(p.name) + '</b>' +
+      h += '<div class="ld-seat" data-si="' + i + '"><div class="ld-av" style="background:' + (p.bot ? 'linear-gradient(135deg,#64748b,#334155)' : 'linear-gradient(135deg,#0a6b4d,#065f46)') + '">' + avInner(p) + avImg(p) + '</div><div><b>' + esc(p.name) + '</b>' +
         (p.i === S.me ? '<span class="ld-tag">You</span>' : '') + (p.bot ? '<span class="ld-tag">Bot</span>' : '') + (host ? '<span class="ld-tag">Host</span>' : '') + '</div></div>';
     }
     return h;
@@ -301,8 +1057,8 @@
     var b = '';
     if (!me && !full) b += '<button class="ld-btn" data-a="join">Join this room</button>';
     if (me && isHost) {
-      b += '<button class="ld-btn" data-a="start"' + (S.players.length < 2 ? ' disabled' : '') + '>Start game</button>';
-      if (!full) b += '<button class="ld-btn alt" data-a="addbot">Add bot</button><button class="ld-btn alt" data-a="fillbots">Fill with bots</button>';
+      b += '<button class="ld-btn" data-a="start"' + (S.players.length < 2 ? ' disabled' : '') + '>▶ Start game</button>';
+      if (!full) b += '<button class="ld-btn alt" data-a="addbot">🤖 Add bot</button><button class="ld-btn alt" data-a="fillbots">⚡ Fill with bots</button>';
       if (S.players.some(function (p) { return p.bot; })) b += '<button class="ld-btn alt" data-a="rmbot">Remove bot</button>';
     }
     if (me) b += '<button class="ld-btn alt" data-a="leave">Leave room</button>';
@@ -315,7 +1071,7 @@
       var turn = S.status === 'playing' && S.turn === p.i;
       h += '<div class="ld-pl' + (turn ? ' turn' : '') + (p.left ? ' out' : '') + '" style="--pc:' + COL[p.color] + '" data-i="' + p.i + '">' +
         '<b><span class="ld-mini">' + avInner(p) + avImg(p) + '</span>' + esc(p.name) + '</b>' +
-        '<small>' + (p.i === S.me ? 'You' : p.left ? 'Left (bot)' : p.bot ? 'Bot' : CN[p.color]) + ' \u00B7 ' + home + '/4 home</small>' +
+        '<small>' + (p.i === S.me ? 'You' : p.left ? 'Left (bot)' : p.bot ? 'Bot' : CN[p.color]) + ' · ' + home + '/4 home</small>' +
         (turn && !p.bot ? '<span class="tm" data-tm></span>' : '') + '</div>';
     });
     $('ldPlayers').innerHTML = h;
@@ -331,8 +1087,8 @@
       die.classList.toggle('ready', mine && S.phase === 'roll' && !anim && !busy);
     }
     if (S.status === 'finished') st.textContent = 'Game over';
-    else if (mine && S.phase === 'roll') st.textContent = 'Your turn: roll the dice!';
-    else if (mine) st.textContent = S.legal.length > 1 ? 'Tap a glowing token to move' : 'Moving...';
+    else if (mine && S.phase === 'roll') st.textContent = '🎲 Your turn: roll the dice!';
+    else if (mine) st.textContent = S.legal.length > 1 ? '👆 Tap a glowing token to move' : 'Moving...';
     else st.textContent = playerName(S.turn) + (S.phase === 'roll' ? ' is rolling...' : ' is choosing...');
     $('ldNote').textContent = lastText();
     var pb = '';
@@ -345,10 +1101,10 @@
     $('ldOver').hidden = !over;
     if (!over) return;
     var w = S.winner !== null && S.players[S.winner];
-    $('ldOverTitle').textContent = w ? (S.winner === S.me ? '\uD83C\uDFC6 You won!' : '\uD83C\uDFC6 ' + w.name + ' wins!') : 'Game ended';
+    $('ldOverTitle').textContent = w ? (S.winner === S.me ? '🏆 You won!' : '🏆 ' + w.name + ' wins!') : 'Game ended';
     $('ldOverText').textContent = w ? 'All 4 tokens reached home.' : 'Everyone left this game.';
     var b = '';
-    if (S.rematch) b += '<a class="ld-btn" href="/ludo/' + S.rematch + '?join=1">Join rematch</a>';
+    if (S.rematch) b += '<a class="ld-btn" href="/ludo/' + S.rematch + '?join=1">🔁 Join rematch</a>';
     else if (S.me >= 0 || S.players.some(function (p) { return p.userId === init.uid; })) b += '<button class="ld-btn" data-a="rematch">Play again</button>';
     b += '<a class="ld-btn alt" href="/ludo">Lobby</a>';
     $('ldOverBtns').innerHTML = b;
@@ -365,7 +1121,7 @@
     var mine = S.status === 'playing' && S.me >= 0 && S.me === S.turn;
     if (mine && !wasMyTurn) {
       if (navigator.vibrate) { try { navigator.vibrate(70); } catch (e) {} }
-      if (document.hidden) document.title = '\uD83C\uDFB2 Your turn! | Ludo';
+      if (document.hidden) document.title = '🎲 Your turn! | Ludo';
     }
     wasMyTurn = mine;
     var L = S.last;
@@ -396,10 +1152,10 @@
     var cands = document.querySelectorAll('.ld-pl[data-i="' + idx + '"], .ld-seat[data-si="' + idx + '"]');
     for (var k = 0; k < cands.length; k++) {
       var r = cands[k].getBoundingClientRect();
-      if (!r.width) continue;                         // that one is hidden (waiting room vs game)
+      if (!r.width) continue;
       var el = document.createElement('div'); el.className = 'ld-pop'; el.textContent = emoji;
       el.style.left = (r.left + r.width / 2) + 'px'; el.style.top = (r.top + 4) + 'px';
-      document.body.appendChild(el); setTimeout(function () { el.remove(); }, 2100);
+      document.body.appendChild(el); setTimeout(function () { el.remove(); }, 2200);
       return;
     }
   }
@@ -408,7 +1164,7 @@
     box.hidden = S.me < 0;
     if (S.me < 0) return;
     var lastId = list.length ? list[list.length - 1].id : 0;
-    if (chatPopId === null) { chatPopId = lastId; chatReadId = lastId; }          // first load: nothing old pops up
+    if (chatPopId === null) { chatPopId = lastId; chatReadId = lastId; }
     list.forEach(function (m) {
       if (m.id <= chatPopId) return;
       if (m.e && chatOpen && (S.now - m.at) < 8000) popEmoji(m.u, m.e);
@@ -470,7 +1226,7 @@
       shown = clone(ns.tokens); if (L) animId = L.id; renderUI(); return;
     }
     if (L && L.move && L.id > animId) {
-      renderUI();              // panels / dice / note now, token walks right after
+      renderUI();
       animateMove(L, ns);
     } else { if (L) animId = Math.max(animId, L.id); shown = clone(ns.tokens); renderUI(); }
   }
@@ -528,7 +1284,7 @@
   $('ldDie').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('ldDie').click(); } });
   $('ldCopy').addEventListener('click', function () {
     var link = inviteLink();
-    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(function () { toast('Invite link copied'); }, function () { prompt('Copy this link', link); });
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(function () { toast('📋 Invite link copied'); }, function () { prompt('Copy this link', link); });
     else prompt('Copy this link', link);
   });
 
@@ -539,4 +1295,5 @@
   schedule(nextDelay(init.state.nextIn));
 })();
 </script>
+
 <%- include('partials/footer') %>
