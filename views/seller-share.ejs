@@ -25,33 +25,33 @@
 </style>
 
 <div style="max-width:860px;margin:0 auto;">
-  <h1 class="fs-4 fw-bold mb-3">📣 Product groups mein share karo</h1>
+  <h1 class="fs-4 fw-bold mb-3">📣 Share in product groups</h1>
 
   <div class="sh-card">
-    <label class="sh-h" for="gpProd">Konsa product share karna hai?</label>
+    <label class="sh-h" for="gpProd">Which product do you want to share?</label>
     <select id="gpProd" class="form-select" onchange="location.href='/seller/share/' + this.value">
       <% recent.forEach(r => { %><option value="<%= r.id %>" <%= r.id === product.id ? 'selected' : '' %>><%= r.name %></option><% }) %>
     </select>
-    <% if (!product.is_active || product.stock <= 0) { %><div class="sh-stat mt-1 text-danger"><%= !product.is_active ? 'Ye product chhupa hua hai: link kholne par customers ko nazar nahi aayega.' : 'Ye product Sold out hai.' %></div><% } %>
+    <% if (!product.is_active || product.stock <= 0) { %><div class="sh-stat mt-1 text-danger"><%= !product.is_active ? 'This product is hidden: customers will not see it when they open the link.' : 'This product is sold out.' %></div><% } %>
   </div>
 
   <div class="sh-card">
     <h2 class="sh-h">✍️ Caption</h2>
     <textarea id="gpCaption" class="form-control" rows="6"><%= caption %></textarea>
-    <div class="sh-stat mt-1"><code>{link}</code> ki jagah har group ka apna UTM link khud lag jata hai. Isi se pata chalta hai kis group se kitne log aaye aur kitno ne order kiya.</div>
+    <div class="sh-stat mt-1"><code>{link}</code> is automatically replaced with each group's own UTM link. This shows how many people came from each group and how many ordered.</div>
   </div>
 
   <div class="sh-card">
     <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-1">
       <h2 class="sh-h mb-0">👥 Groups</h2>
-      <span class="sh-stat"><b id="gpDone"><%= doneCount %></b> / <%= groups.length %> mein aaj post ho chuka · is product ke <b><%= totalVisits %></b> visits, <b><%= totalOrders %></b> orders groups se</span>
+      <span class="sh-stat"><b id="gpDone"><%= doneCount %></b> / <%= groups.length %> posted today · <b><%= totalVisits %></b> visits and <b><%= totalOrders %></b> orders from groups for this product</span>
     </div>
     <div class="gp-bar mb-2"><i id="gpProg" style="width:<%= groups.length ? Math.round(doneCount * 100 / groups.length) : 0 %>%"></i></div>
     <% if (groups.length) { %>
       <button type="button" class="btn btn-success w-100 rounded-pill fw-semibold mb-2 py-2" id="gpNext">Next group ➜</button>
-      <div class="sh-stat mb-2">Dabane par agla group khulta hai, caption copy hota hai aur ✓ khud lag jata hai. Wahan paste karke send karo, phir wapas aa kar dobara dabao.</div>
+      <div class="sh-stat mb-2">Pressing this opens the next group, copies the caption and marks it ✓ automatically. Paste and send it there, then come back and press again.</div>
     <% } else { %>
-      <p class="text-body-secondary mb-0">Abhi koi group save nahi. Neeche "Groups add karo" se apni list ek dafa daal do.</p>
+      <p class="text-body-secondary mb-0">No groups saved yet. Add your list once using "Add groups" below.</p>
     <% } %>
 
     <% groups.forEach(g => { %>
@@ -59,16 +59,16 @@
         <div class="gp-ico" title="<%= g.platform %>"><%= ICON[g.platform] || '🔗' %></div>
         <div class="gp-info">
           <div class="gp-name"><%= g.name %></div>
-          <div class="sh-stat">👁 <%= g.visits %> visits · <%= g.people %> log · 🛒 <b><%= g.orders %></b> orders<% if (g.people > 0) { %> (<%= (g.orders * 100 / g.people).toFixed(1) %>%)<% } %></div>
+          <div class="sh-stat">👁 <%= g.visits %> visits · <%= g.people %> people · 🛒 <b><%= g.orders %></b> orders<% if (g.people > 0) { %> (<%= (g.orders * 100 / g.people).toFixed(1) %>%)<% } %></div>
         </div>
         <div class="gp-btns">
-          <button type="button" class="btn btn-sm btn-outline-primary rounded-pill gp-copy" title="Is group ka caption copy karo">📋</button>
+          <button type="button" class="btn btn-sm btn-outline-primary rounded-pill gp-copy" title="Copy the caption for this group">📋</button>
           <% if (g.link) { %>
             <a href="<%= g.link %>" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-success rounded-pill gp-open">↗ Open group</a>
           <% } else { %>
             <span class="btn btn-sm btn-outline-secondary rounded-pill disabled">No link</span>
           <% } %>
-          <button type="button" class="gp-tick" aria-label="Aaj is group mein post ho gaya" title="Aaj post ho gaya">✓</button>
+          <button type="button" class="gp-tick" aria-label="Posted in this group today" title="Posted today">✓</button>
         </div>
       </div>
     <% }) %>
@@ -76,17 +76,17 @@
 
   <div class="sh-card">
     <details <%= groups.length === 0 ? 'open' : '' %>>
-      <summary class="sh-h" style="cursor:pointer;">➕ Groups add karo</summary>
+      <summary class="sh-h" style="cursor:pointer;">➕ Add groups</summary>
       <form action="/seller/share/groups" method="POST" class="mt-2">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
         <input type="hidden" name="back" value="/seller/share/<%= product.id %>">
-        <label class="form-label small mb-1" for="gpList">Har line mein ek group: <code>Naam | link</code></label>
-        <textarea id="gpList" name="groups" class="form-control mb-2" rows="5" placeholder="Lahore Buy Sell | https://chat.whatsapp.com/xxxx&#10;Fashion FB Group | https://www.facebook.com/groups/12345&#10;Sirf naam bhi chalega"></textarea>
+        <label class="form-label small mb-1" for="gpList">One group per line: <code>Name | link</code></label>
+        <textarea id="gpList" name="groups" class="form-control mb-2" rows="5" placeholder="Lahore Buy Sell | https://chat.whatsapp.com/xxxx&#10;Fashion FB Group | https://www.facebook.com/groups/12345&#10;A name alone also works"></textarea>
         <div class="d-flex gap-2 align-items-center flex-wrap">
           <select name="platform" class="form-select form-select-sm" style="width:auto;" aria-label="Platform">
             <% PLATFORMS.forEach(p => { %><option value="<%= p %>"><%= p %></option><% }) %>
           </select>
-          <span class="sh-stat">Link se platform khud pehchan liya jata hai.</span>
+          <span class="sh-stat">The platform is detected automatically from the link.</span>
           <button class="btn btn-sm btn-primary rounded-pill ms-auto">Save</button>
         </div>
       </form>
@@ -94,15 +94,15 @@
         <form action="/seller/share/import" method="POST" class="mt-2">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="back" value="/seller/share/<%= product.id %>">
-          <button class="btn btn-sm btn-outline-secondary rounded-pill">📥 Group Poster ke groups yahan le aao</button>
-          <span class="sh-stat">Wahi UTM rehta hai, is liye purani analytics bhi mil jati hai.</span>
+          <button class="btn btn-sm btn-outline-secondary rounded-pill">📥 Import groups from Group Poster</button>
+          <span class="sh-stat">The same UTM is kept, so your old analytics carry over.</span>
         </form>
       <% } %>
       <% if (groups.length) { %>
         <hr>
-        <div class="sh-stat mb-1">Group hatana ho to (uski purani analytics bhi hat jati hai):</div>
+        <div class="sh-stat mb-1">To remove a group (its past analytics are removed too):</div>
         <% groups.forEach(g => { %>
-          <form action="/seller/share/groups/<%= g.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Group hataen: <%= g.name.replace(/['\\\n\r]/g, ' ') %> ?')">
+          <form action="/seller/share/groups/<%= g.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Remove group: <%= g.name.replace(/['\\\n\r]/g, ' ') %> ?')">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
             <input type="hidden" name="back" value="/seller/share/<%= product.id %>">
             <button class="gp-del">✕ <%= g.name %></button>
@@ -112,7 +112,7 @@
     </details>
   </div>
 
-  <p class="sh-stat">Visit tab ginti mein aata hai jab koi member link par click kare; sirf message dekhne wala count nahi hota. Bots aur aap ke apne visits count nahi hote. Poori report <a href="/seller/analytics">Shop analytics</a> mein hai.</p>
+  <p class="sh-stat">A visit is counted when a member clicks the link; people who only see the message are not counted. Bots and your own visits are not counted. The full report is in <a href="/seller/analytics">Shop analytics</a>.</p>
 </div>
 
 <script>
@@ -145,12 +145,12 @@
     return fetch('/seller/share/' + productId + '/tick/' + row.dataset.gid, { method: 'POST', headers: { 'x-csrf-token': csrf, 'Content-Type': 'application/x-www-form-urlencoded' }, body: body })
       .then(function (r) { return r.json(); })
       .then(function (j) { if (typeof j.done === 'boolean') row.classList.toggle('is-done', j.done); recount(); })
-      .catch(function () { alert('Tick save nahi hua, dobara try karo.'); })
+      .catch(function () { alert('Could not save the tick, please try again.'); })
       .then(function () { row.style.opacity = ''; });
   }
   var nextBtn = document.getElementById('gpNext');
   function nextRow() { var rows = document.querySelectorAll('.gp-row:not(.is-done)'); for (var i = 0; i < rows.length; i++) if (rows[i].dataset.link) return rows[i]; return null; }
-  function refreshNext() { if (!nextBtn) return; var r = nextRow(); nextBtn.textContent = r ? 'Next group ➜ ' + r.dataset.name : '✓ Sab groups ho gaye'; nextBtn.disabled = !r; }
+  function refreshNext() { if (!nextBtn) return; var r = nextRow(); nextBtn.textContent = r ? 'Next group ➜ ' + r.dataset.name : '✓ All groups done'; nextBtn.disabled = !r; }
   if (nextBtn) nextBtn.addEventListener('click', function () {
     var r = nextRow(); if (!r) return;
     copyNow(captionFor(r.dataset.url));

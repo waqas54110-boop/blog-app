@@ -1,4 +1,4 @@
-// V56 Cart: /cart (dekho), /cart/add, /cart/update, /cart/remove, /cart/coupon, /cart/checkout (har shop ka alag order), /cart/done.
+// V56 Cart: /cart (view), /cart/add, /cart/update, /cart/remove, /cart/coupon, /cart/checkout (a separate order per shop), /cart/done.
 const express = require('express');
 const pool = require('../db');
 const S = require('../lib/shop');
@@ -10,7 +10,7 @@ const router = express.Router();
 const go = (res, path, msg, key = 'msg') => res.redirect(path + (msg ? (path.includes('?') ? '&' : '?') + key + '=' + encodeURIComponent(msg) : ''));
 const fail500 = (res, err) => {
   if (err && (err.code === '42P01' || err.code === '42703')) {
-    return res.status(503).render('404', { code: 503, title: 'Cart setup', message: 'Cart abhi setup ho raha hai (migration_v56.sql). Thori der baad try karein.' });
+    return res.status(503).render('404', { code: 503, title: 'Cart setup', message: 'The cart is being set up (migration_v56.sql). Please try again in a little while.' });
   }
   console.error(err);
   return res.status(500).send('Server error');
@@ -39,11 +39,11 @@ async function renderCart(req, res, { error = null, msg = null, form = null, cod
   if (f.method === 'cod' && !codOk && waOk) f.method = 'whatsapp';
   if (f.method === 'whatsapp' && !waOk && codOk) f.method = 'cod';
   res.status(code).render('shop-cart', {
-    title: 'Mera cart', robots: 'noindex,nofollow', noCartFab: true,
+    title: 'My cart', robots: 'noindex,nofollow', noCartFab: true,
     cart, sug, f, error, msg, codOk, waOk, rs: S.rs, MAX_QTY: S.MAX_QTY, couponText: S.couponText,
     notices: [
-      ...cart.dropped.map((n) => `"${n}" cart se hata diya (ab available nahi).`),
-      ...cart.adjusted.map((n) => `"${n}" ki quantity stock ke hisaab se kam kar di.`),
+      ...cart.dropped.map((n) => `"${n}" was removed from your cart (no longer available).`),
+      ...cart.adjusted.map((n) => `The quantity of "${n}" was reduced to match the available stock.`),
     ],
   });
 }
@@ -58,28 +58,28 @@ router.get('/cart', async (req, res) => {
   } catch (err) { fail500(res, err); }
 });
 
-// ---------- cart mein daalo ----------
+// ---------- add to cart ----------
 router.post('/cart/add', async (req, res) => {
   const b = req.body || {};
   const pid = S.toId(b.product_id);
   const vid = S.toId(b.variant_id) || 0;
   try {
-    if (!pid) return go(res, '/cart', 'Product nahi mila.', 'error');
+    if (!pid) return go(res, '/cart', 'Product not found.', 'error');
     const p = (await pool.query(
       `SELECT p.*, s.slug AS shop_slug, s.status AS shop_status FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = $1`, [pid])).rows[0];
-    if (!p || !p.is_active || p.shop_status !== 'active') return go(res, '/cart', 'Ye product abhi available nahi.', 'error');
+    if (!p || !p.is_active || p.shop_status !== 'active') return go(res, '/cart', 'This product is not available right now.', 'error');
     const productPage = `/shop/${p.shop_slug}/${p.slug}`;
     const variants = await S.variantsOf(p.id);
     let avail = p.stock;
     if (variants.length) {
       const v = variants.find((x) => x.id === vid);
-      if (!v) return go(res, productPage, 'Pehle rang / size chunein.', 'cart_error');
+      if (!v) return go(res, productPage, 'Please choose a color / size first.', 'cart_error');
       avail = v.stock;
     }
-    if (avail <= 0) return go(res, productPage, 'Ye option abhi Sold out hai.', 'cart_error');
+    if (avail <= 0) return go(res, productPage, 'This option is sold out right now.', 'cart_error');
     const qty = Math.max(1, Math.min(S.MAX_QTY, parseInt(b.qty, 10) || 1));
-    if (Cart.add(req, p.id, variants.length ? vid : 0, qty) === 'full') return go(res, '/cart', 'Cart bhar gaya hai. Pehle koi cheez hata dein.', 'error');
-    go(res, '/cart', `"${p.name.slice(0, 40)}" cart mein daal diya.`);
+    if (Cart.add(req, p.id, variants.length ? vid : 0, qty) === 'full') return go(res, '/cart', 'Your cart is full. Please remove an item first.', 'error');
+    go(res, '/cart', `"${p.name.slice(0, 40)}" was added to your cart.`);
   } catch (err) { fail500(res, err); }
 });
 
@@ -103,7 +103,7 @@ router.post('/cart/coupon', (req, res) => {
   res.redirect('/cart');
 });
 
-// ---------- order karo ----------
+// ---------- place the order ----------
 router.post('/cart/checkout', async (req, res) => {
   try {
     const b = req.body || {};
@@ -113,19 +113,19 @@ router.post('/cart/checkout', async (req, res) => {
     const me = req.session.user;
 
     const cart = await Cart.load(req);
-    if (!cart.groups.length) return go(res, '/cart', cart.dropped.length ? 'Cart ki cheezein ab available nahi rahin.' : 'Cart khali hai.', 'error');
+    if (!cart.groups.length) return go(res, '/cart', cart.dropped.length ? 'The items in your cart are no longer available.' : 'Your cart is empty.', 'error');
     await Cart.price(req, cart, f.coupon);
     const again = (m, status = 400) => renderCart(req, res, { error: m, form: f, code: status });
 
-    if (cart.dropped.length || cart.adjusted.length) return again('Cart mein stock ki wajah se tabdeeli hui hai. Dobara dekh kar confirm karein.', 409);
+    if (cart.dropped.length || cart.adjusted.length) return again('Your cart changed because of stock. Please review it and confirm again.', 409);
     const bad = S.checkOrderForm(f, cart.groups.map((g) => g.shop));
     if (bad) return again(bad);
-    if (f.coupon && !cart.couponApplied) return again(cart.couponError || 'Ye coupon lag nahi saka. Hata kar dobara try karein.');
-    // Jis shop par coupon lagta hi nahi (ya us par masla hai) wahan bina coupon order jata hai; masla ho to pehle batao
+    if (f.coupon && !cart.couponApplied) return again(cart.couponError || 'This coupon could not be applied. Remove it and try again.');
+    // A shop where the coupon does not apply (or has a problem) gets an order without the coupon; if there is a problem, tell the customer first
     const probs = cart.groups.filter((g) => g.couponProblem);
     if (probs.length) return again(`${probs[0].shop.name}: ${probs[0].couponProblem}`);
 
-    // Double click: wohi phone, wohi shop, wohi cheezein, 2 minute ke andar -> pehle wale orders dikha do
+    // Double click: same phone, same shop, same items within 2 minutes -> show the earlier orders
     const dupTokens = [];
     for (const g of cart.groups) {
       const summary = S.summaryName(g.lines.map((l) => ({ product_name: l.product.name, variant_label: l.variantLabel })));
@@ -148,8 +148,8 @@ router.post('/cart/checkout', async (req, res) => {
       groups: cart.groups.map((g) => ({ shop: g.shop, coupon: g.coupon, lines: g.lines.map((l) => ({ product: l.product, variant: l.variant, qty: l.qty })) })),
       f: { ...f, phone: f.phoneClean }, method: f.method, visitor: visitorId(req, res), userId: me ? me.id : null, attrOf,
     });
-    if (result.error === 'soldout') return again(`Maaf kijiye, abhi abhi "${result.name}" Sold out ho gaya. Cart dobara dekh lein.`, 409);
-    if (result.error === 'coupon') return again(`Coupon ${result.code} ab lag nahi sakta (limit poori ya expire). Hata kar dobara try karein.`, 409);
+    if (result.error === 'soldout') return again(`Sorry, "${result.name}" just sold out. Please review your cart again.`, 409);
+    if (result.error === 'coupon') return again(`Coupon ${result.code} can no longer be applied (limit reached or expired). Remove it and try again.`, 409);
 
     S.afterOrdersPlaced(result.orders, f);
     Cart.clear(req);
@@ -159,7 +159,7 @@ router.post('/cart/checkout', async (req, res) => {
   } catch (err) { fail500(res, err); }
 });
 
-// Kai shops ke orders ek saath bane to unki list
+// List of orders when several shops' orders were created together
 router.get('/cart/done', async (req, res) => {
   try {
     const tokens = Array.isArray(req.session.lastOrders) ? req.session.lastOrders.filter((t) => /^[a-f0-9]{18}$/.test(t)) : [];
@@ -167,7 +167,7 @@ router.get('/cart/done', async (req, res) => {
     const orders = (await pool.query(
       `SELECT o.*, s.name AS shop_name FROM orders o JOIN shops s ON s.id = o.shop_id WHERE o.token = ANY($1::text[]) ORDER BY o.id`, [tokens])).rows;
     await S.attachItems(orders);
-    res.render('shop-cart-done', { title: 'Orders ho gaye', robots: 'noindex,nofollow', noCartFab: true, orders, rs: S.rs });
+    res.render('shop-cart-done', { title: 'Orders placed', robots: 'noindex,nofollow', noCartFab: true, orders, rs: S.rs });
   } catch (err) { fail500(res, err); }
 });
 

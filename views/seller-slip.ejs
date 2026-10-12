@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ur">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -23,13 +23,13 @@
 </style>
 </head>
 <body>
-<div class="noprint"><button onclick="window.print()">🖨️ Print</button><a href="/seller/orders">← Wapas</a></div>
+<div class="noprint"><button onclick="window.print()">🖨️ Print</button><a href="/seller/orders">← Back</a></div>
 <div class="slip">
   <h1><%= shop.name %></h1>
   <div class="muted">Order #<%= o.id %> · <%= new Date(o.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) %><%= shop.whatsapp ? ' · WhatsApp ' + shop.whatsapp : '' %></div>
 
   <div class="box">
-    <div class="muted">BHEJNA HAI (To)</div>
+    <div class="muted">SHIP TO</div>
     <b class="big"><%= o.customer_name %></b><br>
     <b><%= showPhone(o.phone) %></b><br>
     <%= o.address %><br>
@@ -41,21 +41,21 @@
   <% } %>
 
   <div class="box">
-    <div class="muted">SAMAN</div>
+    <div class="muted">ITEMS</div>
     <table>
       <% o.items.forEach(it => { %>
         <tr><td><%= it.product_name %><%= it.variant_label ? ' (' + it.variant_label + ')' : '' %> x <%= it.qty %></td><td class="r">Rs <%= rs(it.unit_price_rs * it.qty) %></td></tr>
       <% }) %>
       <% if (o.discount_rs > 0) { %><tr><td>Coupon <%= o.coupon_code || '' %></td><td class="r">- Rs <%= rs(o.discount_rs) %></td></tr><% } %>
       <tr><td>Delivery</td><td class="r"><%= o.delivery_rs ? 'Rs ' + rs(o.delivery_rs) : 'Free' %></td></tr>
-      <tr><td><b>Kul</b></td><td class="r"><b>Rs <%= rs(o.total_rs) %></b></td></tr>
+      <tr><td><b>Total</b></td><td class="r"><b>Rs <%= rs(o.total_rs) %></b></td></tr>
     </table>
   </div>
 
   <% if (cod) { %>
-    <div class="cod">COD: Rs <%= rs(o.total_rs) %> wasool karein</div>
+    <div class="cod">COD: Rs <%= rs(o.total_rs) %> to collect</div>
   <% } else { %>
-    <div class="cod" style="font-size:15px;"><%= PAY_LABEL[o.payment_method] || o.payment_method %> (payment seller se tay)</div>
+    <div class="cod" style="font-size:15px;"><%= PAY_LABEL[o.payment_method] || o.payment_method %> (payment arranged with seller)</div>
   <% } %>
   <% if (o.note) { %><div class="muted" style="margin-top:8px;">Note: <%= o.note %></div><% } %>
 </div>

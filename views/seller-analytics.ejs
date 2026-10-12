@@ -19,12 +19,12 @@
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
   <h1 class="fs-4 fw-bold mb-0">📊 Shop analytics</h1>
   <div class="btn-group btn-group-sm">
-    <% [7, 30, 90].forEach(d => { %><a class="btn <%= days === d ? 'btn-dark' : 'btn-outline-secondary' %>" href="/seller/analytics?days=<%= d %>"><%= d %> din</a><% }) %>
+    <% [7, 30, 90].forEach(d => { %><a class="btn <%= days === d ? 'btn-dark' : 'btn-outline-secondary' %>" href="/seller/analytics?days=<%= d %>"><%= d %> days</a><% }) %>
   </div>
 </div>
 
 <div class="row g-3 mb-3">
-  <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold"><%= tot.people %></div><div class="sh-stat">Log aaye (<%= tot.visits %> visits)</div></div></div>
+  <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold"><%= tot.people %></div><div class="sh-stat">People visited (<%= tot.visits %> visits)</div></div></div>
   <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold"><%= tot.orders %></div><div class="sh-stat">Orders</div></div></div>
   <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold"><%= pct(tot.orders, tot.people) %></div><div class="sh-stat">Order / visitor</div></div></div>
   <div class="col-6 col-md-3"><div class="sh-card text-center mb-0"><div class="fs-3 fw-bold" style="color:#12a37f;">Rs <%= rs(tot.revenue) %></div><div class="sh-stat">Sale (without returns)</div></div></div>
@@ -72,7 +72,7 @@
 
 <% if (byPost.length) { %>
 <div class="sh-card">
-  <h2 class="sh-h">📰 Blog posts ke product card se</h2>
+  <h2 class="sh-h">📰 From blog post product cards</h2>
   <div class="table-responsive"><table class="an-t">
     <thead><tr><th>Post</th><th class="r">Clicks</th><th class="r">Orders</th></tr></thead>
     <tbody>
@@ -85,12 +85,12 @@
 <% } %>
 
 <div class="sh-card">
-  <h2 class="sh-h">🧑‍💻 Recent visitors <small class="text-body-secondary fw-normal">(kon aaya, kahan se)</small></h2>
+  <h2 class="sh-h">🧑‍💻 Recent visitors <small class="text-body-secondary fw-normal">(who visited, and from where)</small></h2>
   <% if (!locals.recent || recent.length === 0) { %>
-    <p class="text-body-secondary mb-0">Abhi IP data nahi. <code>migration_v50.sql</code> chalayen; uske baad naye visits yahan dikhenge.</p>
+    <p class="text-body-secondary mb-0">No IP data yet. Run <code>migration_v50.sql</code>; new visits will then appear here.</p>
   <% } else { %>
     <div class="table-responsive"><table class="an-t">
-      <thead><tr><th>Time</th><th>Visitor</th><th>IP</th><th>Requests (is IP ki)</th><th>Location</th><th>Browser / Device</th><th>Source</th><th>Referrer</th><th>Product</th></tr></thead>
+      <thead><tr><th>Time</th><th>Visitor</th><th>IP</th><th>Requests (from this IP)</th><th>Location</th><th>Browser / Device</th><th>Source</th><th>Referrer</th><th>Product</th></tr></thead>
       <tbody>
         <% recent.forEach(v => { %>
           <tr>
@@ -112,7 +112,7 @@
 
 <div class="sh-card">
   <h2 class="sh-h">📦 Product-wise</h2>
-  <% if (byProduct.length === 0) { %><p class="text-body-secondary mb-0">Abhi koi product nahi.</p><% } else { %>
+  <% if (byProduct.length === 0) { %><p class="text-body-secondary mb-0">No products yet.</p><% } else { %>
     <div class="table-responsive"><table class="an-t">
       <thead><tr><th>Product</th><th class="r">Visits</th><th class="r">Orders</th><th class="r">Sale (Rs)</th><th class="r">Stock</th></tr></thead>
       <tbody>

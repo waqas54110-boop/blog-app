@@ -1,5 +1,5 @@
 // Shop (V46) seller panel: /seller (dashboard), /seller/open + /seller/settings, products, orders (status),
-// /seller/share (group-wise UTM links, Group Poster jaisa), /seller/analytics (group-wise sales), /admin/shops.
+// /seller/share (group-wise UTM links, like Group Poster), /seller/analytics (group-wise sales), /admin/shops.
 const crypto = require('crypto');
 const express = require('express');
 const pool = require('../db');
@@ -28,7 +28,7 @@ const flashOf = (req) => ({
 const go = (res, path, msg, key = 'msg') => res.redirect(path + (msg ? (path.includes('?') ? '&' : '?') + key + '=' + encodeURIComponent(msg) : ''));
 const dbError = (res, err) => {
   if (err && (err.code === '42P01' || err.code === '42703')) {
-    return res.status(503).render('404', { code: 503, title: 'Shop setup', message: 'Shop abhi setup ho rahi hai (migration_v46.sql). Thori der baad try karein.' });
+    return res.status(503).render('404', { code: 503, title: 'Shop setup', message: 'The shop is still being set up (migration_v46.sql). Please try again in a little while.' });
   }
   console.error(err);
   return res.status(500).send('Server error');
@@ -44,7 +44,7 @@ const requireAdmin = (req, res, next) => {
   if (req.session.user.role !== 'admin') return deny(res, 'Only the site owner can do this.');
   next();
 };
-// Seller ki apni shop load karo (nahi hai to shop kholne ka page)
+// Load the seller's own shop (if none, go to the open-shop page)
 const requireShop = async (req, res, next) => {
   try {
     const shop = await S.getMyShop(req.session.user.id);
@@ -80,25 +80,25 @@ function readShopForm(b) {
 }
 async function checkShopForm(f) {
   if (await Restricted.find([f.name, f.tagline, f.description].join('\n'))) return { error: Restricted.MSG_UR };
-  if (f.name.length < 3) return { error: 'Shop ka naam likhein (kam az kam 3 huroof).' };
-  if (f.city.length < 2) return { error: 'Shehar ka naam likhein.' };
+  if (f.name.length < 3) return { error: 'Enter a shop name (at least 3 characters).' };
+  if (f.city.length < 2) return { error: 'Enter the city name.' };
   const wa = S.cleanPhone(f.whatsapp);
-  if (!wa) return { error: 'Apna WhatsApp number likhein, jaise 0300 1234567. Orders ki khabar isi par aati hai.' };
+  if (!wa) return { error: 'Enter your WhatsApp number, e.g. 0300 1234567. Order alerts are sent to it.' };
   const ph = S.cleanPhone(f.phone);
-  if (ph === null) return { error: 'Phone number sahi nahi. Jaise 0300 1234567 (ya khali chhorein).' };
-  if (!f.cod && !f.wa) return { error: 'Kam az kam ek tareeqa on rakhein: Cash on Delivery ya WhatsApp order.' };
+  if (ph === null) return { error: 'Phone number is not valid. Use a format like 0300 1234567 (or leave it empty).' };
+  if (!f.cod && !f.wa) return { error: 'Keep at least one method on: Cash on Delivery or WhatsApp order.' };
   const fee = f.delivery_fee === '' ? 0 : S.toRs(f.delivery_fee);
-  if (fee === null || fee > 100000) return { error: 'Delivery charges sahi likhein (sirf number, jaise 200).' };
+  if (fee === null || fee > 100000) return { error: 'Enter valid delivery charges (numbers only, e.g. 200).' };
   const free = f.free_over === '' ? null : S.toRs(f.free_over);
-  if (f.free_over !== '' && (free === null || free > 10000000)) return { error: '"Itne se upar delivery free" sahi likhein (sirf number) ya khali chhorein.' };
+  if (f.free_over !== '' && (free === null || free > 10000000)) return { error: 'Enter a valid "Free delivery over" amount (numbers only) or leave it empty.' };
   return { wa, ph: ph || null, fee, free };
 }
 
 router.get('/seller/open', requireLogin, async (req, res) => {
   try {
     if (await S.getMyShop(req.session.user.id)) return res.redirect('/seller');
-    if (config.shopAdminOnly && req.session.user.role !== 'admin') return deny(res, 'Abhi nayi shops sirf site owner bana sakta hai.');
-    render(res, 'seller-open', { title: 'Apni shop kholo', f: shopForm({}), error: null, edit: false, approval: config.shopApproval && req.session.user.role !== 'admin' });
+    if (config.shopAdminOnly && req.session.user.role !== 'admin') return deny(res, 'For now, only the site owner can create new shops.');
+    render(res, 'seller-open', { title: 'Open your shop', f: shopForm({}), error: null, edit: false, approval: config.shopApproval && req.session.user.role !== 'admin' });
   } catch (err) { dbError(res, err); }
 });
 
@@ -106,10 +106,10 @@ router.post('/seller/open', requireLogin, async (req, res) => {
   try {
     const me = req.session.user;
     if (await S.getMyShop(me.id)) return res.redirect('/seller');
-    if (config.shopAdminOnly && me.role !== 'admin') return deny(res, 'Abhi nayi shops sirf site owner bana sakta hai.');
+    if (config.shopAdminOnly && me.role !== 'admin') return deny(res, 'For now, only the site owner can create new shops.');
     const f = readShopForm(req.body || {});
     const c = await checkShopForm(f);
-    const fail = (m) => render(res, 'seller-open', { title: 'Apni shop kholo', code: 400, f, error: m, edit: false, approval: config.shopApproval && me.role !== 'admin' });
+    const fail = (m) => render(res, 'seller-open', { title: 'Open your shop', code: 400, f, error: m, edit: false, approval: config.shopApproval && me.role !== 'admin' });
     if (c.error) return fail(c.error);
     if (f.logo && !(await S.usableImage(parseInt(f.logo, 10), me.id, null))) f.logo = '';
     const slug = await S.uniqueShopSlug(f.name);
@@ -118,7 +118,7 @@ router.post('/seller/open', requireLogin, async (req, res) => {
       `INSERT INTO shops (owner_id, slug, name, tagline, description, city, whatsapp, phone, logo_image_id, cod_enabled, wa_enabled, delivery_fee_rs, free_over_rs, status)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
       [me.id, slug, f.name, f.tagline || null, f.description || null, f.city, c.wa, c.ph, f.logo ? parseInt(f.logo, 10) : null, f.cod, f.wa, c.fee, c.free, status]);
-    go(res, '/seller/products/new', status === 'pending' ? 'Shop ban gayi! Site owner ki manzoori ke baad public hogi. Tab tak products daal sakte hain.' : 'Shop ban gayi! Ab pehla product daalein.');
+    go(res, '/seller/products/new', status === 'pending' ? 'Your shop is created! It will go public after the site owner approves it. You can add products in the meantime.' : 'Your shop is created! Now add your first product.');
   } catch (err) { dbError(res, err); }
 });
 
@@ -143,7 +143,7 @@ router.post('/seller/settings', guard, async (req, res) => {
          cod_enabled=$10, wa_enabled=$11, delivery_fee_rs=$12, free_over_rs=$13 WHERE id=$1`,
       [req.shop.id, slug, f.name, f.tagline || null, f.description || null, f.city, c.wa, c.ph, logo, f.cod, f.wa, c.fee, c.free]);
     if (oldLogo && oldLogo !== logo) await Images.dropIfOrphan(oldLogo, null).catch(() => {});
-    go(res, '/seller/settings', 'Settings save ho gayi.');
+    go(res, '/seller/settings', 'Settings saved.');
   } catch (err) { dbError(res, err); }
 });
 
@@ -180,7 +180,7 @@ const productFormOf = (p, images, variants = []) => ({
   compare: p.compare_price_rs ? String(p.compare_price_rs) : '', stock: String(p.stock), active: p.is_active, images,
   variants: variants.map((v) => ({ id: v.id, color: v.color || '', size: v.size || '', kind: v.kind || '', price: v.price_rs != null ? String(v.price_rs) : '', stock: String(v.stock) })),
 });
-// Variant rows form se: v_id[], v_color[], v_size[], v_kind[], v_price[], v_stock[]. Bilkul khali rows chhod di jati hain.
+// Variant rows from the form: v_id[], v_color[], v_size[], v_kind[], v_price[], v_stock[]. Completely empty rows are skipped.
 function readVariants(b) {
   const A = (x) => (Array.isArray(x) ? x : x == null ? [] : [x]);
   const id = A(b.v_id); const color = A(b.v_color); const size = A(b.v_size); const kind = A(b.v_kind);
@@ -204,45 +204,45 @@ function readProductForm(b) {
 }
 async function checkProductForm(f) {
   if (await Restricted.find([f.name, f.description, f.category, ...f.variants.map((v) => S.variantLabel(v))].join('\n'))) return { error: Restricted.MSG_UR };
-  if (f.name.length < 3) return { error: 'Product ka naam likhein (kam az kam 3 huroof).' };
+  if (f.name.length < 3) return { error: 'Enter a product name (at least 3 characters).' };
   const price = S.toRs(f.price);
-  if (!price || price > 9999999) return { error: 'Qeemat sahi likhein (sirf number, jaise 1500).' };
+  if (!price || price > 9999999) return { error: 'Enter a valid price (numbers only, e.g. 1500).' };
   let compare = null;
   if (f.compare !== '') {
     compare = S.toRs(f.compare);
-    if (!compare || compare > 9999999) return { error: 'Purani qeemat sahi likhein ya khali chhorein.' };
-    if (compare <= price) compare = null; // purani qeemat nayi se zyada ho tabhi dikhti hai
+    if (!compare || compare > 9999999) return { error: 'Enter a valid old price or leave it empty.' };
+    if (compare <= price) compare = null; // the old price is shown only if it is higher than the new one
   }
-  // Variants (rang / size / qisam): har ka apna stock aur (chahein to) apni qeemat
-  if (f.variants.length > MAX_VARIANTS) return { error: `Ek product ke ${MAX_VARIANTS} se zyada variants nahi ho sakte.` };
+  // Variants (color / size / type): each has its own stock and (optionally) its own price
+  if (f.variants.length > MAX_VARIANTS) return { error: `A product cannot have more than ${MAX_VARIANTS} variants.` };
   const variants = [];
   const seen = new Set();
   for (const r of f.variants) {
     const label = S.variantLabel(r);
-    if (seen.has(label.toLowerCase())) return { error: `Variant "${label}" do dafa likha hai.` };
+    if (seen.has(label.toLowerCase())) return { error: `Variant "${label}" is entered twice.` };
     seen.add(label.toLowerCase());
     const vs = r.stock === '' ? 0 : S.toRs(r.stock);
-    if (vs === null || vs > 99999) return { error: `Variant "${label}" ka stock sahi likhein (0 se 99999).` };
+    if (vs === null || vs > 99999) return { error: `Enter a valid stock for variant "${label}" (0 to 99999).` };
     let vp = null;
     if (r.price !== '') {
       vp = S.toRs(r.price);
-      if (!vp || vp > 9999999) return { error: `Variant "${label}" ki qeemat sahi likhein ya khali chhorein.` };
+      if (!vp || vp > 9999999) return { error: `Enter a valid price for variant "${label}" or leave it empty.` };
     }
     variants.push({ id: r.id, color: r.color || null, size: r.size || null, kind: r.kind || null, price: vp, stock: vs });
   }
   let stock;
   if (variants.length) {
-    stock = variants.reduce((a, v) => a + v.stock, 0); // variant wale product ka stock = variants ka jama
+    stock = variants.reduce((a, v) => a + v.stock, 0); // a product with variants has stock = sum of its variants
   } else {
     stock = f.stock === '' ? 0 : S.toRs(f.stock);
-    if (stock === null || stock > 99999) return { error: 'Stock sahi likhein (0 se 99999).' };
+    if (stock === null || stock > 99999) return { error: 'Enter a valid stock (0 to 99999).' };
   }
   return { price, compare, stock, variants };
 }
 const renderProductForm = (res, req, { code = 200, f, error = null, edit = null }) =>
   render(res, 'seller-product-form', { code, title: edit ? 'Edit product' : 'New product', f, error, edit, CATEGORIES: S.CATEGORIES, MAX_PHOTOS: S.MAX_PRODUCT_PHOTOS, seller: 'products' });
 
-// Product ki photos: list ke mutabiq save, hata di gayi photos agar kahin aur na lagi hon to saaf
+// Product photos: save per the list; removed photos are cleaned up if not used elsewhere
 async function saveProductImages(productId, userId, ids) {
   const keep = [];
   for (const id of ids) { if (await S.usableImage(id, userId, productId)) keep.push(id); }
@@ -256,7 +256,7 @@ async function saveProductImages(productId, userId, ids) {
   for (const id of old.filter((x) => !keep.includes(x))) await Images.dropIfOrphan(id, null).catch(() => {});
 }
 
-// Variants save: jin ki id isi product ki ho wo update, naye insert, baqi hata do (purane orders mein naam / qeemat saved rehti hai)
+// Save variants: update those whose id belongs to this product, insert new ones, delete the rest (old orders keep their saved name / price)
 async function saveVariants(productId, variants) {
   const have = (await pool.query('SELECT id FROM product_variants WHERE product_id = $1', [productId])).rows.map((r) => r.id);
   const keep = [];
@@ -297,7 +297,7 @@ router.post('/seller/products', guard, async (req, res) => {
     const c = await checkProductForm(f);
     if (c.error) return renderProductForm(res, req, { code: 400, f, error: c.error });
     const n = (await pool.query('SELECT COUNT(*)::int AS n FROM products WHERE shop_id = $1', [req.shop.id])).rows[0].n;
-    if (n >= config.shopMaxProducts) return renderProductForm(res, req, { code: 400, f, error: `Ek shop mein ${config.shopMaxProducts} products tak ki ijazat hai.` });
+    if (n >= config.shopMaxProducts) return renderProductForm(res, req, { code: 400, f, error: `A shop can have up to ${config.shopMaxProducts} products.` });
     const slug = await S.uniqueProductSlug(req.shop.id, f.name);
     const ins = await pool.query(
       `INSERT INTO products (shop_id, slug, name, category, description, price_rs, compare_price_rs, stock, is_active)
@@ -305,7 +305,7 @@ router.post('/seller/products', guard, async (req, res) => {
       [req.shop.id, slug, f.name, f.category || null, f.description || null, c.price, c.compare, c.stock, f.active]);
     await saveProductImages(ins.rows[0].id, req.session.user.id, f.images);
     await saveVariants(ins.rows[0].id, c.variants);
-    go(res, '/seller/products', 'Product add ho gaya.');
+    go(res, '/seller/products', 'Product added.');
   } catch (err) { dbError(res, err); }
 });
 
@@ -318,7 +318,7 @@ const ownProduct = async (shopId, id) => {
 router.get('/seller/products/:id/edit', guard, async (req, res) => {
   try {
     const p = await ownProduct(req.shop.id, req.params.id);
-    if (!p) return go(res, '/seller/products', 'Product nahi mila.', 'error');
+    if (!p) return go(res, '/seller/products', 'Product not found.', 'error');
     const imgs = (await pool.query('SELECT image_id FROM product_images WHERE product_id = $1 ORDER BY position, image_id', [p.id])).rows.map((r) => r.image_id);
     renderProductForm(res, req, { f: productFormOf(p, imgs, await S.variantsOf(p.id)), edit: p });
   } catch (err) { dbError(res, err); }
@@ -327,7 +327,7 @@ router.get('/seller/products/:id/edit', guard, async (req, res) => {
 router.post('/seller/products/:id', guard, async (req, res) => {
   try {
     const p = await ownProduct(req.shop.id, req.params.id);
-    if (!p) return go(res, '/seller/products', 'Product nahi mila.', 'error');
+    if (!p) return go(res, '/seller/products', 'Product not found.', 'error');
     const f = readProductForm(req.body || {});
     const c = await checkProductForm(f);
     if (c.error) return renderProductForm(res, req, { code: 400, f, error: c.error, edit: p });
@@ -336,26 +336,26 @@ router.post('/seller/products/:id', guard, async (req, res) => {
       [p.id, f.name, f.category || null, f.description || null, c.price, c.compare, c.stock, f.active]);
     await saveProductImages(p.id, req.session.user.id, f.images);
     await saveVariants(p.id, c.variants);
-    go(res, '/seller/products', 'Product update ho gaya.');
+    go(res, '/seller/products', 'Product updated.');
   } catch (err) { dbError(res, err); }
 });
 
-// Qeemat / stock jaldi badalna (list se)
+// Quickly change price / stock (from the list)
 router.post('/seller/products/:id/quick', guard, async (req, res) => {
   try {
     const p = await ownProduct(req.shop.id, req.params.id);
-    if (!p) return go(res, '/seller/products', 'Product nahi mila.', 'error');
+    if (!p) return go(res, '/seller/products', 'Product not found.', 'error');
     const price = S.toRs(req.body.price_rs);
     const stock = S.toRs(req.body.stock);
-    if (!price || price > 9999999) return go(res, '/seller/products', 'Qeemat sahi likhein.', 'error');
-    if (stock === null || stock > 99999) return go(res, '/seller/products', 'Stock sahi likhein.', 'error');
-    // Variants wale product ka stock yahan se nahi badalta (har variant ka stock edit page par)
+    if (!price || price > 9999999) return go(res, '/seller/products', 'Enter a valid price.', 'error');
+    if (stock === null || stock > 99999) return go(res, '/seller/products', 'Enter a valid stock.', 'error');
+    // Stock of a product with variants is not changed here (each variant's stock is on the edit page)
     const hasVariants = (await pool.query('SELECT 1 FROM product_variants WHERE product_id = $1 LIMIT 1', [p.id])).rowCount > 0;
     await pool.query(
       `UPDATE products SET price_rs = $2, stock = CASE WHEN $4::boolean THEN stock ELSE $3 END, updated_at = now(),
          compare_price_rs = CASE WHEN compare_price_rs IS NOT NULL AND compare_price_rs > $2 THEN compare_price_rs ELSE NULL END WHERE id = $1`,
       [p.id, price, stock, hasVariants]);
-    go(res, '/seller/products', `"${p.name.slice(0, 40)}" update ho gaya.`);
+    go(res, '/seller/products', `"${p.name.slice(0, 40)}" updated.`);
   } catch (err) { dbError(res, err); }
 });
 
@@ -366,7 +366,7 @@ router.post('/seller/products/:id/soldout', guard, async (req, res) => {
       await pool.query('UPDATE product_variants SET stock = 0 WHERE product_id = $1', [p.id]);
       await pool.query('UPDATE products SET stock = 0, updated_at = now() WHERE id = $1', [p.id]);
     }
-    go(res, '/seller/products', p ? 'Product ab Sold out hai.' : 'Product nahi mila.', p ? 'msg' : 'error');
+    go(res, '/seller/products', p ? 'Product is now sold out.' : 'Product not found.', p ? 'msg' : 'error');
   } catch (err) { dbError(res, err); }
 });
 
@@ -374,18 +374,18 @@ router.post('/seller/products/:id/toggle', guard, async (req, res) => {
   try {
     const p = await ownProduct(req.shop.id, req.params.id);
     if (p) await pool.query('UPDATE products SET is_active = NOT is_active, updated_at = now() WHERE id = $1', [p.id]);
-    go(res, '/seller/products', p ? (p.is_active ? 'Product chhupa diya.' : 'Product dobara dikhne laga.') : 'Product nahi mila.', p ? 'msg' : 'error');
+    go(res, '/seller/products', p ? (p.is_active ? 'Product hidden.' : 'Product is visible again.') : 'Product not found.', p ? 'msg' : 'error');
   } catch (err) { dbError(res, err); }
 });
 
 router.post('/seller/products/:id/delete', guard, async (req, res) => {
   try {
     const p = await ownProduct(req.shop.id, req.params.id);
-    if (!p) return go(res, '/seller/products', 'Product nahi mila.', 'error');
+    if (!p) return go(res, '/seller/products', 'Product not found.', 'error');
     const imgs = (await pool.query('SELECT image_id FROM product_images WHERE product_id = $1', [p.id])).rows.map((r) => r.image_id);
-    await pool.query('DELETE FROM products WHERE id = $1', [p.id]); // purane orders safe: unmein naam / qeemat saved hai
+    await pool.query('DELETE FROM products WHERE id = $1', [p.id]); // old orders are safe: they keep the saved name / price
     for (const id of imgs) await Images.dropIfOrphan(id, null).catch(() => {});
-    go(res, '/seller/products', 'Product hata diya.');
+    go(res, '/seller/products', 'Product removed.');
   } catch (err) { dbError(res, err); }
 });
 
@@ -419,7 +419,7 @@ router.get('/seller/orders', guard, async (req, res) => {
     const base = S.baseUrlOf(req);
     orders.forEach((o) => {
       const kind = o.status === 'new' ? 'placed' : 'tracking';
-      o.waManual = WA.manualLink(kind, o, req.shop.name, base); // auto message band / fail ho to seller khud bhej sake
+      o.waManual = WA.manualLink(kind, o, req.shop.name, base); // so the seller can send it manually if the auto message is off / fails
     });
     render(res, 'seller-orders', {
       title: 'Orders', orders, waStatus, waAuto: WA.enabled(), COURIERS: couriers.COURIERS, couriers, counts, status, q, page, pages: Math.max(1, Math.ceil(total / PAGE)), total,
@@ -434,28 +434,28 @@ router.post('/seller/orders/:id/status', guard, async (req, res) => {
   const back = '/seller/orders' + (S.STATUSES.includes(req.body.back) ? '?status=' + req.body.back : '');
   try {
     const id = S.toId(req.params.id);
-    if (!id) return go(res, back, 'Order nahi mila.', 'error');
+    if (!id) return go(res, back, 'Order not found.', 'error');
     const prev = (await pool.query('SELECT status FROM orders WHERE id = $1 AND shop_id = $2', [id, req.shop.id])).rows[0];
-    if (!prev) return go(res, back, 'Order nahi mila.', 'error');
-    if (prev.status === 'returned') return go(res, back, 'Wapas aa chuka order dobara nahi badal sakte.', 'error');
+    if (!prev) return go(res, back, 'Order not found.', 'error');
+    if (prev.status === 'returned') return go(res, back, 'A returned order cannot be changed again.', 'error');
     const o = await S.setOrderStatus(req.shop.id, id, req.body.status);
-    if (!o) return go(res, back, 'Status nahi badla.', 'error');
+    if (!o) return go(res, back, 'Status was not changed.', 'error');
     if (o.status !== prev.status && o.user_id) {
       const row = (await pool.query('SELECT token FROM orders WHERE id = $1', [id])).rows[0];
-      notifyUser(o.user_id, `Aap ka order #${id} (${o.product_name}): ${S.STATUS_LABEL[o.status]}`, '/order/' + row.token).catch(() => {});
+      notifyUser(o.user_id, `Your order #${id} (${o.product_name}): ${S.STATUS_LABEL[o.status]}`, '/order/' + row.token).catch(() => {});
     }
-    // Bhej diya: customer ko "dispatched" WhatsApp (tracking number pehle se likha ho to tracking wala message)
+    // Shipped: send the customer a "dispatched" WhatsApp message (the tracking message if a tracking number is already set)
     if (o.status === 'shipped' && prev.status !== 'shipped') {
       WA.sendOrderMessage(id, o.tracking_no ? 'tracking' : 'dispatched').catch(() => {});
     }
-    go(res, back, `Order #${id}: ${S.STATUS_LABEL[o.status]}` + (o.status === 'returned' ? ' (stock wapas jur gaya)' : ''));
+    go(res, back, `Order #${id}: ${S.STATUS_LABEL[o.status]}` + (o.status === 'returned' ? ' (stock restored)' : ''));
   } catch (err) { dbError(res, err); }
 });
 
-// ---------- CSV export (Excel mein khulti hai) ----------
+// ---------- CSV export (opens in Excel) ----------
 const csvCell = (v) => {
   let t = v == null ? '' : String(v);
-  if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; // Excel formula injection se bachao
+  if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; // protect against Excel formula injection
   return /[",\n\r]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
 };
 router.get('/seller/orders.csv', guard, async (req, res) => {
@@ -466,7 +466,7 @@ router.get('/seller/orders.csv', guard, async (req, res) => {
     if (status) { params.push(status); where += ' AND o.status = $2'; }
     const orders = (await pool.query(`SELECT o.* FROM orders o WHERE ${where} ORDER BY o.id DESC LIMIT 5000`, params)).rows;
     await S.attachItems(orders);
-    const head = ['Order #', 'Tareekh', 'Status', 'Naam', 'Phone', 'Shehar', 'Pata', 'Cheezein', 'Delivery Rs', 'Chhoot Rs', 'Coupon', 'Kul Rs', 'Payment', 'Courier', 'Tracking', 'Source', 'Note'];
+    const head = ['Order #', 'Date', 'Status', 'Name', 'Phone', 'City', 'Address', 'Items', 'Delivery Rs', 'Discount Rs', 'Coupon', 'Total Rs', 'Payment', 'Courier', 'Tracking', 'Source', 'Note'];
     const lines = [head.map(csvCell).join(',')];
     orders.forEach((o) => {
       lines.push([
@@ -482,12 +482,12 @@ router.get('/seller/orders.csv', guard, async (req, res) => {
   } catch (err) { dbError(res, err); }
 });
 
-// ---------- Packing slip / shipping label (chhapne ke liye) ----------
+// ---------- Packing slip / shipping label (for printing) ----------
 router.get('/seller/orders/:id/slip', guard, async (req, res) => {
   try {
     const id = S.toId(req.params.id);
     const o = id ? (await pool.query('SELECT * FROM orders WHERE id = $1 AND shop_id = $2', [id, req.shop.id])).rows[0] : null;
-    if (!o) return go(res, '/seller/orders', 'Order nahi mila.', 'error');
+    if (!o) return go(res, '/seller/orders', 'Order not found.', 'error');
     await S.attachItems([o]);
     res.render('seller-slip', {
       title: 'Slip #' + o.id, robots: 'noindex,nofollow', o, shop: req.shop, rs: S.rs, showPhone: S.showPhone,
@@ -497,33 +497,33 @@ router.get('/seller/orders/:id/slip', guard, async (req, res) => {
   } catch (err) { dbError(res, err); }
 });
 
-// Courier + tracking number: order ko "Bhej diya" kar deta hai (agar abhi Naya ho), customer ke order page par "Track karein"
-// aata hai aur customer ko tracking wala WhatsApp message jata hai (har order ka ek hi baar).
+// Courier + tracking number: marks the order "Shipped" (if it is still New), shows a "Track" button on the
+// customer's order page and sends the customer the tracking WhatsApp message (only once per order).
 router.post('/seller/orders/:id/ship', guard, async (req, res) => {
   const back = '/seller/orders' + (S.STATUSES.includes(req.body.back) ? '?status=' + req.body.back : '');
   try {
     const id = S.toId(req.params.id);
-    if (!id) return go(res, back, 'Order nahi mila.', 'error');
+    if (!id) return go(res, back, 'Order not found.', 'error');
     const cur = (await pool.query('SELECT * FROM orders WHERE id = $1 AND shop_id = $2', [id, req.shop.id])).rows[0];
-    if (!cur) return go(res, back, 'Order nahi mila.', 'error');
-    if (cur.status === 'returned') return go(res, back, 'Wapas aa chuke order mein tracking nahi lag sakti.', 'error');
+    if (!cur) return go(res, back, 'Order not found.', 'error');
+    if (cur.status === 'returned') return go(res, back, 'Tracking cannot be added to a returned order.', 'error');
     const courier = couriers.byKey(String(req.body.courier || ''));
-    if (!courier) return go(res, back, 'Courier chunein.', 'error');
+    if (!courier) return go(res, back, 'Select a courier.', 'error');
     const no = couriers.cleanTracking(req.body.tracking_no);
-    if (!no) return go(res, back, 'Tracking number sahi likhein (4 se 30 huroof / hindsay, jaise TCS123456789).', 'error');
+    if (!no) return go(res, back, 'Enter a valid tracking number (4 to 30 letters / digits, e.g. TCS123456789).', 'error');
     await pool.query('UPDATE orders SET courier = $2, tracking_no = $3, updated_at = now() WHERE id = $1', [id, courier.key, no]);
     let now = cur;
     if (cur.status === 'new') now = (await S.setOrderStatus(req.shop.id, id, 'shipped')) || cur;
     if (cur.user_id) {
-      notifyUser(cur.user_id, `Aap ka order #${id} ${courier.name} se bhej diya gaya. Tracking: ${no}`, '/order/' + cur.token).catch(() => {});
+      notifyUser(cur.user_id, `Your order #${id} has been shipped via ${courier.name}. Tracking: ${no}`, '/order/' + cur.token).catch(() => {});
     }
     WA.sendOrderMessage(id, 'tracking').catch(() => {});
-    go(res, back, `Order #${id}: ${courier.name} tracking ${no} save ho gayi` + (cur.status === 'new' && now.status === 'shipped' ? ' aur order "Bhej diya" ho gaya.' : '.'));
+    go(res, back, `Order #${id}: ${courier.name} tracking ${no} saved` + (cur.status === 'new' && now.status === 'shipped' ? ' and the order is marked "Shipped".' : '.'));
   } catch (err) { dbError(res, err); }
 });
 
 // ============================================================
-// COUPONS (V56): jaise TIKTOK10 = TikTok se aane walon ko 10% chhoot. Har coupon ke orders / sale ginti mein.
+// COUPONS (V56): e.g. TIKTOK10 = 10% off for people coming from TikTok. Orders / sales are counted per coupon.
 // ============================================================
 function readCouponForm(b) {
   return {
@@ -537,16 +537,16 @@ function readCouponForm(b) {
   };
 }
 function checkCouponForm(f) {
-  if (f.code.length < 3) return { error: 'Coupon code kam az kam 3 huroof / hindsay ka likhein (jaise TIKTOK10).' };
+  if (f.code.length < 3) return { error: 'Enter a coupon code of at least 3 letters / digits (e.g. TIKTOK10).' };
   const value = S.toRs(f.value);
-  if (!value) return { error: 'Chhoot ki miqdar sahi likhein.' };
-  if (f.kind === 'percent' && value > 90) return { error: 'Percent chhoot 1 se 90 ke beech likhein.' };
-  if (f.kind === 'flat' && value > 999999) return { error: 'Chhoot ki raqam bohat zyada hai.' };
+  if (!value) return { error: 'Enter a valid discount amount.' };
+  if (f.kind === 'percent' && value > 90) return { error: 'Enter a percent discount between 1 and 90.' };
+  if (f.kind === 'flat' && value > 999999) return { error: 'The discount amount is too high.' };
   const min = f.min === '' ? 0 : S.toRs(f.min);
-  if (min === null || min > 9999999) return { error: 'Kam az kam order ki raqam sahi likhein ya khali chhorein.' };
+  if (min === null || min > 9999999) return { error: 'Enter a valid minimum order amount or leave it empty.' };
   let max = null;
-  if (f.max !== '') { max = S.toRs(f.max); if (!max || max > 999999) return { error: 'Kitni dafa chal sakta hai: sahi number likhein ya khali chhorein.' }; }
-  // Aakhri tareekh poore din tak chalti hai (site ke timezone ke hisaab se)
+  if (f.max !== '') { max = S.toRs(f.max); if (!max || max > 999999) return { error: 'Maximum uses: enter a valid number or leave it empty.' }; }
+  // The expiry date is valid until the end of that day (in the site's timezone)
   const expires = f.expires ? f.expires + ' 23:59:59' : null;
   return { value, min, max, expires };
 }
@@ -571,17 +571,17 @@ router.post('/seller/coupons', guard, async (req, res) => {
     const c = checkCouponForm(f);
     if (c.error) return renderCoupons(req, res, { code: 400, f, error: c.error });
     const n = (await pool.query('SELECT COUNT(*)::int AS n FROM coupons WHERE shop_id = $1', [req.shop.id])).rows[0].n;
-    if (n >= MAX_COUPONS) return renderCoupons(req, res, { code: 400, f, error: `Ek shop ke ${MAX_COUPONS} se zyada coupons nahi ho sakte. Purane hata dein.` });
+    if (n >= MAX_COUPONS) return renderCoupons(req, res, { code: 400, f, error: `A shop cannot have more than ${MAX_COUPONS} coupons. Please remove some old ones.` });
     try {
       await pool.query(
         `INSERT INTO coupons (shop_id, code, kind, value, min_order_rs, max_uses, only_source, expires_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7, CASE WHEN $8::text IS NULL THEN NULL ELSE ($8::timestamp AT TIME ZONE $9::text) END)`,
         [req.shop.id, f.code, f.kind, c.value, c.min, c.max, f.source || null, c.expires, TZ]);
     } catch (err) {
-      if (err.code === '23505') return renderCoupons(req, res, { code: 400, f, error: `Coupon "${f.code}" pehle se maujood hai.` });
+      if (err.code === '23505') return renderCoupons(req, res, { code: 400, f, error: `Coupon "${f.code}" already exists.` });
       throw err;
     }
-    go(res, '/seller/coupons', `Coupon ${f.code} ban gaya.`);
+    go(res, '/seller/coupons', `Coupon ${f.code} created.`);
   } catch (err) { dbError(res, err); }
 });
 const ownCoupon = async (shopId, id) => {
@@ -592,19 +592,19 @@ router.post('/seller/coupons/:id/toggle', guard, async (req, res) => {
   try {
     const c = await ownCoupon(req.shop.id, req.params.id);
     if (c) await pool.query('UPDATE coupons SET is_active = NOT is_active WHERE id = $1', [c.id]);
-    go(res, '/seller/coupons', c ? (c.is_active ? `Coupon ${c.code} band kar diya.` : `Coupon ${c.code} dobara chalu.`) : 'Coupon nahi mila.', c ? 'msg' : 'error');
+    go(res, '/seller/coupons', c ? (c.is_active ? `Coupon ${c.code} deactivated.` : `Coupon ${c.code} activated again.`) : 'Coupon not found.', c ? 'msg' : 'error');
   } catch (err) { dbError(res, err); }
 });
 router.post('/seller/coupons/:id/delete', guard, async (req, res) => {
   try {
     const c = await ownCoupon(req.shop.id, req.params.id);
-    if (c) await pool.query('DELETE FROM coupons WHERE id = $1', [c.id]); // purane orders par coupon_code likha rehta hai
-    go(res, '/seller/coupons', c ? `Coupon ${c.code} hata diya.` : 'Coupon nahi mila.', c ? 'msg' : 'error');
+    if (c) await pool.query('DELETE FROM coupons WHERE id = $1', [c.id]); // old orders keep the coupon_code
+    go(res, '/seller/coupons', c ? `Coupon ${c.code} removed.` : 'Coupon not found.', c ? 'msg' : 'error');
   } catch (err) { dbError(res, err); }
 });
 
 // ============================================================
-// SHARE: group-wise product links (Group Poster jaisa)
+// SHARE: group-wise product links (like Group Poster)
 // ============================================================
 const detectPlatform = (link, fallback) => {
   if (/whatsapp\.com|wa\.me/i.test(link)) return 'whatsapp';
@@ -618,7 +618,7 @@ const shareBack = (b) => (/^\/seller\/share\/\d+$/.test(String(b || '')) ? b : '
 router.get('/seller/share', guard, async (req, res) => {
   try {
     const r = await pool.query('SELECT id FROM products WHERE shop_id = $1 AND is_active = true ORDER BY created_at DESC LIMIT 1', [req.shop.id]);
-    if (!r.rows[0]) return go(res, '/seller/products/new', 'Pehle ek product daalein, phir uska group link ban sakta hai.', 'error');
+    if (!r.rows[0]) return go(res, '/seller/products/new', 'Add a product first, then you can create its group link.', 'error');
     res.redirect('/seller/share/' + r.rows[0].id);
   } catch (err) { dbError(res, err); }
 });
@@ -627,7 +627,7 @@ router.get('/seller/share/:id', guard, async (req, res, next) => {
   if (!/^\d+$/.test(req.params.id)) return next();
   try {
     const product = await ownProduct(req.shop.id, req.params.id);
-    if (!product) return go(res, '/seller/products', 'Product nahi mila.', 'error');
+    if (!product) return go(res, '/seller/products', 'Product not found.', 'error');
     const groups = (await pool.query(
       `SELECT g.id, g.name, g.platform, g.link, g.utm,
               EXISTS (SELECT 1 FROM shop_group_posted s WHERE s.group_id = g.id AND s.product_id = $1
@@ -644,12 +644,12 @@ router.get('/seller/share/:id', guard, async (req, res, next) => {
     const pUrl = `${base}/shop/${req.shop.slug}/${product.slug}`;
     let canImport = false;
     if (req.session.user.role === 'admin') {
-      try { canImport = (await pool.query('SELECT COUNT(*)::int AS n FROM share_groups')).rows[0].n > 0; } catch (e) { /* migration_v42 nahi */ }
+      try { canImport = (await pool.query('SELECT COUNT(*)::int AS n FROM share_groups')).rows[0].n > 0; } catch (e) { /* migration_v42 not applied */ }
     }
     const desc = String(product.description || '').replace(/\s+/g, ' ').slice(0, 110);
     render(res, 'seller-share', {
       title: 'Share product', product, recent, canImport, PLATFORMS: S.PLATFORMS, seller: 'share', ...flashOf(req),
-      caption: `🛍️ ${product.name}\n💰 Rs ${S.rs(product.price_rs)}` + (desc ? `\n\n${desc}${product.description.length > 110 ? '...' : ''}` : '') + `\n\n🚚 Cash on Delivery\n👉 Order karo: {link}`,
+      caption: `🛍️ ${product.name}\n💰 Rs ${S.rs(product.price_rs)}` + (desc ? `\n\n${desc}${product.description.length > 110 ? '...' : ''}` : '') + `\n\n🚚 Cash on Delivery\n👉 Order now: {link}`,
       groups: groups.map((g) => ({ ...g, url: `${pUrl}?utm_source=${g.platform}&utm_medium=group&utm_campaign=${g.utm}` })),
       doneCount: groups.filter((g) => g.done).length,
     });
@@ -678,11 +678,11 @@ router.post('/seller/share/groups', guard, async (req, res) => {
         [req.shop.id, name, detectPlatform(link, fallback), link || null, utm]);
       added++;
     }
-    go(res, back, `${added} group save hue` + (skipped ? `, ${skipped} skip (khali ya limit)` : ''));
-  } catch (err) { console.error(err); go(res, back, 'Group save nahi hua.', 'error'); }
+    go(res, back, `${added} groups saved` + (skipped ? `, ${skipped} skipped (empty or limit reached)` : ''));
+  } catch (err) { console.error(err); go(res, back, 'Could not save the group.', 'error'); }
 });
 
-// Admin: Group Poster ke groups isi shop mein le aao (wahi UTM, is liye purani analytics bhi mil jati hai)
+// Admin: bring the Group Poster groups into this shop (same UTM, so old analytics carry over too)
 router.post('/seller/share/import', guard, async (req, res) => {
   const back = shareBack(req.body.back);
   try {
@@ -690,8 +690,8 @@ router.post('/seller/share/import', guard, async (req, res) => {
     const r = await pool.query(
       `INSERT INTO shop_groups (shop_id, name, platform, link, utm)
        SELECT $1, name, platform, link, utm FROM share_groups ON CONFLICT (shop_id, utm) DO NOTHING`, [req.shop.id]);
-    go(res, back, `${r.rowCount} group Group Poster se aa gaye.`);
-  } catch (err) { console.error(err); go(res, back, 'Import nahi hua.', 'error'); }
+    go(res, back, `${r.rowCount} groups imported from Group Poster.`);
+  } catch (err) { console.error(err); go(res, back, 'Import failed.', 'error'); }
 });
 
 router.post('/seller/share/groups/:gid/delete', guard, async (req, res) => {
@@ -719,7 +719,7 @@ router.post('/seller/share/:id/tick/:gid', guard, async (req, res) => {
 });
 
 // ============================================================
-// ANALYTICS: kis group / source se kitne log aaye aur kitno ne order kiya
+// ANALYTICS: how many people came from each group / source and how many ordered
 // ============================================================
 router.get('/seller/analytics', guard, async (req, res) => {
   try {
@@ -748,7 +748,7 @@ router.get('/seller/analytics', guard, async (req, res) => {
                   WHERE shop_id = $1 AND campaign IS NOT NULL AND created_at > ${since} GROUP BY campaign) o ON o.campaign = g.utm
        WHERE g.shop_id = $1 ORDER BY orders DESC, visits DESC, lower(g.name)`, [id, days])).rows;
 
-    // Source-wise: visits aur orders alag nikal kar milaye (direct / google / blog / group ...)
+    // Source-wise: visits and orders are fetched separately and merged (direct / google / blog / group ...)
     const vSrc = (await pool.query(
       `SELECT COALESCE(source, 'direct') AS source, COUNT(*)::int AS visits, COUNT(DISTINCT visitor)::int AS people FROM product_visits
        WHERE shop_id = $1 AND created_at > ${since} GROUP BY 1`, [id, days])).rows;
@@ -767,7 +767,7 @@ router.get('/seller/analytics', guard, async (req, res) => {
               (SELECT COALESCE(SUM(oi.unit_price_rs * oi.qty), 0)::int FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.product_id = p.id AND o.status <> 'returned' AND o.created_at > ${since}) AS revenue
        FROM products p WHERE p.shop_id = $1 ORDER BY orders DESC, visits DESC LIMIT 50`, [id, days])).rows;
 
-    // Blog post ke "Ye product kharido" card se aaye log
+    // People who came from the blog post's "Buy this product" card
     const vPost = (await pool.query(
       `SELECT campaign, COUNT(*)::int AS visits FROM product_visits
        WHERE shop_id = $1 AND medium = 'post_card' AND campaign IS NOT NULL AND created_at > ${since} GROUP BY campaign`, [id, days])).rows;
@@ -779,7 +779,7 @@ router.get('/seller/analytics', guard, async (req, res) => {
     oPost.forEach((r) => { pm[r.campaign] = { visits: 0, ...(pm[r.campaign] || {}), campaign: r.campaign, orders: r.orders }; });
     const byPost = Object.values(pm).sort((a, b) => b.orders - a.orders || b.visits - a.visits).slice(0, 20);
 
-    // Recent visitors: kon aaya, kahan se (migration_v50 na chali ho to khali list)
+    // Recent visitors: who came and from where (empty list if migration_v50 has not run)
     let recent = [];
     try {
       const isAdmin = req.session.user && req.session.user.role === 'admin';
@@ -796,7 +796,7 @@ router.get('/seller/analytics', guard, async (req, res) => {
       let rows;
       try { rows = (await q(true)).rows; } catch (e) {
         if (e.code !== '42703') throw e;
-        rows = (await q(false)).rows; // migration_v53 baaqi
+        rows = (await q(false)).rows; // migration_v53 pending
       }
       recent = rows.map((r) => ({
         ...r,
@@ -815,7 +815,7 @@ router.get('/seller/analytics', guard, async (req, res) => {
 });
 
 // ============================================================
-// ADMIN: sab shops
+// ADMIN: all shops
 // ============================================================
 router.get('/admin/shops', requireAdmin, async (req, res) => {
   try {
@@ -833,13 +833,13 @@ router.post('/admin/shops/:id/status', requireAdmin, async (req, res) => {
   try {
     const id = S.toId(req.params.id);
     const status = ['active', 'suspended', 'pending'].includes(req.body.status) ? req.body.status : null;
-    if (!id || !status) return go(res, '/admin/shops', 'Galat request.', 'error');
+    if (!id || !status) return go(res, '/admin/shops', 'Invalid request.', 'error');
     const r = await pool.query('UPDATE shops SET status = $2 WHERE id = $1 RETURNING owner_id, name, slug', [id, status]);
     if (r.rows[0] && r.rows[0].owner_id !== req.session.user.id) {
-      const text = status === 'active' ? `Aap ki shop "${r.rows[0].name}" ab public hai.` : status === 'suspended' ? `Aap ki shop "${r.rows[0].name}" band kar di gayi hai. Maloomat ke liye site owner se raabta karein.` : `Aap ki shop "${r.rows[0].name}" review mein hai.`;
+      const text = status === 'active' ? `Your shop "${r.rows[0].name}" is now public.` : status === 'suspended' ? `Your shop "${r.rows[0].name}" has been suspended. Please contact the site owner for details.` : `Your shop "${r.rows[0].name}" is under review.`;
       notifyUser(r.rows[0].owner_id, text, '/seller', { email: status !== 'pending' }).catch(() => {});
     }
-    go(res, '/admin/shops', r.rows[0] ? `${r.rows[0].name}: ${status}` : 'Shop nahi mili.', r.rows[0] ? 'msg' : 'error');
+    go(res, '/admin/shops', r.rows[0] ? `${r.rows[0].name}: ${status}` : 'Shop not found.', r.rows[0] ? 'msg' : 'error');
   } catch (err) { dbError(res, err); }
 });
 

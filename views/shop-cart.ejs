@@ -2,7 +2,7 @@
 <%- include('partials/shop-style') %>
 
 <div style="max-width:760px;margin:0 auto;">
-  <h1 class="fs-3 fw-bold mb-3">🛒 Mera cart</h1>
+  <h1 class="fs-3 fw-bold mb-3">🛒 My cart</h1>
 
   <% if (msg) { %><div class="alert alert-success py-2"><%= msg %></div><% } %>
   <% notices.forEach(n => { %><div class="alert alert-warning py-2"><%= n %></div><% }) %>
@@ -11,9 +11,9 @@
   <% if (!cart.groups.length) { %>
     <div class="sh-card text-center">
       <div style="font-size:2.5rem;">🛒</div>
-      <p class="mb-2">Aap ka cart khali hai.</p>
-      <a class="btn btn-success rounded-pill" href="/shop">Shop dekhein</a>
-      <div class="mt-3 small"><a href="/track">📦 Pehle diya hua order dhoondo</a></div>
+      <p class="mb-2">Your cart is empty.</p>
+      <a class="btn btn-success rounded-pill" href="/shop">Browse shop</a>
+      <div class="mt-3 small"><a href="/track">📦 Find a previous order</a></div>
     </div>
   <% } else { %>
 
@@ -32,7 +32,7 @@
             <div class="flex-grow-1 min-w-0">
               <a class="fw-semibold text-decoration-none text-body" href="/shop/<%= g.shop.slug %>/<%= l.product.slug %>"><%= l.product.name %></a>
               <% if (l.variantLabel) { %><div class="sh-stat">Option: <b><%= l.variantLabel %></b></div><% } %>
-              <div class="sh-stat">Rs <%= rs(l.unit) %> each<% if (l.avail <= 5) { %> · <span class="text-warning">sirf <%= l.avail %> bache</span><% } %></div>
+              <div class="sh-stat">Rs <%= rs(l.unit) %> each<% if (l.avail <= 5) { %> · <span class="text-warning">only <%= l.avail %> left</span><% } %></div>
               <div class="d-flex gap-2 align-items-center mt-1 flex-wrap">
                 <form action="/cart/update" method="POST" class="d-flex gap-1 align-items-center">
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
@@ -45,7 +45,7 @@
                 <form action="/cart/remove" method="POST" class="d-inline">
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <input type="hidden" name="key" value="<%= l.key %>">
-                  <button class="btn btn-sm btn-link text-danger p-0">Hatao</button>
+                  <button class="btn btn-sm btn-link text-danger p-0">Remove</button>
                 </form>
               </div>
             </div>
@@ -54,16 +54,16 @@
         <% }) %>
 
         <hr class="my-2">
-        <div class="d-flex justify-content-between small"><span>Saman</span><span>Rs <%= rs(g.subtotal) %></span></div>
+        <div class="d-flex justify-content-between small"><span>Items</span><span>Rs <%= rs(g.subtotal) %></span></div>
         <% if (g.discount > 0) { %><div class="d-flex justify-content-between small text-success"><span>🏷️ Coupon <%= g.coupon.code %> (<%= couponText(g.coupon) %>)</span><span>- Rs <%= rs(g.discount) %></span></div><% } %>
-        <% if (g.couponProblem) { %><div class="small text-danger">Coupon is shop par nahi lag saka: <%= g.couponProblem %></div><% } %>
-        <div class="d-flex justify-content-between small"><span>Delivery<% if (g.shop.free_over_rs && g.delivery > 0) { %> <span class="sh-stat">(Rs <%= rs(g.shop.free_over_rs) %> se upar free)</span><% } %></span><span><%= g.delivery ? 'Rs ' + rs(g.delivery) : 'Free' %></span></div>
-        <div class="d-flex justify-content-between fw-bold"><span>Is shop ka kul</span><span>Rs <%= rs(g.total) %></span></div>
+        <% if (g.couponProblem) { %><div class="small text-danger">Coupon could not be applied to this shop: <%= g.couponProblem %></div><% } %>
+        <div class="d-flex justify-content-between small"><span>Delivery<% if (g.shop.free_over_rs && g.delivery > 0) { %> <span class="sh-stat">(Free over Rs <%= rs(g.shop.free_over_rs) %>)</span><% } %></span><span><%= g.delivery ? 'Rs ' + rs(g.delivery) : 'Free' %></span></div>
+        <div class="d-flex justify-content-between fw-bold"><span>Shop total</span><span>Rs <%= rs(g.total) %></span></div>
       </div>
     <% }) %>
 
     <% if (cart.groups.length > 1) { %>
-      <div class="alert alert-info py-2 small">Aap ne <%= cart.groups.length %> alag shops se cheezein li hain, is liye <b><%= cart.groups.length %> alag orders</b> banenge (har shop ka ek, alag delivery ke saath).</div>
+      <div class="alert alert-info py-2 small">You have items from <%= cart.groups.length %> different shops, so <b><%= cart.groups.length %> separate orders</b> will be placed (one per shop, each with its own delivery).</div>
     <% } %>
 
     <!-- Coupon -->
@@ -72,34 +72,34 @@
       <label class="form-label small mb-1 fw-semibold" for="cpn">🏷️ Coupon code</label>
       <div class="d-flex gap-2">
         <input class="form-control" id="cpn" name="code" maxlength="30" value="<%= cart.couponCode || '' %>" placeholder="TIKTOK10" autocomplete="off" style="text-transform:uppercase;">
-        <button class="btn btn-outline-success rounded-pill">Lagao</button>
+        <button class="btn btn-outline-success rounded-pill">Apply</button>
       </div>
-      <% if (cart.couponApplied) { %><div class="small text-success mt-1">✓ Coupon lag gaya: Rs <%= rs(cart.discountTotal) %> ki chhoot.</div><% } %>
+      <% if (cart.couponApplied) { %><div class="small text-success mt-1">✓ Coupon applied: Rs <%= rs(cart.discountTotal) %> off.</div><% } %>
       <% if (cart.couponError) { %><div class="small text-danger mt-1"><%= cart.couponError %></div><% } %>
     </form>
 
     <!-- Order form -->
     <form action="/cart/checkout" method="POST" class="sh-card" id="cartForm" autocomplete="on">
-      <h2 class="sh-h">📦 Delivery ki maloomat</h2>
+      <h2 class="sh-h">📦 Delivery details</h2>
       <input type="hidden" name="_csrf" value="<%= csrfToken %>">
       <input type="hidden" name="coupon" value="<%= cart.couponCode || '' %>">
       <div style="position:absolute;left:-9999px;" aria-hidden="true"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
       <div class="row g-2">
         <div class="col-12">
-          <label class="form-label small mb-1" for="cName">Aap ka naam</label>
-          <input class="form-control" id="cName" name="name" required maxlength="80" autocomplete="name" value="<%= f.name %>" placeholder="Poora naam">
+          <label class="form-label small mb-1" for="cName">Your name</label>
+          <input class="form-control" id="cName" name="name" required maxlength="80" autocomplete="name" value="<%= f.name %>" placeholder="Full name">
         </div>
         <div class="col-12 col-sm-6">
-          <label class="form-label small mb-1" for="cPhone">Phone (WhatsApp wala behtar)</label>
+          <label class="form-label small mb-1" for="cPhone">Phone (WhatsApp preferred)</label>
           <input class="form-control" id="cPhone" name="phone" type="tel" inputmode="tel" required maxlength="20" autocomplete="tel" value="<%= f.phone %>" placeholder="0300 1234567">
         </div>
         <div class="col-12 col-sm-6">
-          <label class="form-label small mb-1" for="cCity">Shehar</label>
+          <label class="form-label small mb-1" for="cCity">City</label>
           <input class="form-control" id="cCity" name="city" required maxlength="60" autocomplete="address-level2" value="<%= f.city %>" placeholder="Lahore">
         </div>
         <div class="col-12">
-          <label class="form-label small mb-1" for="cAddr">Poora pata</label>
-          <textarea class="form-control" id="cAddr" name="address" rows="2" required maxlength="300" autocomplete="street-address" placeholder="Ghar / gali / mohalla / area"><%= f.address %></textarea>
+          <label class="form-label small mb-1" for="cAddr">Full address</label>
+          <textarea class="form-control" id="cAddr" name="address" rows="2" required maxlength="300" autocomplete="street-address" placeholder="House / street / area"><%= f.address %></textarea>
         </div>
         <div class="col-12">
           <label class="form-label small mb-1" for="cNote">Note <span class="text-body-secondary">(optional)</span></label>
@@ -108,33 +108,33 @@
       </div>
 
       <div class="mt-3">
-        <div class="small fw-semibold mb-1">Order kaise karein?</div>
+        <div class="small fw-semibold mb-1">How would you like to order?</div>
         <% if (codOk) { %>
           <label class="d-flex align-items-start gap-2 p-2 border rounded-3 mb-2" style="cursor:pointer;">
             <input class="form-check-input mt-1" type="radio" name="method" value="cod" <%= f.method === 'cod' || !waOk ? 'checked' : '' %>>
-            <span><b>🚚 Cash on Delivery</b><br><span class="sh-stat">Saman aap ke ghar pahunche, tab paisay dein.</span></span>
+            <span><b>🚚 Cash on Delivery</b><br><span class="sh-stat">Pay when the order reaches your door.</span></span>
           </label>
         <% } %>
         <% if (waOk) { %>
           <label class="d-flex align-items-start gap-2 p-2 border rounded-3 mb-2" style="cursor:pointer;">
             <input class="form-check-input mt-1" type="radio" name="method" value="whatsapp" <%= f.method === 'whatsapp' || !codOk ? 'checked' : '' %>>
-            <span><b>💬 WhatsApp order</b><br><span class="sh-stat">Order save ho jata hai; payment seller se tay karein.</span></span>
+            <span><b>💬 WhatsApp order</b><br><span class="sh-stat">Your order is saved; arrange payment with the seller.</span></span>
           </label>
         <% } %>
-        <% if (!codOk && !waOk) { %><div class="alert alert-warning py-2 small mb-0">In shops mein se sab mein ek jaisa payment tareeqa nahi. Alag alag shop se alag alag order karein.</div><% } %>
+        <% if (!codOk && !waOk) { %><div class="alert alert-warning py-2 small mb-0">These shops don't share a common payment method. Please order from each shop separately.</div><% } %>
       </div>
 
       <div class="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
-        <div class="small"><%= cart.count %> cheezein<% if (cart.discountTotal > 0) { %><br><span class="text-success">Chhoot: Rs <%= rs(cart.discountTotal) %></span><% } %></div>
-        <div class="text-end"><div class="sh-stat">Kul raqam</div><div class="fs-4 fw-bold" style="color:#12a37f;">Rs <%= rs(cart.grand) %></div></div>
+        <div class="small"><%= cart.count %> item<%= cart.count === 1 ? '' : 's' %><% if (cart.discountTotal > 0) { %><br><span class="text-success">Discount: Rs <%= rs(cart.discountTotal) %></span><% } %></div>
+        <div class="text-end"><div class="sh-stat">Total amount</div><div class="fs-4 fw-bold" style="color:#12a37f;">Rs <%= rs(cart.grand) %></div></div>
       </div>
-      <button class="btn btn-success btn-lg w-100 rounded-pill mt-2 fw-semibold" id="cartBtn" type="submit" <%= (!codOk && !waOk) ? 'disabled' : '' %>>Order confirm karo</button>
-      <div class="sh-stat text-center mt-2">Order dene se pehle seller aap ko phone / WhatsApp par confirm kar sakta hai.</div>
+      <button class="btn btn-success btn-lg w-100 rounded-pill mt-2 fw-semibold" id="cartBtn" type="submit" <%= (!codOk && !waOk) ? 'disabled' : '' %>>Place order</button>
+      <div class="sh-stat text-center mt-2">The seller may confirm your order by phone / WhatsApp before dispatch.</div>
     </form>
 
-    <!-- Ye bhi khareedein -->
+    <!-- You may also like -->
     <% if (sug && sug.length) { %>
-      <h2 class="fs-5 fw-bold mt-4">✨ Ye bhi khareedein</h2>
+      <h2 class="fs-5 fw-bold mt-4">✨ You may also like</h2>
       <div class="sh-grid mb-4">
         <% sug.forEach(pr => { %>
           <div class="sh-item">
@@ -148,13 +148,13 @@
             </a>
             <div class="px-2 pb-2">
               <% if (pr.has_variants) { %>
-                <a class="btn btn-sm btn-outline-success rounded-pill w-100" href="/shop/<%= pr.shop_slug %>/<%= pr.slug %>">Option chunein</a>
+                <a class="btn btn-sm btn-outline-success rounded-pill w-100" href="/shop/<%= pr.shop_slug %>/<%= pr.slug %>">Choose option</a>
               <% } else { %>
                 <form action="/cart/add" method="POST">
                   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
                   <input type="hidden" name="product_id" value="<%= pr.id %>">
                   <input type="hidden" name="qty" value="1">
-                  <button class="btn btn-sm btn-success rounded-pill w-100">➕ Cart mein daalo</button>
+                  <button class="btn btn-sm btn-success rounded-pill w-100">➕ Add to cart</button>
                 </form>
               <% } %>
             </div>
@@ -169,8 +169,8 @@
 (function () {
   var f = document.getElementById('cartForm'), b = document.getElementById('cartBtn');
   if (!f || !b) return;
-  f.addEventListener('submit', function () { b.disabled = true; b.textContent = 'Order ja raha hai...'; });
-  window.addEventListener('pageshow', function (ev) { if (ev.persisted) { b.disabled = false; b.textContent = 'Order confirm karo'; } });
+  f.addEventListener('submit', function () { b.disabled = true; b.textContent = 'Placing order...'; });
+  window.addEventListener('pageshow', function (ev) { if (ev.persisted) { b.disabled = false; b.textContent = 'Place order'; } });
   var e = document.getElementById('cartError'); if (e) e.scrollIntoView();
 })();
 </script>

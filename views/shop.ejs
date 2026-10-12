@@ -10,7 +10,7 @@
     <button class="btn btn-success rounded-pill px-4">Search</button>
   </form>
   <div class="d-flex flex-wrap gap-2 justify-content-center mt-3">
-    <a href="/shop<%= q ? '?q=' + encodeURIComponent(q) : '' %>" class="btn btn-sm rounded-pill <%= !cat ? 'btn-dark' : 'btn-outline-secondary' %>">Sab</a>
+    <a href="/shop<%= q ? '?q=' + encodeURIComponent(q) : '' %>" class="btn btn-sm rounded-pill <%= !cat ? 'btn-dark' : 'btn-outline-secondary' %>">All</a>
     <% CATEGORIES.forEach(c => { %>
       <a href="/shop?cat=<%= encodeURIComponent(c) %><%= q ? '&q=' + encodeURIComponent(q) : '' %>" class="btn btn-sm rounded-pill <%= cat === c ? 'btn-dark' : 'btn-outline-secondary' %>"><%= c %></a>
     <% }) %>
@@ -31,7 +31,7 @@
 <% if (items.length === 0) { %>
   <div class="text-center text-body-secondary py-5">
     <div style="font-size:3rem;">🛍️</div>
-    <p class="mb-2"><%= (q || cat) ? 'Is search par koi product nahi mila.' : 'There are no products yet. Be the first to open a shop!' %></p>
+    <p class="mb-2"><%= (q || cat) ? 'No products found for this search.' : 'There are no products yet. Be the first to open a shop!' %></p>
   </div>
 <% } else { %>
   <div class="sh-stat mb-2"><%= total %> product<%= total === 1 ? '' : 's' %></div>
@@ -40,9 +40,9 @@
   </div>
   <% if (pages > 1) { %>
     <nav class="d-flex justify-content-center gap-2 my-3">
-      <% if (page > 1) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="/shop?page=<%= page - 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %><%= cat ? '&cat=' + encodeURIComponent(cat) : '' %>">← Pehla</a><% } %>
+      <% if (page > 1) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="/shop?page=<%= page - 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %><%= cat ? '&cat=' + encodeURIComponent(cat) : '' %>">← Previous</a><% } %>
       <span class="align-self-center small text-body-secondary">Page <%= page %> / <%= pages %></span>
-      <% if (page < pages) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="/shop?page=<%= page + 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %><%= cat ? '&cat=' + encodeURIComponent(cat) : '' %>">Agla →</a><% } %>
+      <% if (page < pages) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="/shop?page=<%= page + 1 %><%= q ? '&q=' + encodeURIComponent(q) : '' %><%= cat ? '&cat=' + encodeURIComponent(cat) : '' %>">Next →</a><% } %>
     </nav>
   <% } %>
 <% } %>

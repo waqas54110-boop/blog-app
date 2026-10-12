@@ -28,7 +28,7 @@
         <form action="/seller/products/<%= p.id %>/quick" method="POST" class="d-flex gap-2 align-items-end flex-wrap">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <div><label class="sh-stat d-block">Price (Rs)</label><input class="form-control form-control-sm" name="price_rs" inputmode="numeric" value="<%= p.price_rs %>" style="width:110px;"></div>
-          <div><label class="sh-stat d-block">Stock</label><input class="form-control form-control-sm" name="stock" inputmode="numeric" value="<%= p.stock %>" style="width:90px;" <%= p.variant_count > 0 ? 'readonly title="Variants ka stock Edit page par badlein"' : '' %>></div>
+          <div><label class="sh-stat d-block">Stock</label><input class="form-control form-control-sm" name="stock" inputmode="numeric" value="<%= p.stock %>" style="width:90px;" <%= p.variant_count > 0 ? 'readonly title="Change variant stock on the Edit page"' : '' %>></div>
           <button class="btn btn-sm btn-primary rounded-pill">Update</button>
         </form>
 
@@ -37,15 +37,15 @@
           <a href="/seller/share/<%= p.id %>" class="btn btn-sm btn-outline-primary rounded-pill">📣 Share</a>
           <a href="/shop/<%= shop.slug %>/<%= p.slug %>/tiktok" class="btn btn-sm rounded-pill fw-semibold" style="background:#fbbf24;color:#111;">🎬 TikTok video</a>
           <% if (!sold) { %>
-            <form action="/seller/products/<%= p.id %>/soldout" method="POST" class="d-inline" onsubmit="return confirm('Is product ko Sold out karein?')">
+            <form action="/seller/products/<%= p.id %>/soldout" method="POST" class="d-inline" onsubmit="return confirm('Mark this product as Sold out?')">
               <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-danger rounded-pill">Mark as Sold Out</button>
             </form>
           <% } %>
           <form action="/seller/products/<%= p.id %>/toggle" method="POST" class="d-inline">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-outline-secondary rounded-pill"><%= p.is_active ? '👁 Hide' : '👁 Show' %></button>
           </form>
-          <form action="/seller/products/<%= p.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Product hamesha ke liye hataen? Purane orders bache rahenge.')">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-link text-danger">Hatao</button>
+          <form action="/seller/products/<%= p.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Delete this product permanently? Past orders will be kept.')">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-link text-danger">Remove</button>
           </form>
         </div>
       </div>

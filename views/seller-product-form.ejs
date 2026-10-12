@@ -3,7 +3,7 @@
 <%- include('partials/seller-nav') %>
 
 <div style="max-width:720px;margin:0 auto;">
-  <h1 class="fs-4 fw-bold mb-3"><%= edit ? '✏️ Product edit' : '➕ New product' %></h1>
+  <h1 class="fs-4 fw-bold mb-3"><%= edit ? '✏️ Edit product' : '➕ New product' %></h1>
   <% if (error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
 
   <form action="<%= edit ? '/seller/products/' + edit.id : '/seller/products' %>" method="POST" class="sh-card" id="pForm">
@@ -15,28 +15,28 @@
     </div>
 
     <div class="mb-3">
-      <label class="form-label" for="pName">Product ka naam</label>
-      <input class="form-control" id="pName" name="name" required maxlength="120" value="<%= f.name %>" placeholder="Jaise: Men's Leather Wallet">
+      <label class="form-label" for="pName">Product name</label>
+      <input class="form-control" id="pName" name="name" required maxlength="120" value="<%= f.name %>" placeholder="e.g. Men's Leather Wallet">
     </div>
 
     <div class="row g-2 mb-3">
       <div class="col-6 col-sm-4"><label class="form-label" for="pPrice">Price (Rs)</label><input class="form-control" id="pPrice" name="price_rs" inputmode="numeric" required maxlength="10" value="<%= f.price %>" placeholder="1500"></div>
       <div class="col-6 col-sm-4"><label class="form-label" for="pCmp">Compare Price <span class="text-body-secondary">(optional)</span></label><input class="form-control" id="pCmp" name="compare_price_rs" inputmode="numeric" maxlength="10" value="<%= f.compare %>" placeholder="2000"></div>
-      <div class="col-12 col-sm-4"><label class="form-label" for="pStock">Stock</label><input class="form-control" id="pStock" name="stock" inputmode="numeric" maxlength="7" value="<%= f.stock %>" placeholder="10"><div class="form-text">0 likhein = Sold out</div></div>
+      <div class="col-12 col-sm-4"><label class="form-label" for="pStock">Stock</label><input class="form-control" id="pStock" name="stock" inputmode="numeric" maxlength="7" value="<%= f.stock %>" placeholder="10"><div class="form-text">Enter 0 = Sold out</div></div>
     </div>
 
-    <!-- Variants (V56): rang / size / qisam. Har ka apna stock; qeemat khali ho to upar wali price lagti hai -->
+    <!-- Variants (V56): color / size / type. Each has its own stock; if the price is blank, the price above applies -->
     <div class="mb-3 p-2 border rounded-3">
       <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
         <div>
-          <div class="form-label mb-0">🎨 Variants <span class="text-body-secondary">(optional: rang, size, qisam)</span></div>
-          <div class="form-text mt-0">Jaise Rang: Black, Size: 40ml. Variants hon to customer ko pehle option chunna hota hai, aur stock har variant ka alag ginta hai (upar wala Stock un ka jama ban jata hai).</div>
+          <div class="form-label mb-0">🎨 Variants <span class="text-body-secondary">(optional: color, size, type)</span></div>
+          <div class="form-text mt-0">For example Color: Black, Size: 40ml. If variants exist, the customer must choose an option first, and stock is counted separately for each variant (the Stock above becomes their total).</div>
         </div>
         <button type="button" class="btn btn-sm btn-outline-success rounded-pill" id="vAdd">➕ Variant</button>
       </div>
       <div class="table-responsive mt-2" id="vWrap" <%= (f.variants && f.variants.length) ? '' : 'hidden' %>>
         <table class="table table-sm align-middle mb-0" style="min-width:560px;">
-          <thead><tr class="small text-body-secondary"><th>Rang</th><th>Size</th><th>Qisam</th><th>Price (Rs)</th><th>Stock</th><th></th></tr></thead>
+          <thead><tr class="small text-body-secondary"><th>Color</th><th>Size</th><th>Type</th><th>Price (Rs)</th><th>Stock</th><th></th></tr></thead>
           <tbody id="vBody">
             <% (f.variants || []).forEach(v => { %>
               <tr>
@@ -45,7 +45,7 @@
                 <td><input class="form-control form-control-sm" name="v_kind" maxlength="30" value="<%= v.kind %>" placeholder="Oily skin"></td>
                 <td><input class="form-control form-control-sm" name="v_price" inputmode="numeric" maxlength="10" value="<%= v.price %>" placeholder="same" style="width:90px;"></td>
                 <td><input class="form-control form-control-sm" name="v_stock" inputmode="numeric" maxlength="7" value="<%= v.stock %>" style="width:80px;"></td>
-                <td><button type="button" class="btn btn-sm btn-link text-danger v-del" title="Hatao">✕</button></td>
+                <td><button type="button" class="btn btn-sm btn-link text-danger v-del" title="Remove">✕</button></td>
               </tr>
             <% }) %>
           </tbody>
@@ -58,7 +58,7 @@
           <td><input class="form-control form-control-sm" name="v_kind" maxlength="30" placeholder="Oily skin"></td>
           <td><input class="form-control form-control-sm" name="v_price" inputmode="numeric" maxlength="10" placeholder="same" style="width:90px;"></td>
           <td><input class="form-control form-control-sm" name="v_stock" inputmode="numeric" maxlength="7" value="5" style="width:80px;"></td>
-          <td><button type="button" class="btn btn-sm btn-link text-danger v-del" title="Hatao">✕</button></td>
+          <td><button type="button" class="btn btn-sm btn-link text-danger v-del" title="Remove">✕</button></td>
         </tr>
       </template>
     </div>
@@ -66,13 +66,13 @@
     <div class="mb-3">
       <label class="form-label" for="pCat">Category</label>
       <select class="form-select" id="pCat" name="category">
-        <option value="">— Chuno —</option>
+        <option value="">— Select —</option>
         <% CATEGORIES.forEach(c => { %><option <%= f.category === c ? 'selected' : '' %>><%= c %></option><% }) %>
       </select>
     </div>
 
     <div class="mb-3">
-      <label class="form-label" for="pDesc">Tafseel</label>
+      <label class="form-label" for="pDesc">Description</label>
       <textarea class="form-control" id="pDesc" name="description" rows="6" maxlength="3000" placeholder="Material, size, rang, warranty, return policy..."><%= f.description %></textarea>
     </div>
 
@@ -81,7 +81,7 @@
       <label class="form-check-label" for="pAct">Show in Shop (When disabled, the product is hidden from your shop).</label>
     </div>
 
-    <button class="btn btn-success btn-lg rounded-pill px-4" type="submit"><%= edit ? 'Save karo' : 'Product add karo' %></button>
+    <button class="btn btn-success btn-lg rounded-pill px-4" type="submit"><%= edit ? 'Save' : 'Add product' %></button>
     <a href="/seller/products" class="btn btn-outline-secondary rounded-pill ms-1">Cancel</a>
   </form>
 </div>
@@ -95,7 +95,7 @@
     var rows = body.querySelectorAll('tr');
     wrap.hidden = rows.length === 0;
     add.disabled = rows.length >= MAXV;
-    if (rows.length) { // variants hon to upar ka stock un ka jama hai (sirf dikhane ke liye)
+    if (rows.length) { // if variants exist, the stock above is their total (display only)
       var t = 0;
       rows.forEach(function (r) { t += parseInt(r.querySelector('[name=v_stock]').value, 10) || 0; });
       stock.value = t; stock.readOnly = true; stock.style.opacity = '.6';

@@ -1,5 +1,5 @@
-// Shop (V46) public side: /shop (sab products), /shop/:shop (ek shop), /shop/:shop/:product (product page + order form),
-// POST /order (Cash on Delivery / WhatsApp), GET /order/:token (customer ka order page).
+// Shop (V46) public side: /shop (all products), /shop/:shop (one shop), /shop/:shop/:product (product page + order form),
+// POST /order (Cash on Delivery / WhatsApp), GET /order/:token (the customer's order page).
 const express = require('express');
 const pool = require('../db');
 const config = require('../config');
@@ -15,7 +15,7 @@ const PER_PAGE = 24;
 const notFound = (res, msg) => res.status(404).render('404', { code: 404, title: 'Not found', message: msg || 'This page does not exist.' });
 const noShop = (res, err) => {
   if (err && (err.code === '42P01' || err.code === '42703')) {
-    return res.status(503).render('404', { code: 503, title: 'Shop setup', message: 'Shop abhi setup ho rahi hai. Thori der baad try karein.' });
+    return res.status(503).render('404', { code: 503, title: 'Shop setup', message: 'The shop is being set up. Please try again in a little while.' });
   }
   console.error(err);
   return res.status(500).send('Server error');
@@ -44,7 +44,7 @@ router.get('/shop', async (req, res) => {
     const myShop = req.session.user ? await S.getMyShop(req.session.user.id) : null;
     res.render('shop', {
       title: 'Shop - ' + config.siteName,
-      metaDescription: 'Pakistani sellers ki shops: Cash on Delivery ya WhatsApp par order karein.',
+      metaDescription: 'Shops from Pakistani sellers: order with Cash on Delivery or on WhatsApp.',
       items, shops, q, cat, page, pages: Math.max(1, Math.ceil(total / PER_PAGE)), total, myShop,
       CATEGORIES: S.CATEGORIES, rs: S.rs,
       robots: q || page > 1 ? 'noindex,follow' : null,
@@ -56,16 +56,16 @@ router.get('/shop', async (req, res) => {
 router.get('/shop/:shop', async (req, res, next) => {
   try {
     const shop = await S.getShopBySlug(req.params.shop);
-    if (!shop) return notFound(res, 'Ye shop nahi mili.');
+    if (!shop) return notFound(res, 'This shop was not found.');
     const me = req.session.user;
     const mine = !!(me && (me.id === shop.owner_id || me.role === 'admin'));
-    if (shop.status !== 'active' && !mine) return notFound(res, 'Ye shop abhi available nahi.');
+    if (shop.status !== 'active' && !mine) return notFound(res, 'This shop is not available right now.');
     const items = (await pool.query(
       `SELECT ${S.CARD_COLS} FROM products p JOIN shops s ON s.id = p.shop_id
        WHERE p.shop_id = $1 AND p.is_active = true ORDER BY (p.stock > 0) DESC, p.created_at DESC LIMIT 200`, [shop.id])).rows;
     res.render('shop-store', {
       title: `${shop.name} - ${config.siteName}`,
-      metaDescription: shop.tagline || shop.description || `${shop.name}: order karein Cash on Delivery ya WhatsApp par.`,
+      metaDescription: shop.tagline || shop.description || `${shop.name}: order with Cash on Delivery or on WhatsApp.`,
       ogImage: shop.logo_image_id ? S.baseUrlOf(req) + '/img/' + shop.logo_image_id : undefined,
       shop, items, mine, rs: S.rs, showPhone: S.showPhone,
       robots: shop.status === 'active' ? null : 'noindex,nofollow',
@@ -73,7 +73,7 @@ router.get('/shop/:shop', async (req, res, next) => {
   } catch (err) { noShop(res, err); }
 });
 
-// ---------- product page (GET aur order error dono isi se render) ----------
+// ---------- product page (both GET and order errors render through this) ----------
 async function loadProduct(shopSlug, productSlug) {
   const shop = await S.getShopBySlug(shopSlug);
   if (!shop) return {};
@@ -95,7 +95,7 @@ async function renderProduct(req, res, shop, product, { error = null, form = nul
   let f = form;
   if (!f) {
     f = { qty: 1, name: '', phone: '', city: shop.city || '', address: '', note: '', method: shop.cod_enabled ? 'cod' : 'whatsapp', variant: '', coupon: req.session.cartCoupon || '' };
-    if (me) { // pichle order se bhar do
+    if (me) { // prefill from the previous order
       try {
         const last = (await pool.query('SELECT customer_name, phone, city, address FROM orders WHERE user_id = $1 ORDER BY id DESC LIMIT 1', [me.id])).rows[0];
         if (last) f = { ...f, name: last.customer_name, phone: S.showPhone(last.phone), city: last.city, address: last.address };
@@ -130,12 +130,12 @@ async function renderProduct(req, res, shop, product, { error = null, form = nul
 router.get('/shop/:shop/:product', async (req, res) => {
   try {
     const { shop, product } = await loadProduct(req.params.shop, req.params.product);
-    if (!shop || !product) return notFound(res, 'Ye product nahi mila.');
+    if (!shop || !product) return notFound(res, 'This product was not found.');
     const me = req.session.user;
     const mine = !!(me && (me.id === shop.owner_id || me.role === 'admin'));
-    if ((!product.is_active || shop.status !== 'active') && !mine) return notFound(res, 'Ye product abhi available nahi.');
-    if (product.is_active && shop.status === 'active') await S.trackProductVisit(req, res, product, shop); // cookie render se pehle
-    // V52: login na kiya hua visitor ko sirf pehla hissa; signup ke baad isi product par wapas
+    if ((!product.is_active || shop.status !== 'active') && !mine) return notFound(res, 'This product is not available right now.');
+    if (product.is_active && shop.status === 'active') await S.trackProductVisit(req, res, product, shop); // cookie before render
+    // V52: a visitor who is not logged in sees only the first part; back to this product after signup
     let wall = false;
     if (product.is_active && shop.status === 'active' && shopwall.shouldWall(req, res, isBot)) {
       wall = true;
@@ -145,34 +145,34 @@ router.get('/shop/:shop/:product', async (req, res) => {
       res.locals.wallDesc = shopwall.teaser(product.description, config.shopWallChars);
     }
     res.locals.shopWall = wall;
-    if (req.query.coupon) req.session.cartCoupon = S.cleanCode(req.query.coupon); // ?coupon=TIKTOK10 wale link
+    if (req.query.coupon) req.session.cartCoupon = S.cleanCode(req.query.coupon); // links like ?coupon=TIKTOK10
     await renderProduct(req, res, shop, product, { error: req.query.cart_error ? String(req.query.cart_error).slice(0, 200) : null });
   } catch (err) { noShop(res, err); }
 });
 
 // ---------- TikTok ----------
-// Chhota link (TikTok bio mein): /tp/12 -> product page, source = tiktok (orders analytics mein "tiktok" dikhte hain)
+// Short link (for the TikTok bio): /tp/12 -> product page, source = tiktok (orders show as "tiktok" in analytics)
 router.get('/tp/:id', async (req, res, next) => {
   try {
     const id = S.toId(req.params.id);
     if (!id) return next();
     const r = (await pool.query(
       `SELECT p.slug, s.slug AS shop_slug FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = $1 AND p.is_active = true AND s.status = 'active'`, [id])).rows[0];
-    if (!r) return notFound(res, 'Ye product abhi available nahi.');
+    if (!r) return notFound(res, 'This product is not available right now.');
     const camp = S.oneLine(req.query.c, 40).toLowerCase().replace(/[^a-z0-9_\-]/g, '');
     const cpn = S.cleanCode(req.query.coupon); // /tp/12?coupon=TIKTOK10
     res.redirect(302, `/shop/${r.shop_slug}/${r.slug}?utm_source=tiktok&utm_medium=bio` + (camp ? '&utm_campaign=' + camp : '') + (cpn ? '&coupon=' + cpn : ''));
   } catch (err) { noShop(res, err); }
 });
 
-// TikTok Video Studio (sirf shop owner / admin): browser mein hi 9:16, 60 second ki funny product video
+// TikTok Video Studio (shop owner / admin only): a 9:16, 60-second funny product video made right in the browser
 router.get('/shop/:shop/:product/tiktok', async (req, res) => {
   try {
     const { shop, product } = await loadProduct(req.params.shop, req.params.product);
-    if (!shop || !product) return notFound(res, 'Ye product nahi mila.');
+    if (!shop || !product) return notFound(res, 'This product was not found.');
     const me = req.session.user;
     const mine = !!(me && (me.id === shop.owner_id || me.role === 'admin'));
-    if (!mine) return notFound(res, 'Ye page sirf shop owner ke liye hai.');
+    if (!mine) return notFound(res, 'This page is only for the shop owner.');
     const images = (await pool.query('SELECT image_id FROM product_images WHERE product_id = $1 ORDER BY position, image_id LIMIT 4', [product.id])).rows.map((r) => r.image_id);
     const base = S.baseUrlOf(req);
     const shortUrl = `${base}/tp/${product.id}`;
@@ -205,16 +205,16 @@ router.get('/shop/:shop/:product/tiktok', async (req, res) => {
   } catch (err) { noShop(res, err); }
 });
 
-// ---------- POST /order (seedha order: ek product, ek variant) ----------
+// ---------- POST /order (direct order: one product, one variant) ----------
 router.post('/order', async (req, res) => {
   try {
     const b = req.body || {};
     const pid = S.toId(b.product_id);
     if (!pid) return notFound(res);
     const product = (await pool.query('SELECT * FROM products WHERE id = $1', [pid])).rows[0];
-    if (!product) return notFound(res, 'Ye product nahi mila.');
+    if (!product) return notFound(res, 'This product was not found.');
     const shop = (await pool.query('SELECT * FROM shops WHERE id = $1', [product.shop_id])).rows[0];
-    if (!shop || shop.status !== 'active' || !product.is_active) return notFound(res, 'Ye product abhi available nahi.');
+    if (!shop || shop.status !== 'active' || !product.is_active) return notFound(res, 'This product is not available right now.');
 
     const me = req.session.user;
     const qty = Math.max(1, Math.min(S.MAX_QTY, parseInt(b.qty, 10) || 1));
@@ -227,25 +227,25 @@ router.post('/order', async (req, res) => {
     let variant = null;
     if (variants.length) {
       variant = variants.find((v) => String(v.id) === f.variant) || null;
-      if (!variant) return fail('Pehle rang / size chunein.');
+      if (!variant) return fail('Please choose a color / size first.');
     }
     const bad = S.checkOrderForm(f, [shop]);
     if (bad) return fail(bad);
     const avail = variant ? variant.stock : product.stock;
-    if (avail <= 0) return fail(variant ? 'Ye option Sold out ho chuka hai.' : 'Ye product Sold out ho chuka hai.', 409);
-    if (qty > avail) return fail(`Sirf ${avail} bache hain. Kam quantity likhein.`, 409);
+    if (avail <= 0) return fail(variant ? 'This option is sold out.' : 'This product is sold out.', 409);
+    if (qty > avail) return fail(`Only ${avail} left. Please enter a smaller quantity.`, 409);
 
     const attr = S.attrFor(req, product.id);
     let coupon = null;
     if (f.coupon) {
       const unit = variant && variant.price_rs != null ? variant.price_rs : product.price_rs;
       const row = await S.findCoupon(shop.id, f.coupon);
-      const problem = row ? S.couponProblem(row, unit * qty, new Set([attr.source])) : 'Ye coupon sahi nahi ya is shop ka nahi.';
+      const problem = row ? S.couponProblem(row, unit * qty, new Set([attr.source])) : 'This coupon is invalid or not from this shop.';
       if (problem) return fail(problem);
       coupon = row;
     }
 
-    // Double click: wohi phone, wohi product, 2 minute ke andar -> pehla order dikha do
+    // Double click: same phone, same product within 2 minutes -> show the first order
     const dup = (await pool.query(
       `SELECT token FROM orders WHERE product_id = $1 AND phone = $2 AND created_at > now() - interval '2 minutes' ORDER BY id DESC LIMIT 1`,
       [product.id, f.phoneClean])).rows[0];
@@ -256,17 +256,17 @@ router.post('/order', async (req, res) => {
       f: { ...f, phone: f.phoneClean }, method: f.method,
       visitor: visitorId(req, res), userId: me ? me.id : null, attrOf: () => attr,
     });
-    if (result.error === 'soldout') return fail('Maaf kijiye, abhi abhi ye Sold out ho gaya.', 409);
-    if (result.error === 'coupon') return fail('Ye coupon ab lag nahi sakta (limit poori ya expire). Hata kar dobara try karein.', 409);
+    if (result.error === 'soldout') return fail('Sorry, this just sold out.', 409);
+    if (result.error === 'coupon') return fail('This coupon can no longer be applied (limit reached or expired). Remove it and try again.', 409);
 
-    S.afterOrdersPlaced(result.orders, f); // seller ko khabar + customer ko WhatsApp message
+    S.afterOrdersPlaced(result.orders, f); // notify the seller + WhatsApp message to the customer
     res.redirect('/order/' + result.orders[0].token + '?new=1');
   } catch (err) { noShop(res, err); }
 });
 
-// ---------- Mera order dhoondo (order number + phone se) ----------
+// ---------- Find my order (by order number + phone) ----------
 router.get('/track', (req, res) => {
-  res.render('shop-track', { title: 'Mera order dhoondo', robots: 'noindex,nofollow', error: null, f: { id: '', phone: '' } });
+  res.render('shop-track', { title: 'Find my order', robots: 'noindex,nofollow', error: null, f: { id: '', phone: '' } });
 });
 router.post('/track', async (req, res) => {
   try {
@@ -274,23 +274,23 @@ router.post('/track', async (req, res) => {
     const f = { id: S.oneLine(b.id, 12).replace('#', ''), phone: S.oneLine(b.phone, 20) };
     const id = S.toId(f.id);
     const phone = S.cleanPhone(f.phone);
-    const bad = (m) => res.status(400).render('shop-track', { title: 'Mera order dhoondo', robots: 'noindex,nofollow', error: m, f });
-    if (!id || !phone) return bad('Order number (jaise 123) aur wohi phone number likhein jo order mein diya tha.');
+    const bad = (m) => res.status(400).render('shop-track', { title: 'Find my order', robots: 'noindex,nofollow', error: m, f });
+    if (!id || !phone) return bad('Enter the order number (like 123) and the same phone number you used for the order.');
     const o = (await pool.query('SELECT token FROM orders WHERE id = $1 AND phone = $2', [id, phone])).rows[0];
-    if (!o) return bad('Is order number aur phone se koi order nahi mila. Dobara check karein.');
+    if (!o) return bad('No order was found for this order number and phone. Please check and try again.');
     res.redirect('/order/' + o.token);
   } catch (err) { noShop(res, err); }
 });
 
-// ---------- customer ka order page ----------
+// ---------- the customer's order page ----------
 router.get('/order/:token', async (req, res) => {
   try {
-    if (!/^[a-f0-9]{18}$/.test(req.params.token)) return notFound(res, 'Order nahi mila.');
+    if (!/^[a-f0-9]{18}$/.test(req.params.token)) return notFound(res, 'Order not found.');
     const o = (await pool.query(
       `SELECT o.*, s.name AS shop_name, s.slug AS shop_slug, s.whatsapp AS shop_whatsapp, s.phone AS shop_phone,
               p.slug AS product_slug, (SELECT pi.image_id FROM product_images pi WHERE pi.product_id = o.product_id ORDER BY pi.position LIMIT 1) AS image_id
        FROM orders o JOIN shops s ON s.id = o.shop_id LEFT JOIN products p ON p.id = o.product_id WHERE o.token = $1`, [req.params.token])).rows[0];
-    if (!o) return notFound(res, 'Order nahi mila.');
+    if (!o) return notFound(res, 'Order not found.');
     await S.attachItems([o]);
     const wa = S.waOrderLink({ whatsapp: o.shop_whatsapp }, o, S.baseUrlOf(req));
     const courier = o.courier

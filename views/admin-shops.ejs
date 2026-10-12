@@ -2,13 +2,13 @@
 <%- include('partials/shop-style') %>
 
 <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-  <h1 class="fs-4 fw-bold mb-0">🛍️ Sab shops (<%= shops.length %>)</h1>
-  <a href="/shop" class="btn btn-sm btn-outline-secondary rounded-pill">Public shop dekho</a>
+  <h1 class="fs-4 fw-bold mb-0">🛍️ All shops (<%= shops.length %>)</h1>
+  <a href="/shop" class="btn btn-sm btn-outline-secondary rounded-pill">View public shop</a>
 </div>
 <% if (locals.msg) { %><div class="alert alert-success py-2"><%= msg %></div><% } %>
 <% if (locals.error) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>
 
-<% if (shops.length === 0) { %><div class="sh-card text-center text-body-secondary">Abhi kisi ne shop nahi kholi.</div><% } %>
+<% if (shops.length === 0) { %><div class="sh-card text-center text-body-secondary">No one has opened a shop yet.</div><% } %>
 
 <div class="sh-card">
 <div class="table-responsive"><table class="table table-sm align-middle mb-0">
@@ -25,8 +25,8 @@
         <td class="text-end">
           <form action="/admin/shops/<%= s.id %>/status" method="POST" class="d-inline-flex gap-1">
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <% if (s.status !== 'active') { %><button name="status" value="active" class="btn btn-sm btn-success rounded-pill">Manzoor / Chalu</button><% } %>
-            <% if (s.status !== 'suspended') { %><button name="status" value="suspended" class="btn btn-sm btn-outline-danger rounded-pill" onclick="return confirm('Shop band karein? Uske products public nahi rahenge.')">Band karo</button><% } %>
+            <% if (s.status !== 'active') { %><button name="status" value="active" class="btn btn-sm btn-success rounded-pill">Approve / Activate</button><% } %>
+            <% if (s.status !== 'suspended') { %><button name="status" value="suspended" class="btn btn-sm btn-outline-danger rounded-pill" onclick="return confirm('Suspend this shop? Its products will no longer be public.')">Suspend</button><% } %>
           </form>
         </td>
       </tr>

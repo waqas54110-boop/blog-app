@@ -5,7 +5,7 @@
 <h1 class="fs-4 fw-bold mb-3">🧾 Orders</h1>
 
 <div class="d-flex gap-2 flex-wrap mb-2">
-  <a href="/seller/orders" class="btn btn-sm rounded-pill <%= !status ? 'btn-dark' : 'btn-outline-secondary' %>">Sab (<%= allCount %>)</a>
+  <a href="/seller/orders" class="btn btn-sm rounded-pill <%= !status ? 'btn-dark' : 'btn-outline-secondary' %>">All (<%= allCount %>)</a>
   <% STATUSES.forEach(s => { %>
     <a href="/seller/orders?status=<%= s %>" class="btn btn-sm rounded-pill <%= status === s ? 'btn-dark' : 'btn-outline-secondary' %>"><%= STATUS_LABEL[s] %> (<%= counts[s] || 0 %>)</a>
   <% }) %>
@@ -22,15 +22,15 @@
 <% } %>
 
 <% orders.forEach(o => {
-  const waCust = 'https://wa.me/' + o.phone + '?text=' + encodeURIComponent('Assalam o Alaikum ' + o.customer_name + '! Aap ka order #' + o.id + ' (' + o.product_name + ') ' + (o.status === 'shipped' ? 'bhej diya gaya hai.' : 'mil gaya hai. Confirm karne ke liye likh rahe hain.'));
+  const waCust = 'https://wa.me/' + o.phone + '?text=' + encodeURIComponent('Hello ' + o.customer_name + '! Your order #' + o.id + ' (' + o.product_name + ') ' + (o.status === 'shipped' ? 'has been shipped.' : 'has been received. We are writing to confirm it.'));
   const wm = (waStatus && waStatus[o.id]) || {};
-  const WA_LABEL = { sent: '✓ gaya', failed: '✗ nahi gaya', skipped: '— band', pending: '… bhej raha' };
-  const WA_KIND = { placed: 'Order mil gaya', dispatched: 'Bhej diya', tracking: 'Tracking' };
+  const WA_LABEL = { sent: '✓ sent', failed: '✗ failed', skipped: '— off', pending: '… sending' };
+  const WA_KIND = { placed: 'Order received', dispatched: 'Shipped', tracking: 'Tracking' };
 %>
   <div class="sh-card" style="border-left:5px solid <%= STATUS_COLOR[o.status] %>;">
     <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
       <div>
-        <div class="fw-bold">#<%= o.id %><% if (o.items.length === 1) { %> · <%= o.items[0].product_name %><%= o.items[0].variant_label ? ' (' + o.items[0].variant_label + ')' : '' %> x <%= o.items[0].qty %><% } else { %> · <%= o.items.length %> cheezein<% } %></div>
+        <div class="fw-bold">#<%= o.id %><% if (o.items.length === 1) { %> · <%= o.items[0].product_name %><%= o.items[0].variant_label ? ' (' + o.items[0].variant_label + ')' : '' %> x <%= o.items[0].qty %><% } else { %> · <%= o.items.length %> items<% } %></div>
         <% if (o.items.length > 1) { %>
           <ul class="small mb-0 ps-3">
             <% o.items.forEach(it => { %><li><%= it.product_name %><%= it.variant_label ? ' (' + it.variant_label + ')' : '' %> x <%= it.qty %></li><% }) %>
@@ -42,7 +42,7 @@
       </div>
       <div class="text-end">
         <div class="fw-bold fs-5" style="color:#12a37f;">Rs <%= rs(o.total_rs) %></div>
-        <div class="sh-stat"><%= o.delivery_rs ? 'delivery Rs ' + rs(o.delivery_rs) + ' shamil' : 'delivery free' %></div>
+        <div class="sh-stat"><%= o.delivery_rs ? 'delivery Rs ' + rs(o.delivery_rs) + ' included' : 'delivery free' %></div>
         <% if (o.discount_rs > 0) { %><div class="sh-stat text-success">🏷️ <%= o.coupon_code %>: - Rs <%= rs(o.discount_rs) %></div><% } %>
       </div>
     </div>
@@ -52,8 +52,8 @@
       <div><%= o.address %>, <b><%= o.city %></b></div>
       <% if (o.note) { %><div class="text-body-secondary">📝 <%= o.note %></div><% } %>
       <% if (o.campaign || (o.source && o.source !== 'direct')) { %>
-        <div class="sh-stat mt-1">Kahan se aaya:
-          <% if (o.group_name) { %><b><%= o.group_name %></b> (<%= o.group_platform %> group)<% } else if (o.medium === 'post_card') { %>blog post ka product card<% } else { %><%= o.source %><%= o.campaign ? ' / ' + o.campaign : '' %><% } %>
+        <div class="sh-stat mt-1">Came from:
+          <% if (o.group_name) { %><b><%= o.group_name %></b> (<%= o.group_platform %> group)<% } else if (o.medium === 'post_card') { %>blog post product card<% } else { %><%= o.source %><%= o.campaign ? ' / ' + o.campaign : '' %><% } %>
         </div>
       <% } %>
     </div>
@@ -64,20 +64,20 @@
       <a class="btn btn-sm btn-outline-secondary rounded-pill" target="_blank" href="/seller/orders/<%= o.id %>/slip">🖨️ Slip</a>
     </div>
 
-    <%# Customer ko khud-bakhud WhatsApp message: kaunsa gaya / nahi gaya, aur haath se bhejne ka tayyar link %>
+    <%# Automatic WhatsApp message to customer: which were sent / failed, plus a ready link to send manually %>
     <div class="sh-stat mt-2">
       <% if (!waAuto) { %>
-        Auto WhatsApp message band hai (setup nahi).
+        Automatic WhatsApp messages are off (not set up).
       <% } else if (!Object.keys(wm).length) { %>
-        Customer ko auto message: abhi koi nahi gaya.
+        Automatic message to customer: none sent yet.
       <% } else { %>
-        Customer ko auto message:
+        Automatic message to customer:
         <% Object.keys(wm).forEach(k => { %>
           <span class="sh-chip" title="<%= wm[k].error || '' %>"><%= WA_KIND[k] || k %> <%= WA_LABEL[wm[k].status] || wm[k].status %></span>
         <% }) %>
       <% } %>
       <% const _failed = Object.keys(wm).some(k => wm[k].status === 'failed' || wm[k].status === 'skipped'); %>
-      <% if (o.waManual && (!waAuto || _failed)) { %><a class="ms-1" target="_blank" rel="noopener noreferrer" href="<%= o.waManual %>">💬 Tayyar message haath se bhejo</a><% } %>
+      <% if (o.waManual && (!waAuto || _failed)) { %><a class="ms-1" target="_blank" rel="noopener noreferrer" href="<%= o.waManual %>">💬 Send the ready message manually</a><% } %>
     </div>
 
     <% if (o.courier && o.tracking_no) { %>
@@ -85,7 +85,7 @@
     <% } %>
     <% if (o.status !== 'returned' && o.status !== 'delivered') { %>
       <details class="mt-2">
-        <summary class="small fw-semibold" style="cursor:pointer;">📦 <%= o.tracking_no ? 'Tracking badlein' : 'Courier aur tracking number likhein' %></summary>
+        <summary class="small fw-semibold" style="cursor:pointer;">📦 <%= o.tracking_no ? 'Change tracking' : 'Enter courier and tracking number' %></summary>
         <form action="/seller/orders/<%= o.id %>/ship" method="POST" class="d-flex gap-2 flex-wrap mt-2 align-items-center">
           <input type="hidden" name="_csrf" value="<%= csrfToken %>">
           <input type="hidden" name="back" value="<%= status %>">
@@ -94,9 +94,9 @@
             <% COURIERS.forEach(c => { %><option value="<%= c.key %>" <%= o.courier === c.key ? 'selected' : '' %>><%= c.name %></option><% }) %>
           </select>
           <input name="tracking_no" class="form-control form-control-sm" style="width:190px;" maxlength="30" placeholder="Tracking number" value="<%= o.tracking_no || '' %>" required>
-          <button class="btn btn-sm btn-primary rounded-pill">Save<%= o.status === 'new' ? ' + Bhej diya' : '' %></button>
+          <button class="btn btn-sm btn-primary rounded-pill">Save<%= o.status === 'new' ? ' + Mark as shipped' : '' %></button>
         </form>
-        <div class="sh-stat mt-1">Customer ke order page par "Track karein" aa jaye ga<%= waAuto ? ' aur use WhatsApp message jaye ga' : '' %>.</div>
+        <div class="sh-stat mt-1">A "Track" button will appear on the customer's order page<%= waAuto ? ' and they will get a WhatsApp message' : '' %>.</div>
       </details>
     <% } %>
 
@@ -111,7 +111,7 @@
         <button name="status" value="<%= s %>"
                 style="<%= cur ? 'background:' + STATUS_COLOR[s] + ';border-color:' + STATUS_COLOR[s] + ';color:#fff;' : '' %>"
                 <%= cur || locked ? 'disabled' : '' %>
-                <% if (s === 'returned') { %>onclick="return confirm('Order #<%= o.id %> Wapas mark karein? Stock wapas jur jayega aur phir status badal nahi sakega.')"<% } %>
+                <% if (s === 'returned') { %>onclick="return confirm('Order #<%= o.id %> Mark as returned? Stock will be added back and the status cannot be changed afterwards.')"<% } %>
                 class="btn btn-sm rounded-pill <%= cur ? '' : 'btn-outline-secondary' %>"><%= STATUS_LABEL[s] %></button>
       <% }) %>
     </form>
@@ -121,9 +121,9 @@
 <% if (pages > 1) { %>
   <nav class="d-flex justify-content-center gap-2 my-3">
     <% const qs = (p) => '/seller/orders?page=' + p + (status ? '&status=' + status : '') + (q ? '&q=' + encodeURIComponent(q) : ''); %>
-    <% if (page > 1) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="<%= qs(page - 1) %>">← Pehla</a><% } %>
+    <% if (page > 1) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="<%= qs(page - 1) %>">← Previous</a><% } %>
     <span class="align-self-center small text-body-secondary">Page <%= page %> / <%= pages %></span>
-    <% if (page < pages) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="<%= qs(page + 1) %>">Agla →</a><% } %>
+    <% if (page < pages) { %><a class="btn btn-outline-secondary btn-sm rounded-pill" href="<%= qs(page + 1) %>">Next →</a><% } %>
   </nav>
 <% } %>
 

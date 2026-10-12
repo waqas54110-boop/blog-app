@@ -17,8 +17,8 @@
     <div class="min-w-0">
       <div class="fw-bold text-truncate"><%= shop.name %></div>
       <div class="small text-body-secondary">
-        <% if (shop.status === 'active') { %><span class="text-success">● Public</span><% } else if (shop.status === 'pending') { %><span class="text-warning">● Manzoori ka intezar</span><% } else { %><span class="text-danger">● Band (suspended)</span><% } %>
-        <% if (shop.status === 'active') { %> &middot; <a href="/shop/<%= shop.slug %>">Shop dekho ↗</a><% } %>
+        <% if (shop.status === 'active') { %><span class="text-success">● Public</span><% } else if (shop.status === 'pending') { %><span class="text-warning">● Pending approval</span><% } else { %><span class="text-danger">● Suspended</span><% } %>
+        <% if (shop.status === 'active') { %> &middot; <a href="/shop/<%= shop.slug %>">View shop ↗</a><% } %>
       </div>
     </div>
   </div>
@@ -30,8 +30,8 @@
     </a></li>
   <% }) %>
 </ul>
-<% if (shop.status === 'pending') { %><div class="alert alert-warning py-2">Aap ki shop abhi review mein hai. Manzoor hone par public hogi; tab tak products daal sakte hain.</div><% } %>
-<% if (shop.status === 'suspended') { %><div class="alert alert-danger py-2">Aap ki shop band kar di gayi hai, is liye public nahi dikhti. Maloomat ke liye site owner se raabta karein.</div><% } %>
+<% if (shop.status === 'pending') { %><div class="alert alert-warning py-2">Your shop is currently under review. It will go public once approved; until then you can add products.</div><% } %>
+<% if (shop.status === 'suspended') { %><div class="alert alert-danger py-2">Your shop has been suspended, so it is not visible to the public. Please contact the site owner for details.</div><% } %>
 <% } %>
 <% if (locals.msg) { %><div class="alert alert-success py-2"><%= msg %></div><% } %>
 <% if (locals.error && !locals.f) { %><div class="alert alert-danger py-2"><%= error %></div><% } %>

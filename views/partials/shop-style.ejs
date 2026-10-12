@@ -22,4 +22,4 @@
   .sh-cart-fab { position: fixed; right: 1rem; bottom: 1rem; z-index: 1030; background: #12a37f; color: #fff; text-decoration: none; font-weight: 700; padding: .6rem 1rem; border-radius: 99px; box-shadow: 0 6px 18px rgba(16,24,40,.25); }
   .sh-cart-fab:hover { color: #fff; filter: brightness(1.05); }
 </style>
-<% if (locals.cartCount > 0 && !locals.seller && !locals.noCartFab) { %><a class="sh-cart-fab" href="/cart" aria-label="Cart kholein">🛒 Cart (<%= cartCount %>)</a><% } %>
+<% if (locals.cartCount > 0 && !locals.seller && !locals.noCartFab) { %><a class="sh-cart-fab" href="/cart" aria-label="Open cart">🛒 Cart (<%= cartCount %>)</a><% } %>

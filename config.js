@@ -84,5 +84,5 @@ module.exports = {
   waLang: process.env.WHATSAPP_TEMPLATE_LANG || 'en',
   waTplPlaced: process.env.WHATSAPP_TEMPLATE_PLACED || 'order_received',
   waTplDispatched: process.env.WHATSAPP_TEMPLATE_DISPATCHED || 'order_dispatched',
-  orderEta: (process.env.ORDER_ETA_TEXT || '1 se 2 din').slice(0, 40),
+  orderEta: (process.env.ORDER_ETA_TEXT || '1-2 days').slice(0, 40),
 };
