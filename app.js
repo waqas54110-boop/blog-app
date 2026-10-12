@@ -24,6 +24,8 @@ const petitionsRouter = require('./routes/petitions');
 const creatorsRouter = require('./routes/creators');
 const trendsRouter = require('./routes/trends');
 const cricketRouter = require('./routes/cricket');
+const ludoRouter = require('./routes/ludo'); // V60 Ludo
+const ludoLib = require('./lib/ludo');
 const headlinesRouter = require('./routes/headlines');
 const headlinesLib = require('./lib/headlines');
 const sponsorRouter = require('./routes/sponsor');
@@ -142,7 +144,7 @@ const limiter = (windowMinutes, limit, message, opts = {}) =>
 // ek page par kai images hoti hain aur video har seek par chhoti requests bhejti hai
 app.use(limiter(15, 400, 'Too many requests. Please wait a few minutes and try again.', {
   // /votes/:id/state.json (live counting) ka apna alag limit neeche hai
-  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/messages\/media\/\d+$/.test(req.path) || /^\/groups\/[^/]+\/chat\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path) || req.path.startsWith('/calls/') || req.path.startsWith('/live/') || req.path.startsWith('/cricket/bar/') || /^\/cricket\/m\/\d+\/state\.json$/.test(req.path)
+  skip: (req) => req.path.startsWith('/img/') || req.path.startsWith('/video/') || req.path.startsWith('/a/') || /^\/messages\/[^/]+\/poll$/.test(req.path) || /^\/messages\/media\/\d+$/.test(req.path) || /^\/groups\/[^/]+\/chat\/poll$/.test(req.path) || /^\/votes\/\d+\/state\.json$/.test(req.path) || req.path.startsWith('/calls/') || req.path.startsWith('/live/') || req.path.startsWith('/cricket/bar/') || /^\/cricket\/m\/\d+\/state\.json$/.test(req.path) || /^\/ludo\/[A-Za-z0-9]+\/state\.json$/.test(req.path)
     || req.path.startsWith('/stories/') || req.path.startsWith('/icons/') || req.path === '/sw.js' || req.path === '/manifest.webmanifest' || req.path === '/offline',
 }));
 app.post(['/login', '/signup'], limiter(15, 15, 'Too many login/signup attempts. Please try again in 15 minutes.'));
@@ -179,6 +181,10 @@ app.post('/cricket/m/:id/ball', limiter(1, 90, 'You are scoring too fast. Please
 app.post('/cricket/players/:id/photo', limiter(10, 30, 'Too many photo uploads. Please wait a few minutes.'));
 app.post('/cricket', limiter(60, 10, 'You are creating tournaments too fast. Please try again later.', { skipFailedRequests: true }));
 app.post(['/cricket/t/:id/teams', '/cricket/t/:id/fixtures', '/cricket/t/:id/fixtures/auto', '/cricket/t/:id/teams/:tid/players'], limiter(10, 60, 'Too many requests. Please wait a few minutes.'));
+// V60: Ludo. The board polls state.json every 1-2 seconds, so that limit is high (many players can share one mobile-network IP)
+app.get('/ludo/:code/state.json', limiter(1, 300, 'Too many requests.'));
+app.post('/ludo/:code/act', limiter(1, 120, 'You are playing too fast. Please wait a moment.'));
+app.post(['/ludo/new', '/ludo/join'], limiter(10, 30, 'Too many Ludo rooms. Please wait a few minutes.'));
 // V34: People's Court + petitions
 app.post('/court/:id/argue', limiter(60, 10, 'Too many attempts. Please try again later.', { skipFailedRequests: true }));
 app.post('/court/:id/vote', limiter(10, 60, 'Too many votes. Please wait a few minutes.'));
@@ -288,6 +294,9 @@ app.post('/cricket/players/:id/photo', express.raw({ type: ['image/jpeg'], limit
 // Cricket scorer: JSON (CSRF token in the x-csrf-token header). Must come before CSRF.
 app.use('/cricket', express.json({ limit: '16kb' }));
 
+// Ludo actions: JSON (CSRF token in the x-csrf-token header). Must come before CSRF.
+app.use('/ludo', express.json({ limit: '4kb' }));
+
 // Live: signaling JSON (CSRF token header ya body ke _csrf mein; sendBeacon body mein bhejta hai). Ye bhi csrf se pehle.
 app.use('/live', express.json({ limit: '64kb' }));
 // Live ki recording: host ka browser seedhi video bytes bhejta hai (CSRF token header x-csrf-token mein). Ye bhi csrf se pehle.
@@ -307,6 +316,9 @@ app.use(
     },
   })
 );
+
+// V60 Ludo polling: answered here, before the page middleware below (which runs several database queries a poll does not need)
+app.get('/ludo/:code/state.json', ludoRouter.pollHandler);
 
 app.use(async (req, res, next) => {
   res.locals.user = req.session.user || null;
@@ -492,6 +504,7 @@ app.use('/', petitionsRouter);
 app.use('/', creatorsRouter);
 app.use('/', trendsRouter);
 app.use('/', cricketRouter);
+app.use('/', ludoRouter); // V60 Ludo (/ludo)
 app.use('/', headlinesRouter);
 app.use('/', profileRouter);
 app.use('/', friendsRouter);
@@ -533,7 +546,7 @@ app.use((err, req, res, next) => {
 });
 
 // V46: shop tables (migration_v46.sql) pehle tayyar, phir server start (dobara chalna safe hai)
-Promise.all([shopLib.ensureSchema(), officeLib.ensureSchema()]).finally(() => app.listen(PORT, (err) => {
+Promise.all([shopLib.ensureSchema(), officeLib.ensureSchema(), ludoLib.ensureSchema()]).finally(() => app.listen(PORT, (err) => {
   if (err) {
     console.error('Server start nahi hua:', err.message);
     process.exit(1);

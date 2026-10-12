@@ -1,0 +1,128 @@
+<%- include('partials/header') %>
+<style>
+  .ld { font-family: var(--kz-sans); }
+  .ld h1, .ld h2 { font-family: var(--kz-serif); letter-spacing: -.01em; }
+  .ld-hero { background: linear-gradient(135deg, #7f1d1d 0%, #c8102e 30%, #f4b400 62%, #2a9d4a 82%, #1d6fe0 100%); color: #fff; border-radius: 18px; padding: clamp(20px, 4vw, 36px); position: relative; overflow: hidden; }
+  .ld-hero::after { content: "🎲"; position: absolute; right: 18px; top: 2px; font-size: clamp(70px, 14vw, 130px); opacity: .22; transform: rotate(14deg); }
+  .ld-hero h1 { font-weight: 800; font-size: clamp(26px, 5vw, 40px); margin: 0 0 6px; text-shadow: 0 2px 10px rgba(0,0,0,.25); }
+  .ld-hero p { margin: 0; max-width: 60ch; text-shadow: 0 1px 6px rgba(0,0,0,.3); }
+  .ld-card { background: var(--kz-paper); border: 1px solid var(--kz-line); border-radius: 14px; padding: 16px; height: 100%; }
+  .ld-card h2 { font: 800 20px var(--kz-serif); margin: 0 0 12px; }
+  .ld-btn { display: inline-block; border: 0; border-radius: 10px; padding: 9px 16px; font: 700 14px var(--kz-sans); background: #c8102e; color: #fff; text-decoration: none; cursor: pointer; }
+  .ld-btn:hover { filter: brightness(1.08); color: #fff; }
+  .ld-btn.alt { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+  .ld-opts { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .ld-opts label { cursor: pointer; }
+  .ld-opts input { position: absolute; opacity: 0; pointer-events: none; }
+  .ld-opts span { display: block; padding: 8px 16px; border-radius: 10px; border: 2px solid var(--kz-line); font-weight: 700; }
+  .ld-opts input:checked + span { border-color: #c8102e; background: rgba(200,16,46,.09); }
+  .ld-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--kz-line); }
+  .ld-row:last-child { border-bottom: 0; }
+  .ld-row small { color: var(--kz-muted); }
+  .ld-code { font: 800 15px/1 monospace; letter-spacing: .12em; background: var(--bs-secondary-bg); padding: 5px 8px; border-radius: 8px; }
+  .ld-msg { border-radius: 10px; padding: 10px 14px; margin: 14px 0 0; background: #dcfce7; color: #166534; font-weight: 600; }
+  .ld-msg.err { background: #fee2e2; color: #991b1b; }
+  .ld input[type=text] { text-transform: uppercase; letter-spacing: .15em; font-weight: 700; }
+</style>
+<div class="ld">
+  <div class="ld-hero">
+    <h1>Ludo</h1>
+    <p>Play Ludo with friends on different phones. Make a room, send the code on WhatsApp, and start. Empty seats can be filled with bots.</p>
+  </div>
+
+  <% if (locals.err) { %><div class="ld-msg err"><%= err %></div><% } %>
+  <% if (locals.ok) { %><div class="ld-msg"><%= ok %></div><% } %>
+
+  <div class="row g-3 mt-1">
+    <div class="col-lg-6">
+      <div class="ld-card">
+        <h2>Create a room</h2>
+        <% if (user) { %>
+          <form method="post" action="/ludo/new">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <div class="small fw-semibold mb-1">Players</div>
+            <div class="ld-opts">
+              <label><input type="radio" name="max" value="2"><span>2</span></label>
+              <label><input type="radio" name="max" value="3"><span>3</span></label>
+              <label><input type="radio" name="max" value="4" checked><span>4</span></label>
+            </div>
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" name="visibility" value="public" id="ldPub">
+              <label class="form-check-label" for="ldPub">Show this room in the open rooms list (anyone can join)</label>
+            </div>
+            <button class="ld-btn" type="submit">Create room</button>
+          </form>
+        <% } else { %>
+          <p class="mb-3">Log in to play.</p>
+          <a class="ld-btn" href="/login">Log in</a>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="ld-card">
+        <h2>Join with a code</h2>
+        <% if (user) { %>
+          <form method="post" action="/ludo/join" class="d-flex gap-2">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <input class="form-control" type="text" name="code" maxlength="8" placeholder="K7M2P" autocomplete="off" required>
+            <button class="ld-btn" type="submit">Join</button>
+          </form>
+        <% } else { %>
+          <p class="mb-0">Log in, then enter the 5-letter room code your friend sent you.</p>
+        <% } %>
+
+        <% if (mine.length) { %>
+          <h2 class="mt-4">Your games</h2>
+          <% mine.forEach(g => { %>
+            <div class="ld-row">
+              <div><span class="ld-code"><%= g.code %></span> <small class="ms-2"><%= g.status === 'playing' ? 'In progress' : 'Waiting (' + g.n + '/' + g.max_players + ')' %></small></div>
+              <a class="ld-btn" href="/ludo/<%= g.code %>"><%= g.status === 'playing' ? 'Continue' : 'Open' %></a>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="ld-card">
+        <h2>Open rooms</h2>
+        <% if (!open.length) { %>
+          <p class="mb-0 text-secondary">No open rooms right now. Create one and tick "open rooms list".</p>
+        <% } %>
+        <% open.forEach(g => { %>
+          <div class="ld-row">
+            <div><b><%= g.host %></b>'s room <small class="ms-1"><%= g.n %>/<%= g.max_players %> players</small></div>
+            <% if (user) { %><a class="ld-btn" href="/ludo/<%= g.code %>?join=1">Join</a><% } else { %><a class="ld-btn alt" href="/login">Log in</a><% } %>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="ld-card">
+        <h2>Top players</h2>
+        <% if (!top.length) { %>
+          <p class="mb-0 text-secondary">No finished games yet. Wins are counted in games with at least 2 real players.</p>
+        <% } %>
+        <% top.forEach((t, i) => { %>
+          <div class="ld-row">
+            <div><b><%= i + 1 %>.</b> <%= t.username %></div>
+            <div><b><%= t.won %></b> <small>wins / <%= t.played %> games</small></div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+  <div class="ld-card mt-3">
+    <h2>How to play</h2>
+    <ul class="mb-0">
+      <li>Roll a <b>6</b> to bring a token out. A 6 (or a capture, or reaching home) gives you another roll. Three 6s in a row cancel your turn.</li>
+      <li>Move clockwise around the board. Land on an opponent's token to send it back to its yard, unless it stands on a <b>safe cell</b> (the coloured start cells and the ★ cells).</li>
+      <li>You need the exact number to reach the centre. The first player to bring all 4 tokens home wins.</li>
+      <li>You have 30 seconds per move. If you do not move, the game plays for you; after 3 missed turns a bot takes your seat.</li>
+    </ul>
+  </div>
+</div>
+<%- include('partials/footer') %>

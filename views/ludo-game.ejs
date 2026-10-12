@@ -1,0 +1,425 @@
+<%- include('partials/header') %>
+<style>
+  .ld { font-family: var(--kz-sans); max-width: 760px; margin: 0 auto; }
+  .ld h1, .ld h2, .ld h3 { font-family: var(--kz-serif); letter-spacing: -.01em; }
+  .ld-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .ld-code { font: 800 15px/1 monospace; letter-spacing: .14em; background: var(--bs-secondary-bg); padding: 6px 10px; border-radius: 8px; }
+  .ld-card { background: var(--kz-paper); border: 1px solid var(--kz-line); border-radius: 14px; padding: 16px; }
+  .ld-btn { display: inline-block; border: 0; border-radius: 10px; padding: 9px 16px; font: 700 14px var(--kz-sans); background: #c8102e; color: #fff; text-decoration: none; cursor: pointer; }
+  .ld-btn:hover { filter: brightness(1.08); color: #fff; }
+  .ld-btn[disabled] { opacity: .45; cursor: not-allowed; filter: none; }
+  .ld-btn.alt { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
+  .ld-btn.wa { background: #25d366; }
+  .ld-btn.sm { padding: 6px 11px; font-size: 13px; }
+  .ld-seat { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--kz-line); }
+  .ld-seat:last-child { border-bottom: 0; }
+  .ld-av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: #94a3b8; flex: none; }
+  .ld-seat.empty { color: var(--kz-muted); }
+  .ld-seat.empty .ld-av { background: transparent; border: 2px dashed var(--kz-line); color: var(--kz-muted); }
+  .ld-tag { font: 700 10px/1 var(--kz-sans); text-transform: uppercase; letter-spacing: .05em; background: var(--bs-secondary-bg); border-radius: 99px; padding: 3px 7px; margin-left: 6px; }
+
+  .ld-players { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-bottom: 10px; }
+  .ld-pl { border: 2px solid var(--kz-line); border-radius: 12px; padding: 7px 10px; background: var(--kz-paper); position: relative; transition: box-shadow .2s, border-color .2s, transform .2s; min-width: 0; }
+  .ld-pl b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+  .ld-pl small { color: var(--kz-muted); font-size: 12px; }
+  .ld-pl .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: baseline; }
+  .ld-pl.turn { box-shadow: 0 0 0 3px var(--pc), 0 6px 18px rgba(0,0,0,.15); border-color: var(--pc); transform: translateY(-2px); }
+  .ld-pl .tm { position: absolute; right: 9px; top: 7px; font: 800 13px var(--kz-sans); color: var(--pc); font-variant-numeric: tabular-nums; }
+  .ld-pl.out { opacity: .55; }
+
+  .ld-boardwrap { width: min(100%, 560px); margin: 0 auto; aspect-ratio: 1; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,.18); background: #fff; }
+  .ld-boardwrap svg { display: block; width: 100%; height: 100%; border-radius: 16px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  .tk { transition: transform .17s ease-in-out; cursor: default; }
+  .tk .ring { fill: none; stroke: #111; stroke-width: .09; opacity: 0; }
+  .tk.can { cursor: pointer; }
+  .tk.can .ring { opacity: 1; animation: ldring 0.9s ease-in-out infinite; }
+  .tk.can .body { animation: ldhop 0.9s ease-in-out infinite; }
+  @keyframes ldring { 50% { stroke-width: .2; opacity: .55; } }
+  @keyframes ldhop { 50% { transform: translateY(-.1px) scale(1.08); } }
+  .tk .body { transform-box: fill-box; transform-origin: center; }
+
+  .ld-ctrl { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 14px auto 0; flex-wrap: wrap; }
+  .ld-die { width: 64px; height: 64px; border-radius: 14px; background: #fff; border: 3px solid var(--dc, #999); padding: 8px; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(3, 1fr); box-shadow: 0 4px 12px rgba(0,0,0,.2); flex: none; user-select: none; }
+  .ld-die i { border-radius: 50%; }
+  .ld-die i.on { background: #111; margin: 1px; }
+  .ld-die.ready { cursor: pointer; animation: ldready 1s ease-in-out infinite; }
+  .ld-die.rolling { animation: ldshake .12s linear infinite; }
+  .ld-die.empty { opacity: .55; }
+  @keyframes ldready { 50% { transform: scale(1.1) rotate(-4deg); box-shadow: 0 0 0 6px rgba(244,180,0,.45); } }
+  @keyframes ldshake { 25% { transform: rotate(-9deg) translateY(-2px); } 75% { transform: rotate(9deg) translateY(2px); } }
+  .ld-stat { min-width: 190px; text-align: left; }
+  .ld-stat .big { font: 800 18px var(--kz-serif); }
+  .ld-stat .note { color: var(--kz-muted); font-size: 13px; min-height: 18px; }
+  .ld-toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #111; color: #fff; padding: 10px 16px; border-radius: 10px; font-weight: 600; z-index: 3000; max-width: 90vw; }
+  .ld-over { text-align: center; }
+  .ld-over h2 { font: 800 26px var(--kz-serif); }
+  [hidden] { display: none !important; }
+</style>
+
+<div class="ld" id="ld">
+  <div class="ld-top">
+    <a href="/ludo" class="ld-btn alt sm">&larr; Ludo lobby</a>
+    <div><span class="text-secondary small me-1">Room</span><span class="ld-code"><%= code %></span></div>
+  </div>
+
+  <!-- Waiting room -->
+  <div id="ldLobby" class="ld-card" hidden>
+    <h2 class="mb-1" style="font-size:22px">Waiting room</h2>
+    <p class="text-secondary mb-3" id="ldLobbyHint"></p>
+    <div id="ldSeats"></div>
+    <div class="mt-3 d-flex gap-2 flex-wrap" id="ldInvite">
+      <button class="ld-btn alt sm" id="ldCopy" type="button">Copy invite link</button>
+      <a class="ld-btn wa sm" id="ldWa" target="_blank" rel="noopener">Share on WhatsApp</a>
+    </div>
+    <div class="mt-3 d-flex gap-2 flex-wrap" id="ldHostBtns"></div>
+  </div>
+
+  <!-- Game -->
+  <div id="ldGame" hidden>
+    <div class="ld-players" id="ldPlayers"></div>
+    <div class="ld-boardwrap"><svg id="ldBoard" viewBox="0 0 15 15" role="img" aria-label="Ludo board"></svg></div>
+    <div class="ld-ctrl">
+      <div class="ld-die empty" id="ldDie" role="button" tabindex="0" aria-label="Dice"></div>
+      <div class="ld-stat">
+        <div class="big" id="ldStatus"></div>
+        <div class="note" id="ldNote"></div>
+      </div>
+    </div>
+    <div class="text-center mt-3" id="ldPlayBtns"></div>
+  </div>
+
+  <!-- Finished -->
+  <div id="ldOver" class="ld-card ld-over mt-3" hidden>
+    <h2 id="ldOverTitle"></h2>
+    <p class="text-secondary" id="ldOverText"></p>
+    <div class="d-flex gap-2 justify-content-center flex-wrap" id="ldOverBtns"></div>
+  </div>
+</div>
+
+<script id="ldInit" type="application/json"><%- safeJson(Object.assign({}, init, { csrf: csrfToken })) %></script>
+<script>
+(function () {
+  var init = JSON.parse(document.getElementById('ldInit').textContent);
+  var B = init.board, CN = init.colors, code = init.code, csrf = init.csrf;
+  var COL = ['#e63946', '#2a9d4a', '#f4b400', '#1d6fe0'];
+  var TINT = ['#fbd5d8', '#cdeed6', '#fdeab0', '#cfe0fb'];
+  var PIPS = { 1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
+  var OFFS = { 2: [[-.2, 0], [.2, 0]], 3: [[-.2, -.14], [.2, -.14], [0, .2]], 4: [[-.2, -.2], [.2, -.2], [-.2, .2], [.2, .2]] };
+  var FOFF = [[-.2, -.2], [.2, -.2], [-.2, .2], [.2, .2]];
+  var $ = function (id) { return document.getElementById(id); };
+  var NS = 'http://www.w3.org/2000/svg';
+
+  var S = null;            // latest state shown
+  var shown = null;        // token positions currently drawn (differs from S.tokens during an animation)
+  var anim = false, pending = null, animId = 0, busy = false, polling = false;
+  var offset = 0, pollTimer = null, lastDiceId = 0, dieRolling = false, wasMyTurn = false, boardBuilt = false;
+  var toastTimer = null;
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function clone(a) { return a.map(function (r) { return r.slice(); }); }
+  function toast(msg) {
+    var t = document.createElement('div'); t.className = 'ld-toast'; t.textContent = msg; document.body.appendChild(t);
+    clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.remove(); }, 2600);
+    setTimeout(function () { t.remove(); }, 2700);
+  }
+  function inviteLink() { return location.origin + '/ludo/' + code + '?join=1'; }
+  function playerName(i) { return S.players[i] ? S.players[i].name : '?'; }
+
+  // ---------- Board ----------
+  function buildBoard() {
+    var h = '<rect width="15" height="15" fill="#fff"/>';
+    var yo = [[0, 0], [9, 0], [9, 9], [0, 9]];   // [x, y] of each yard (red, green, yellow, blue)
+    for (var c = 0; c < 4; c++) {
+      var x0 = yo[c][0], y0 = yo[c][1];
+      h += '<rect x="' + x0 + '" y="' + y0 + '" width="6" height="6" fill="' + COL[c] + '"/>';
+      h += '<rect x="' + (x0 + 1) + '" y="' + (y0 + 1) + '" width="4" height="4" rx=".5" fill="#fff"/>';
+      for (var k = 0; k < 4; k++) h += '<circle cx="' + B.yards[c][k][0] + '" cy="' + B.yards[c][k][1] + '" r=".62" fill="' + TINT[c] + '" stroke="' + COL[c] + '" stroke-width=".08"/>';
+    }
+    for (var i = 0; i < 52; i++) {
+      var p = B.track[i], fill = '#fff', star = '';
+      var sc = B.start.indexOf(i);
+      if (sc >= 0) fill = COL[sc];
+      else if (B.safe.indexOf(i) >= 0) star = '<text x="' + p[0] + '" y="' + (p[1] + .25) + '" text-anchor="middle" font-size=".75" fill="#8a8a8a">\u2605</text>';
+      h += '<rect x="' + (p[0] - .5) + '" y="' + (p[1] - .5) + '" width="1" height="1" fill="' + fill + '" stroke="#555" stroke-width=".04"/>' + star;
+    }
+    for (var c2 = 0; c2 < 4; c2++) for (var j = 0; j < 5; j++) {
+      var q = B.home[c2][j];
+      h += '<rect x="' + (q[0] - .5) + '" y="' + (q[1] - .5) + '" width="1" height="1" fill="' + COL[c2] + '" stroke="#555" stroke-width=".04"/>';
+    }
+    h += '<polygon points="6,6 9,6 7.5,7.5" fill="' + COL[1] + '"/><polygon points="9,6 9,9 7.5,7.5" fill="' + COL[2] + '"/>';
+    h += '<polygon points="6,9 9,9 7.5,7.5" fill="' + COL[3] + '"/><polygon points="6,6 6,9 7.5,7.5" fill="' + COL[0] + '"/>';
+    h += '<rect x="6" y="6" width="3" height="3" fill="none" stroke="#555" stroke-width=".05"/>';
+    h += '<g id="ldTokens"></g>';
+    $('ldBoard').innerHTML = h;
+    $('ldBoard').addEventListener('click', onBoardClick);
+    boardBuilt = true;
+  }
+  function tokEl(pi, t) {
+    var id = 'tk-' + pi + '-' + t, el = $(id);
+    if (el) return el;
+    var col = COL[S.players[pi].color];
+    el = document.createElementNS(NS, 'g');
+    el.setAttribute('id', id); el.setAttribute('class', 'tk'); el.setAttribute('data-p', pi); el.setAttribute('data-t', t);
+    el.innerHTML = '<circle class="ring" r=".52"/><circle r=".4" cy=".07" fill="rgba(0,0,0,.28)"/>' +
+      '<g class="body"><circle r=".38" fill="' + col + '" stroke="#fff" stroke-width=".08"/><circle r=".22" fill="none" stroke="rgba(255,255,255,.55)" stroke-width=".05"/><circle r=".07" cx="-.12" cy="-.13" fill="rgba(255,255,255,.7)"/></g>';
+    $('ldTokens').appendChild(el);
+    return el;
+  }
+  function posXY(pi, t, rel) {
+    var color = S.players[pi].color;
+    if (rel < 0) return B.yards[color][t];
+    if (rel <= 50) return B.track[(B.start[color] + rel) % 52];
+    if (rel <= 55) return B.home[color][rel - 51];
+    var f = B.finish[color];
+    return [f[0] + FOFF[t][0] * .8, f[1] + FOFF[t][1] * .8];
+  }
+  function canMoveNow() {
+    return S && S.status === 'playing' && S.me >= 0 && S.me === S.turn && S.phase === 'move' && !anim && !busy;
+  }
+  function drawTokens() {
+    if (!shown || !S.tokens) return;
+    var items = [], groups = {};
+    shown.forEach(function (arr, pi) { arr.forEach(function (rel, t) { var p = posXY(pi, t, rel); items.push({ pi: pi, t: t, rel: rel, x: p[0], y: p[1], s: rel === 56 ? .5 : 1, dx: 0, dy: 0 }); }); });
+    items.forEach(function (it) { if (it.rel >= 0 && it.rel < 56) { var k = it.x + ',' + it.y; (groups[k] = groups[k] || []).push(it); } });
+    Object.keys(groups).forEach(function (k) {
+      var g = groups[k]; if (g.length < 2) return;
+      var o = OFFS[Math.min(g.length, 4)];
+      g.forEach(function (it, i) { it.s = g.length > 2 ? .62 : .72; it.dx = o[i % o.length][0]; it.dy = o[i % o.length][1]; });
+    });
+    var can = {};
+    if (canMoveNow()) S.legal.forEach(function (t) { can[S.tokens[S.me][t]] = true; });
+    items.forEach(function (it) {
+      var el = tokEl(it.pi, it.t);
+      el.style.transform = 'translate(' + (it.x + it.dx) + 'px,' + (it.y + it.dy) + 'px) scale(' + it.s + ')';
+      var ok = it.pi === S.me && can[it.rel] === true;
+      if (ok !== el.classList.contains('can')) el.classList.toggle('can', ok);
+    });
+  }
+  function onBoardClick(e) {
+    var el = e.target.closest ? e.target.closest('.tk') : null;
+    if (!el || !el.classList.contains('can')) return;
+    act({ type: 'move', tok: parseInt(el.getAttribute('data-t'), 10) });
+  }
+
+  function animateMove(L, ns) {
+    anim = true; animId = L.id;
+    var pre = clone(ns.tokens);
+    pre[L.p][L.move.tok] = L.move.from;
+    (L.captured || []).forEach(function (c) { pre[c.p][c.t] = c.from; });
+    shown = pre; drawTokens();
+    var path = [];
+    if (L.move.from === -1) path = [0]; else for (var r = L.move.from + 1; r <= L.move.to; r++) path.push(r);
+    var i = 0;
+    function finish() {
+      shown = clone(ns.tokens); anim = false; drawTokens();
+      if (pending) { var p = pending; pending = null; applyState(p); } else renderUI();
+    }
+    (function next() {
+      if (i < path.length) { shown[L.p][L.move.tok] = path[i++]; drawTokens(); setTimeout(next, 170); return; }
+      if (L.captured && L.captured.length) {
+        setTimeout(function () { L.captured.forEach(function (c) { shown[c.p][c.t] = -1; }); drawTokens(); setTimeout(finish, 420); }, 160);
+      } else setTimeout(finish, 120);
+    })();
+  }
+
+  // ---------- Dice ----------
+  function dieHtml(v) { var on = PIPS[v] || [], h = ''; for (var i = 0; i < 9; i++) h += '<i' + (on.indexOf(i) >= 0 ? ' class="on"' : '') + '></i>'; return h; }
+  function rollAnim(final) {
+    var d = $('ldDie'), n = 0; dieRolling = true; d.classList.add('rolling'); d.classList.remove('ready', 'empty');
+    var iv = setInterval(function () {
+      d.innerHTML = dieHtml(1 + Math.floor(Math.random() * 6));
+      if (++n >= 6) { clearInterval(iv); dieRolling = false; d.classList.remove('rolling'); d.innerHTML = dieHtml(final); renderUI(); }
+    }, 90);
+  }
+
+  // ---------- UI ----------
+  function lastText() {
+    var L = S.last; if (!L) return '';
+    var n = playerName(L.p);
+    if (!L.move) return n + ' rolled ' + L.dice + (L.note === 'nomove' ? ': no move possible' : L.note === 'three6' ? ': three 6s in a row, turn lost' : '');
+    var t = n + ' rolled ' + L.dice + (L.move.from === -1 ? ' and brought a token out' : L.move.to === 56 ? ' and got a token home!' : '');
+    if (L.captured && L.captured.length) t += ' and captured ' + playerName(L.captured[0].p) + "'s token!";
+    return t;
+  }
+  function seatsHtml() {
+    var h = '';
+    for (var i = 0; i < S.max; i++) {
+      var p = S.players[i];
+      if (!p) { h += '<div class="ld-seat empty"><div class="ld-av">+</div><div>Empty seat</div></div>'; continue; }
+      var host = p.userId && p.userId === S.host;
+      h += '<div class="ld-seat"><div class="ld-av" style="background:' + (p.bot ? '#64748b' : '#0a6b4d') + '">' + (p.bot ? '\uD83E\uDD16' : esc(p.name.charAt(0).toUpperCase())) + '</div><div><b>' + esc(p.name) + '</b>' +
+        (p.i === S.me ? '<span class="ld-tag">You</span>' : '') + (p.bot ? '<span class="ld-tag">Bot</span>' : '') + (host ? '<span class="ld-tag">Host</span>' : '') + '</div></div>';
+    }
+    return h;
+  }
+  function renderLobby() {
+    var isHost = S.host === init.uid, me = S.me >= 0, full = S.players.length >= S.max;
+    $('ldSeats').innerHTML = seatsHtml();
+    $('ldLobbyHint').textContent = me ? (isHost ? 'Share the invite, add bots if you like, then press Start.' : 'Waiting for the host to start the game.') :
+      (full ? 'This room is full.' : 'You are not in this room yet.');
+    $('ldInvite').hidden = !me;
+    $('ldWa').href = 'https://wa.me/?text=' + encodeURIComponent('Join my Ludo game! Room code ' + code + ': ' + inviteLink());
+    var b = '';
+    if (!me && !full) b += '<button class="ld-btn" data-a="join">Join this room</button>';
+    if (me && isHost) {
+      b += '<button class="ld-btn" data-a="start"' + (S.players.length < 2 ? ' disabled' : '') + '>Start game</button>';
+      if (!full) b += '<button class="ld-btn alt" data-a="addbot">Add bot</button><button class="ld-btn alt" data-a="fillbots">Fill with bots</button>';
+      if (S.players.some(function (p) { return p.bot; })) b += '<button class="ld-btn alt" data-a="rmbot">Remove bot</button>';
+    }
+    if (me) b += '<button class="ld-btn alt" data-a="leave">Leave room</button>';
+    $('ldHostBtns').innerHTML = b;
+  }
+  function renderPlayers() {
+    var h = '';
+    S.players.forEach(function (p) {
+      var home = S.tokens ? S.tokens[p.i].filter(function (x) { return x === 56; }).length : 0;
+      var turn = S.status === 'playing' && S.turn === p.i;
+      h += '<div class="ld-pl' + (turn ? ' turn' : '') + (p.left ? ' out' : '') + '" style="--pc:' + COL[p.color] + '" data-i="' + p.i + '">' +
+        '<b><span class="dot" style="background:' + COL[p.color] + '"></span>' + esc(p.name) + '</b>' +
+        '<small>' + (p.i === S.me ? 'You' : p.left ? 'Left (bot)' : p.bot ? 'Bot' : CN[p.color]) + ' \u00B7 ' + home + '/4 home</small>' +
+        (turn && !p.bot ? '<span class="tm" data-tm></span>' : '') + '</div>';
+    });
+    $('ldPlayers').innerHTML = h;
+  }
+  function renderStatus() {
+    var st = $('ldStatus'), die = $('ldDie'), L = S.last;
+    var mine = S.status === 'playing' && S.me >= 0 && S.me === S.turn;
+    var color = L ? COL[S.players[L.p].color] : '#999';
+    die.style.setProperty('--dc', S.status === 'playing' ? COL[S.players[S.turn].color] : color);
+    if (!dieRolling) {
+      die.innerHTML = dieHtml(L ? L.dice : 0);
+      die.classList.toggle('empty', !L);
+      die.classList.toggle('ready', mine && S.phase === 'roll' && !anim && !busy);
+    }
+    if (S.status === 'finished') st.textContent = 'Game over';
+    else if (mine && S.phase === 'roll') st.textContent = 'Your turn: roll the dice!';
+    else if (mine) st.textContent = S.legal.length > 1 ? 'Tap a glowing token to move' : 'Moving...';
+    else st.textContent = playerName(S.turn) + (S.phase === 'roll' ? ' is rolling...' : ' is choosing...');
+    $('ldNote').textContent = lastText();
+    var pb = '';
+    if (S.status === 'playing' && S.me >= 0) pb = '<button class="ld-btn alt sm" data-a="leave">Leave game</button>';
+    else if (S.status === 'playing') pb = '<span class="text-secondary small">You are watching this game.</span>';
+    $('ldPlayBtns').innerHTML = pb;
+  }
+  function renderOver() {
+    var over = S.status === 'finished';
+    $('ldOver').hidden = !over;
+    if (!over) return;
+    var w = S.winner !== null && S.players[S.winner];
+    $('ldOverTitle').textContent = w ? (S.winner === S.me ? '\uD83C\uDFC6 You won!' : '\uD83C\uDFC6 ' + w.name + ' wins!') : 'Game ended';
+    $('ldOverText').textContent = w ? 'All 4 tokens reached home.' : 'Everyone left this game.';
+    var b = '';
+    if (S.rematch) b += '<a class="ld-btn" href="/ludo/' + S.rematch + '?join=1">Join rematch</a>';
+    else if (S.me >= 0 || S.players.some(function (p) { return p.userId === init.uid; })) b += '<button class="ld-btn" data-a="rematch">Play again</button>';
+    b += '<a class="ld-btn alt" href="/ludo">Lobby</a>';
+    $('ldOverBtns').innerHTML = b;
+  }
+  function renderUI() {
+    if (!S) return;
+    var waiting = S.status === 'waiting';
+    $('ldLobby').hidden = !waiting;
+    $('ldGame').hidden = waiting;
+    if (waiting) { renderLobby(); $('ldOver').hidden = true; return; }
+    if (!boardBuilt) buildBoard();
+    renderPlayers(); renderStatus(); renderOver(); drawTokens(); tickTimer();
+    var mine = S.status === 'playing' && S.me >= 0 && S.me === S.turn;
+    if (mine && !wasMyTurn) {
+      if (navigator.vibrate) { try { navigator.vibrate(70); } catch (e) {} }
+      if (document.hidden) document.title = '\uD83C\uDFB2 Your turn! | Ludo';
+    }
+    wasMyTurn = mine;
+    var L = S.last;
+    if (L && !L.move && L.id !== lastDiceId) { lastDiceId = L.id; rollAnim(L.dice); }
+    else if (L && L.id > lastDiceId) lastDiceId = L.id;
+  }
+  function tickTimer() {
+    if (!S || S.status !== 'playing') return;
+    var el = document.querySelector('.ld-pl.turn [data-tm]');
+    if (!el) return;
+    var left = Math.max(0, Math.ceil((S.deadline - (Date.now() + offset)) / 1000));
+    el.textContent = left > 99 ? '' : left + 's';
+  }
+  setInterval(tickTimer, 300);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) { document.title = 'Ludo room ' + code + ' | Khabzo'; poll(); } });
+
+  // ---------- State ----------
+  function applyState(ns) {
+    if (anim) { pending = ns; return; }
+    if (S && ns.v <= S.v) return;
+    var prev = S; S = ns; offset = ns.now - Date.now();
+    if (ns.status === 'waiting' || !ns.tokens) { shown = null; renderUI(); return; }
+    var L = ns.last;
+    if (!prev || !shown) {
+      shown = clone(ns.tokens); if (L) animId = L.id; renderUI(); return;
+    }
+    if (L && L.move && L.id > animId) {
+      renderUI();              // panels / dice / note now, token walks right after
+      animateMove(L, ns);
+    } else { if (L) animId = Math.max(animId, L.id); shown = clone(ns.tokens); renderUI(); }
+  }
+
+  // ---------- Network ----------
+  function act(body) {
+    if (busy) return;
+    busy = true;
+    if (S) renderUI();
+    fetch('/ludo/' + code + '/act', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf, 'Accept': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }).then(function (x) {
+      busy = false;
+      if (!x.ok) { toast(x.d.error || 'Something went wrong.'); if (S) renderUI(); poll(); return; }
+      if (x.d.rematch) { location.href = '/ludo/' + x.d.rematch + '?join=1'; return; }
+      if (x.d.left && !x.d.state) { location.href = '/ludo'; return; }
+      if (body.type === 'leave') { location.href = '/ludo'; return; }
+      if (x.d.state) applyState(x.d.state);
+      schedule(300);
+    }).catch(function () { busy = false; toast('Connection problem. Trying again...'); if (S) renderUI(); schedule(1500); });
+  }
+  function schedule(ms) { clearTimeout(pollTimer); pollTimer = setTimeout(poll, ms); }
+  function nextDelay(nextIn) {
+    var base = document.hidden ? 6000 : (S && S.status === 'playing' ? 2000 : 2500);
+    if (nextIn !== null && nextIn !== undefined) base = Math.min(base, Math.max(600, nextIn + 250));
+    return anim ? Math.max(base, 600) : base;
+  }
+  function poll() {
+    if (polling) return;
+    polling = true; clearTimeout(pollTimer);
+    fetch('/ludo/' + code + '/state.json?since=' + (S ? S.v : 0), { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.json().then(function (d) { return { st: r.status, d: d }; }); })
+      .then(function (x) {
+        polling = false;
+        if (x.st === 404) { $('ldStatus').textContent = 'This room was closed.'; toast('This room was closed.'); return; }
+        if (x.st === 401) { toast('Please log in again.'); return; }
+        if (x.st !== 200) { schedule(4000); return; }
+        if (x.d.same) { if (S) { offset = x.d.now - Date.now(); S.deadline = x.d.deadline; } schedule(nextDelay(x.d.nextIn)); return; }
+        applyState(x.d); schedule(nextDelay(x.d.nextIn));
+      }).catch(function () { polling = false; schedule(3500); });
+  }
+
+  // ---------- Buttons ----------
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-a]') : null;
+    if (b && !b.disabled) {
+      var a = b.getAttribute('data-a');
+      if (a === 'leave' && S && S.status === 'playing' && !confirm('Leave this game? A bot will take your seat.')) return;
+      act({ type: a });
+    }
+  });
+  $('ldDie').addEventListener('click', function () { if (S && S.me >= 0 && S.me === S.turn && S.phase === 'roll' && !anim && !busy && S.status === 'playing') act({ type: 'roll' }); });
+  $('ldDie').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('ldDie').click(); } });
+  $('ldCopy').addEventListener('click', function () {
+    var link = inviteLink();
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(function () { toast('Invite link copied'); }, function () { prompt('Copy this link', link); });
+    else prompt('Copy this link', link);
+  });
+
+  // ---------- Start ----------
+  S = null; applyState(init.state);
+  if (init.autoJoin && S.me < 0 && S.status === 'waiting' && S.players.length < S.max) act({ type: 'join' });
+  if (init.autoJoin && history.replaceState) history.replaceState(null, '', '/ludo/' + code);
+  schedule(nextDelay(init.state.nextIn));
+})();
+</script>
+<%- include('partials/footer') %>
