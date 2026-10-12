@@ -51,6 +51,7 @@ const ratesRouter = require('./routes/rates');
 const ipcheckRouter = require('./routes/ipcheck'); // V57 IP Checker (standalone)
 const { ingestRouter: officeIngest, adminRouter: officeAdmin } = require('./routes/office'); // V58 Office devices
 const officeLib = require('./lib/office');
+const officeMon = require('./lib/officemon'); // V59
 const { startRates } = require('./lib/rates');
 const earningsRouter = require('./routes/earnings');
 const earningsLib = require('./lib/earnings');
@@ -199,6 +200,7 @@ app.get('/ip-check', limiter(10, 40, 'Too many IP checks. Please try again in a 
 app.get('/ip-check/ping', limiter(1, 120, 'Too many requests.'));
 app.get('/ip-check/blob', limiter(1, 12, 'Too many speed tests. Please wait a minute.'));
 app.post('/office/ingest', limiter(15, 30, 'Too many uploads. Please try again later.')); // V58
+app.post('/office/heartbeat', limiter(10, 200, 'Too many reports.')); // V59
 app.post('/trends/ai', limiter(60, 6, 'You can create up to 6 AI write-ups per hour. Please try again later.'));
 app.post('/report', limiter(10, 10, 'You are reporting too fast. Please wait a few minutes.'));
 app.post(['/u/:username/follow', '/u/:username/unfollow', '/u/:username/follow-email'], limiter(10, 30, 'Too many requests. Please wait a few minutes.'));
@@ -242,6 +244,7 @@ app.post('/seller/share/groups', limiter(60, 30, 'Too many requests. Please try 
 
 // V58 Office devices: scanner token se upload karta hai (CSRF nahi), admin ki file import JSON hai (CSRF token header mein). Dono csrf se pehle.
 app.use('/office/ingest', express.json({ limit: '2mb' }));
+app.use('/office/heartbeat', express.json({ limit: '1mb' })); // V59
 app.use('/', officeIngest);
 app.use('/admin/office/import', express.json({ limit: '2mb' }));
 
@@ -537,6 +540,7 @@ Promise.all([shopLib.ensureSchema(), officeLib.ensureSchema()]).finally(() => ap
   }
   console.log('Server chal raha hai, port ' + PORT);
   startNewsletterScheduler();
+  officeMon.startWatch(); // V59: office monitor chup ho jaye to Telegram par bata do
   startPublisher();
   startPollScheduler(); // knockout rounds jin ka time ho gaya unhein agle round par le jata hai
   startCourtScheduler(); // People's Court: jury ka waqt khatam hone par faisla + notifications (+ Telegram)

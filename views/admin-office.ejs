@@ -30,6 +30,97 @@
       <span class="text-body-secondary small">Subnet <%= s.subnet || '-' %> · scanned <%= fmt(s.scanned_at) %> · from <%= s.scanner || 'unknown computer' %></span>
     </div>
 
+    <% const mon = H.monitor; %>
+    <div class="alert alert-<%= !mon ? 'secondary' : mon.silent ? 'warning' : 'success' %> py-2 small d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <span>
+        <% if (!mon) { %><strong>Monitor not running.</strong> Run the scanner with <code>--monitor</code> on an office computer to see which devices are online (green), slow (yellow) or offline (red). Steps are at the bottom of this page.
+        <% } else if (mon.silent) { %><strong>Monitor silent.</strong> Last report <%= fmt(mon.last_beat) %> from <%= mon.host || 'an unknown computer' %>. The status below may be old.
+        <% } else { %><strong>Monitor running.</strong> Last report <%= fmt(mon.last_beat) %> from <%= mon.host || 'an unknown computer' %> (every <%= Math.round(mon.interval_s / 60) %> min).<% } %>
+        Alerts: <%= alertsOn ? 'on (private Telegram chat)' : 'off' %>.
+        <% if (mon && mon.dhcp) { %>
+          DHCP check: <%= mon.dhcp.ran ? (mon.dhcp.servers.length + ' server(s) answered') : ('could not run (' + (mon.dhcp.error || 'unknown reason') + ')') %>.
+        <% } %>
+      </span>
+      <% if (alertsOn) { %>
+        <form action="/admin/office/test-alert" method="POST" class="d-inline"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-outline-secondary btn-sm">Send test alert</button></form>
+      <% } %>
+    </div>
+
+    <% if (H.issues.length) { %>
+      <div class="card border-0 shadow-sm mb-4"><div class="card-body">
+        <h6 class="fw-bold mb-2">Network problems found</h6>
+        <ul class="list-unstyled mb-0 small">
+          <% H.issues.forEach(function (i) { %>
+            <li class="py-1 border-bottom">
+              <span class="badge text-bg-<%= i.active ? 'danger' : 'secondary' %>"><%= i.active ? 'now' : 'earlier' %></span>
+              <strong><%= { ip_conflict: 'IP conflict', link_local: 'No IP from router (169.254)', rogue_dhcp: 'Extra DHCP server', dhcp_other: 'DHCP server note' }[i.kind] || i.kind %></strong>:
+              <%= i.detail %> <span class="text-body-secondary">(last seen <%= fmt(i.last_seen) %>)</span>
+            </li>
+          <% }) %>
+        </ul>
+        <p class="small text-body-secondary mt-2 mb-0">Fix: an IP conflict is cured by giving one of the two devices a different IP (keep fixed addresses outside the router's DHCP range). 169.254 means the device could not get an address: check its cable or Wi-Fi and the router's DHCP. A second DHCP server is usually an extra router or Wi-Fi extender: turn its DHCP off or put it in Access Point mode.</p>
+      </div></div>
+    <% } %>
+
+    <% if (H.unknown.length) { %>
+      <div class="card border-0 shadow-sm mb-4"><div class="card-body">
+        <h6 class="fw-bold mb-2">Devices that are not in your last scan (<%= H.unknown.length %>)</h6>
+        <div class="table-responsive"><table class="table table-sm align-middle mb-0 small">
+          <thead><tr><th>IP</th><th>MAC / maker</th><th>Name</th><th>Seen</th><th></th></tr></thead>
+          <tbody>
+          <% H.unknown.forEach(function (u) { %>
+            <tr>
+              <td class="text-nowrap"><%= u.ip %></td>
+              <td><%= u.mac || '-' %><div class="text-body-secondary"><%= u.vendor || ((parseInt(String(u.mac || '00').slice(0, 2), 16) & 2) ? 'random MAC (phone privacy)' : '') %></div></td>
+              <td><%= u.name || '-' %></td>
+              <td class="text-nowrap">first <%= fmt(u.first_seen) %><br>last <%= fmt(u.last_seen) %></td>
+              <td class="text-end">
+                <form action="/admin/office/known" method="POST" class="d-inline">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="site" value="<%= s.site %>">
+                  <input type="hidden" name="scan" value="<%= s.id %>"><input type="hidden" name="key" value="<%= u.dev_key %>">
+                  <button class="btn btn-outline-secondary btn-sm">It is mine</button></form>
+              </td>
+            </tr>
+          <% }) %>
+          </tbody>
+        </table></div>
+        <p class="small text-body-secondary mt-2 mb-0">If you do not know a device, check the router's connected list and change the Wi-Fi password. After checking, run a new scan and import it: the devices you know will join the main list.</p>
+      </div></div>
+    <% } %>
+
+    <% if (riskList.length) { %>
+      <details class="card border-0 shadow-sm mb-4" <%= riskList.some(function (r) { return r.sev === 'high'; }) ? 'open' : '' %>>
+        <summary class="card-body fw-bold" style="cursor:pointer;">Security hints (<%= riskList.length %>)</summary>
+        <div class="card-body pt-0">
+          <ul class="list-unstyled mb-2 small">
+            <% riskList.forEach(function (r) { %>
+              <li class="py-1 border-bottom">
+                <span class="badge text-bg-<%= r.sev === 'high' ? 'danger' : r.sev === 'medium' ? 'warning' : 'secondary' %>"><%= r.sev %></span>
+                <strong><%= r.d.final_name %></strong> (<%= r.d.ip %>): <%= r.text %>
+                <div class="text-body-secondary">Fix: <%= r.fix %></div>
+              </li>
+            <% }) %>
+          </ul>
+          <p class="small text-body-secondary mb-0">These are hints from open ports and the front page only. The scanner never logs in and never tries passwords, so it cannot tell whether a password is still the default or weak. Check those by hand.</p>
+        </div>
+      </details>
+    <% } %>
+
+    <% if (mon) { %>
+      <div class="card border-0 shadow-sm mb-4"><div class="card-body">
+        <h6 class="fw-bold mb-2">Last 24 hours</h6>
+        <% if (!report.length) { %><p class="small mb-0">No device dropped off the network. 👍</p><% } else { %>
+          <ul class="list-unstyled mb-0 small">
+            <% report.forEach(function (r) { %>
+              <li class="py-1 border-bottom"><strong><%= r.d.final_name %></strong> (<%= r.d.ip %>, <%= L.TYPE_ONE[r.d.final_type] %>):
+                <%= r.s.drops ? 'went offline ' + r.s.drops + ' time' + (r.s.drops === 1 ? '' : 's') + ', ' : '' %>up <%= r.s.uptime %>% of the time<%= r.s.avg_rtt != null ? ', average ping ' + r.s.avg_rtt + ' ms' : '' %>.
+                <% if (r.s.drops >= 3) { %><span class="text-body-secondary">Often offline: check its cable, Wi-Fi signal or power.</span><% } %></li>
+            <% }) %>
+          </ul>
+        <% } %>
+      </div></div>
+    <% } %>
+
     <div class="row g-3 mb-4">
       <div class="col-6 col-md-3"><a class="text-decoration-none" href="/admin/office?scan=<%= s.id %>"><div class="card border-0 shadow-sm h-100 <%= !typeFilter ? 'border border-primary' : '' %>"><div class="card-body py-3">
         <div class="fs-3 fw-bold"><%= data.devices.length %></div><div class="small text-body-secondary">All devices</div></div></div></a></div>
@@ -67,9 +158,9 @@
 
     <div class="card border-0 shadow-sm mb-4"><div class="table-responsive">
       <table class="table table-sm align-middle mb-0">
-        <thead><tr><th>Type</th><th>Name</th><th>IP</th><th class="d-none d-md-table-cell">MAC / maker</th><th class="d-none d-lg-table-cell">Room / note</th><th></th></tr></thead>
+        <thead><tr><th>Type</th><th>Name</th><th>Status</th><th>IP</th><th class="d-none d-md-table-cell">MAC / maker</th><th class="d-none d-lg-table-cell">Room / note</th><th></th></tr></thead>
         <tbody>
-        <% if (!shown.length) { %><tr><td colspan="6" class="text-center text-body-secondary py-4">Nothing matches.</td></tr><% } %>
+        <% if (!shown.length) { %><tr><td colspan="7" class="text-center text-body-secondary py-4">Nothing matches.</td></tr><% } %>
         <% shown.forEach(function (d, i) { %>
           <tr>
             <td class="text-nowrap"><span aria-hidden="true"><%= L.TYPE_ICON[d.final_type] %></span> <%= L.TYPE_ONE[d.final_type] %></td>
@@ -79,12 +170,18 @@
               <% if (d.fixed) { %><span class="badge text-bg-success">edited</span><% } %>
               <% if (d.ports && d.ports.length) { %><div class="small text-body-secondary">Ports: <%= d.ports.join(', ') %></div><% } %>
               <% if (d.web_title) { %><div class="small text-body-secondary">Page: <%= d.web_title %></div><% } %></td>
+            <td class="small text-nowrap">
+              <% const hl = health.get(d.key), st24 = H.stats.get(d.key), rk = risks.get(d.key) || []; %>
+              <span class="badge text-bg-<%= hl.cls %>"><%= hl.label %></span>
+              <% if (rk.length) { %><span class="badge text-bg-<%= rk.some(function (x) { return x.sev === 'high'; }) ? 'danger' : 'warning' %>" title="<%= rk.map(function (x) { return x.text; }).join(' ') %>">⚠ <%= rk.length %></span><% } %>
+              <% if (st24 && st24.uptime !== null && d.final_type !== 'phone') { %><div class="text-body-secondary"><%= st24.uptime %>% up<%= st24.drops ? ', dropped ' + st24.drops + 'x' : '' %></div><% } %>
+            </td>
             <td class="text-nowrap"><%= d.ip %></td>
             <td class="d-none d-md-table-cell small"><%= d.mac || '-' %><div class="text-body-secondary"><%= d.random_mac ? 'random MAC (phone privacy)' : (d.vendor || '') %></div></td>
             <td class="d-none d-lg-table-cell small"><%= d.location || '' %><div class="text-body-secondary"><%= d.note || '' %></div></td>
             <td class="text-end"><button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#e<%= i %>">Edit</button></td>
           </tr>
-          <tr class="collapse" id="e<%= i %>"><td colspan="6" class="bg-body-tertiary">
+          <tr class="collapse" id="e<%= i %>"><td colspan="7" class="bg-body-tertiary">
             <form action="/admin/office/device" method="POST" class="row g-2">
               <input type="hidden" name="_csrf" value="<%= csrfToken %>">
               <input type="hidden" name="site" value="<%= s.site %>">
@@ -135,7 +232,18 @@
     <% } else { %>
       <p class="small mb-1 text-success">Upload is on.</p>
     <% } %>
-    <pre class="bg-body-tertiary p-2 rounded small mb-0">python3 scripts/office_scanner.py --site "Main Office" --upload https://YOUR-SITE/office/ingest --token YOUR_TOKEN</pre>
+    <pre class="bg-body-tertiary p-2 rounded small mb-2">python3 scripts/office_scanner.py --site "Main Office" --upload https://YOUR-SITE/office/ingest --token YOUR_TOKEN</pre>
+    <hr>
+    <h6 class="fw-bold">Live monitor (online / offline, IP problems, alerts)</h6>
+    <p class="small mb-1">Leave this running on one office computer that stays on (a spare PC works best). It checks every 5 minutes and reports to this page. Do a normal scan and import it first, so the monitor knows which devices to expect. Use the same <code>--site</code> name.</p>
+    <pre class="bg-body-tertiary p-2 rounded small mb-2">python3 scripts/office_scanner.py --monitor --site "Main Office" --upload https://YOUR-SITE/office/ingest --token YOUR_TOKEN --yes
+
+# also look for a second DHCP server (run as administrator / sudo):
+sudo python3 scripts/office_scanner.py --monitor --dhcp-check --site "Main Office" --upload https://YOUR-SITE/office/ingest --token YOUR_TOKEN --yes</pre>
+    <p class="small mb-0">
+      <% if (alertsOn) { %><span class="text-success">Alerts are on:</span> messages go to your private Telegram chat when a printer, camera, NAS/server or router goes offline, an unknown device joins, or a network problem appears.
+      <% } else { %><span class="text-warning-emphasis">Alerts are off.</span> To get Telegram messages for the above, add <code>OFFICE_TELEGRAM_CHAT_ID</code> in the server settings (a private chat or group with your bot, not the public channel), then restart.<% } %>
+    </p>
   </div></div>
 </div>
 <script>

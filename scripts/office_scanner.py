@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Khabzo Office Scanner (V58)  -  makes a list of every device on YOUR office network.
+Khabzo Office Scanner (V58, monitor V59)  -  makes a list of every device on YOUR office network.
 
 Run it on any computer INSIDE the office network (Windows, Linux or Mac). A website on the internet
 cannot see an office network, so this small script does the looking and then sends the list to
@@ -17,6 +17,15 @@ What it does (and only this):
 It never logs in, never guesses passwords and never touches anything outside private address ranges.
 Only scan a network you own or are allowed to administer (ask the office IT / owner first).
 
+Live monitor (V59): leave this running on one office computer that stays on.
+
+    python3 office_scanner.py --monitor --site "Main Office" --upload https://YOUR-SITE/office/ingest --token YOUR_TOKEN --yes
+    sudo python3 office_scanner.py --monitor --dhcp-check ...      # also looks for a second DHCP server (needs admin / root)
+
+Every 5 minutes it pings the subnet and tells the site who is alive (online / slow / offline), which devices
+have a 169.254 address (no IP from the router) and, with --dhcp-check, which DHCP servers answer. The site
+sends Telegram alerts. Use the same --site name as your scan. It still never logs in or tries passwords.
+
 Needs Python 3.7+ and nothing else (standard library only).
 """
 import argparse
@@ -25,9 +34,11 @@ import ipaddress
 import json
 import os
 import platform
+import random
 import re
 import socket
 import ssl
+import struct
 import subprocess
 import sys
 import time
@@ -36,10 +47,10 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 
-VERSION = '1.0'
+VERSION = '1.1'
 
-PORTS = [22, 80, 135, 139, 443, 445, 515, 554, 631, 3389, 5000, 8000, 8001, 8002, 8008, 8009,
-         8080, 8554, 9100, 34567, 37777, 62078]
+PORTS = [21, 22, 23, 80, 135, 139, 443, 445, 515, 554, 631, 3389, 5000, 8000, 8001, 8002, 8008, 8009,
+         8080, 8554, 9100, 34567, 37777, 5900, 62078]
 
 OUI_URL = 'https://standards-oui.ieee.org/oui/oui.txt'
 OUI_MAX_AGE_DAYS = 90
@@ -77,7 +88,7 @@ COMPUTER_NAME = re.compile(r'^(desktop|laptop|pc|win|workstation|dell|hp|lenovo|
                            r'thinkpad|ubuntu|\bpc\b', re.I)
 PHONE_NAME = re.compile(r'iphone|ipad|galaxy|android|pixel|redmi|oppo|vivo|realme|xiaomi|huawei|honor|tecno|infinix', re.I)
 
-PORT_NAMES = {22: 'SSH', 80: 'Web', 135: 'Windows RPC', 139: 'NetBIOS', 443: 'Web (HTTPS)', 445: 'Windows file sharing',
+PORT_NAMES = {21: 'FTP', 23: 'Telnet', 5900: 'VNC', 22: 'SSH', 80: 'Web', 135: 'Windows RPC', 139: 'NetBIOS', 443: 'Web (HTTPS)', 445: 'Windows file sharing',
               515: 'Print (LPD)', 554: 'Camera stream (RTSP)', 631: 'Print (IPP)', 3389: 'Remote Desktop',
               5000: 'NAS / UPnP', 8000: 'Web (alt)', 8001: 'Samsung TV', 8002: 'Samsung TV', 8008: 'Chromecast',
               8009: 'Chromecast', 8080: 'Web (alt)', 8554: 'Camera stream', 9100: 'Print (JetDirect)',
@@ -417,6 +428,207 @@ def demo(site):
             'scanned_at': datetime.now(timezone.utc).isoformat(timespec='seconds'), 'devices': devs}
 
 
+# ---------------------------------------------------------------- live monitor (V59)
+def ping_rtt(ip):
+    """Returns (answered, milliseconds or None)."""
+    system = platform.system().lower()
+    if system == 'windows':
+        cmd = ['ping', '-n', '1', '-w', '1000', ip]
+    elif system == 'darwin':
+        cmd = ['ping', '-c', '1', '-W', '1000', ip]
+    else:
+        cmd = ['ping', '-c', '1', '-W', '1', ip]
+    try:
+        r = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=5)
+    except Exception:
+        return False, None
+    out = r.stdout.decode('utf-8', 'ignore')
+    if r.returncode != 0 or re.search(r'unreachable|timed out|100% (packet )?loss', out, re.I) and not re.search(r'time[=<]', out):
+        return False, None
+    m = re.search(r'time[=<]\s*([\d.]+)\s*ms', out, re.I)
+    if m:
+        return True, float(m.group(1))
+    return True, 1.0 if re.search(r'time<', out) else None
+
+
+def tcp_alive(ip):
+    """A device that blocks ping still answers a TCP knock (even a refusal means it is there)."""
+    for port in (445, 80, 443, 22):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(0.6)
+        t0 = time.time()
+        try:
+            code = s.connect_ex((ip, port))
+            if code == 0 or code in (111, 10061, 61, 54):  # connected / refused (Linux, Windows, Mac)
+                return True, round((time.time() - t0) * 1000, 1)
+        except OSError:
+            pass
+        finally:
+            s.close()
+    return False, None
+
+
+def link_local_neighbors():
+    """169.254.x.x devices seen in the ARP table: they could not get an address from the router."""
+    system = platform.system().lower()
+    text = run(['arp', '-a'] if system == 'windows' else ['ip', 'neigh']) if system != 'darwin' else run(['arp', '-an'])
+    if not text.strip() and system not in ('windows', 'darwin'):
+        text = run(['arp', '-an'])
+    out = {}
+    for line in text.splitlines():
+        if re.search(r'incomplete|failed', line, re.I):
+            continue
+        ip_m, mac_m = IP_RE.search(line), MAC_RE.search(line)
+        if ip_m and mac_m and ip_m.group(1).startswith('169.254.'):
+            out[ip_m.group(1)] = norm_mac(mac_m.group(1))
+    return [{'ip': ip, 'mac': mac} for ip, mac in list(out.items())[:50]]
+
+
+def dhcp_probe(wait=4.0):
+    """Sends ONE DHCP "discover" broadcast and listens for answers. Needs admin / root (port 68).
+    Returns {'ran': bool, 'servers': [ip, ...], 'error': str or None}. It only listens; it never accepts an address."""
+    xid = random.getrandbits(32)
+    mac = bytes([0x02, 0x00, 0x5e] + [random.getrandbits(8) for _ in range(3)])  # made-up locally administered MAC
+    pkt = struct.pack('!BBBBIHH4s4s4s4s16s64s128s', 1, 1, 6, 0, xid, 0, 0x8000, b'\0' * 4, b'\0' * 4, b'\0' * 4, b'\0' * 4,
+                      mac + b'\0' * 10, b'\0' * 64, b'\0' * 128)
+    pkt += b'\x63\x82\x53\x63' + b'\x35\x01\x01' + b'\x37\x03\x01\x03\x06' + b'\xff'  # magic cookie, DISCOVER, params, end
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    servers = []
+    try:
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        try:
+            s.bind(('', 68))
+        except OSError as e:
+            return {'ran': False, 'servers': [], 'error': 'cannot listen on port 68 (run as administrator / sudo, or another DHCP client is using it): %s' % e}
+        s.sendto(pkt, ('255.255.255.255', 67))
+        end = time.time() + wait
+        while time.time() < end:
+            s.settimeout(max(0.1, end - time.time()))
+            try:
+                data, addr = s.recvfrom(1500)
+            except socket.timeout:
+                break
+            if len(data) < 241 or data[0] != 2 or struct.unpack('!I', data[4:8])[0] != xid or data[236:240] != b'\x63\x82\x53\x63':
+                continue
+            srv = socket.inet_ntoa(data[20:24]) if data[20:24] != b'\0' * 4 else addr[0]
+            i = 240
+            while i < len(data) and data[i] != 255:  # option 54 = server identifier
+                if data[i] == 0:
+                    i += 1
+                    continue
+                if i + 1 >= len(data):
+                    break
+                ln = data[i + 1]
+                if data[i] == 54 and ln == 4:
+                    srv = socket.inet_ntoa(data[i + 2:i + 6])
+                i += 2 + ln
+            if srv not in servers:
+                servers.append(srv)
+        return {'ran': True, 'servers': servers, 'error': None}
+    except Exception as e:
+        return {'ran': False, 'servers': servers, 'error': str(e)[:120]}
+    finally:
+        s.close()
+
+
+def heartbeat_url(args):
+    if args.heartbeat:
+        return args.heartbeat
+    if args.upload:
+        return re.sub(r'/office/ingest/?$', '/office/heartbeat', args.upload.strip())
+    return None
+
+
+def monitor_once(net, site, interval, cache, oui, dhcp=None):
+    hosts = [str(h) for h in net.hosts()]
+    hostset = set(hosts)
+    me = local_ip()
+    gateway = default_gateway()
+    results = {}
+    with cf.ThreadPoolExecutor(max_workers=64) as ex:
+        for ip, res in zip(hosts, ex.map(ping_rtt, hosts)):
+            if res[0]:
+                results[ip] = res[1]
+    neighbors = {ip: mac for ip, mac in read_neighbors().items() if ip in hostset}
+    maybe = [ip for ip in neighbors if ip not in results]  # in the ARP table but ignored ping: knock on TCP ports
+    if maybe:
+        with cf.ThreadPoolExecutor(max_workers=32) as ex:
+            for ip, res in zip(maybe, ex.map(tcp_alive, maybe)):
+                if res[0]:
+                    results[ip] = res[1]
+    if me in hostset:
+        results.setdefault(me, 0.0)
+    need = [ip for ip in results if ip not in cache]
+    if need:
+        with cf.ThreadPoolExecutor(max_workers=32) as ex:
+            for ip, nm in zip(need, ex.map(reverse_name, need)):
+                cache[ip] = nm or ''
+    my_mac = None
+    try:
+        node = uuid.getnode()
+        if not (node >> 40) & 1:
+            my_mac = ':'.join('%02x' % ((node >> sh) & 0xff) for sh in range(40, -1, -8))
+    except Exception:
+        pass
+    devices = []
+    for ip in sorted(results, key=lambda x: ipaddress.ip_address(x)):
+        mac = neighbors.get(ip) or (my_mac if ip == me else None)
+        vendor = oui.get(mac.replace(':', '')[:6]) if mac and not is_random_mac(mac) else None
+        devices.append({'ip': ip, 'mac': mac, 'rtt': results[ip], 'self': ip == me, 'vendor': vendor, 'name': cache.get(ip) or None})
+    beat = {'version': 1, 'site': site, 'host': socket.gethostname(), 'subnet': str(net), 'gateway': gateway,
+            'interval': interval, 'sent_at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+            'devices': devices, 'link_local': link_local_neighbors()}
+    if dhcp is not None:
+        beat['dhcp'] = dhcp
+    return beat
+
+
+def monitor(args):
+    net = pick_subnet(args.subnet)
+    url = heartbeat_url(args)
+    if url and not args.token:
+        sys.exit('Monitor needs --token (or set the OFFICE_SCAN_TOKEN environment variable).')
+    if not args.yes:
+        print('About to watch %s every %d seconds.\nOnly watch a network you own or are allowed to administer.' % (net, args.every))
+        if input('Continue? [y/N] ').strip().lower() not in ('y', 'yes'):
+            sys.exit('Cancelled.')
+    if not url:
+        print('(no --upload given: results are only printed, nothing is sent to your site)')
+    oui = load_oui(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'oui.txt'))
+    cache = {}
+    n = 0
+    print('Monitoring %s as "%s". Press Ctrl+C to stop.' % (net, args.site))
+    while True:
+        t0 = time.time()
+        try:
+            dhcp = dhcp_probe() if args.dhcp_check and n % max(1, args.dhcp_every) == 0 else None
+            beat = monitor_once(net, args.site, args.every, cache, oui, dhcp)
+            msg = '%s  %d devices answered' % (datetime.now().strftime('%H:%M:%S'), len(beat['devices']))
+            if dhcp is not None:
+                msg += ' | DHCP: ' + (('%d server(s) %s' % (len(dhcp['servers']), ', '.join(dhcp['servers']))) if dhcp['ran'] else 'not checked (%s)' % dhcp['error'])
+            if beat['link_local']:
+                msg += ' | %d device(s) with 169.254 address' % len(beat['link_local'])
+            if url:
+                body = json.dumps(beat).encode('utf-8')
+                req = urllib.request.Request(url, data=body, method='POST', headers={
+                    'Content-Type': 'application/json', 'Authorization': 'Bearer ' + args.token, 'User-Agent': 'KhabzoOfficeScanner/' + VERSION})
+                try:
+                    with urllib.request.urlopen(req, timeout=30) as r:
+                        msg += ' | sent: ' + r.read().decode('utf-8', 'ignore')[:120]
+                except urllib.error.HTTPError as e:
+                    msg += ' | SEND FAILED (HTTP %d): %s' % (e.code, e.read().decode('utf-8', 'ignore')[:150])
+                except Exception as e:
+                    msg += ' | SEND FAILED: %s' % e
+            print(msg)
+            n += 1
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:  # one bad round must not stop the monitor
+            print('%s  round failed: %s' % (datetime.now().strftime('%H:%M:%S'), e))
+        time.sleep(max(5, args.every - (time.time() - t0)))
+
+
 # ---------------------------------------------------------------- output
 def print_report(result):
     devs = result['devices']
@@ -464,8 +676,21 @@ def main():
     ap.add_argument('--token', default=os.environ.get('OFFICE_SCAN_TOKEN'), help='same value as OFFICE_SCAN_TOKEN on the site')
     ap.add_argument('--out', default='office_scan.json', help='file to save the result (default office_scan.json)')
     ap.add_argument('--yes', action='store_true', help='do not ask for confirmation')
+    ap.add_argument('--monitor', action='store_true', help='keep running: every few minutes tell the site who is online (V59)')
+    ap.add_argument('--every', type=int, default=300, metavar='SECONDS', help='monitor: seconds between checks (60-3600, default 300)')
+    ap.add_argument('--heartbeat', metavar='URL', help='monitor: https://YOUR-SITE/office/heartbeat (default: made from --upload)')
+    ap.add_argument('--dhcp-check', action='store_true', help='monitor: also look for a second DHCP server (needs administrator / sudo)')
+    ap.add_argument('--dhcp-every', type=int, default=12, metavar='N', help='monitor: DHCP check once every N rounds (default 12 = hourly)')
     ap.add_argument('--demo', action='store_true', help='make a made-up list (no scanning) to preview the admin page')
     args = ap.parse_args()
+    args.every = min(3600, max(60, args.every))
+
+    if args.monitor:
+        try:
+            monitor(args)
+        except KeyboardInterrupt:
+            print('\nMonitor stopped.')
+        return
 
     if args.demo:
         result = demo(args.site)

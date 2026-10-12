@@ -3,6 +3,7 @@
 //   adminRouter   -> CSRF ke BAAD (admin ke forms)
 const express = require('express');
 const L = require('../lib/office');
+const M = require('../lib/officemon'); // V59 monitor
 
 const ingestRouter = express.Router();
 const adminRouter = express.Router();
@@ -19,7 +20,7 @@ const safe = (handler, json = false) => async (req, res, next) => {
   try { await handler(req, res, next); } catch (err) {
     console.error('[office]', err);
     if (err.code === '42P01') {
-      const m = 'The office tables are not ready yet (run migration_v58.sql).';
+      const m = 'The office tables are not ready yet (run migration_v58.sql and migration_v59.sql).';
       return json ? res.status(503).json({ error: m }) : res.status(503).render('404', { code: 503, title: 'Office devices are being set up', message: m });
     }
     json ? res.status(500).json({ error: 'Server error' }) : res.status(500).send('Server error');
@@ -34,6 +35,16 @@ ingestRouter.post('/office/ingest', safe(async (req, res) => {
   if (clean.error) return res.status(400).json({ error: clean.error });
   const id = await L.saveScan(clean, 'upload');
   res.json({ ok: true, scan: id, devices: clean.devices.length });
+}, true));
+
+// ---------- monitor -> site: "abhi kaun kaun zinda hai" (har 5 minute; token se pehchaan, CSRF se pehle) ----------
+ingestRouter.post('/office/heartbeat', safe(async (req, res) => {
+  if (!process.env.OFFICE_SCAN_TOKEN) return res.status(503).json({ error: 'Upload is off: set OFFICE_SCAN_TOKEN on the server (16+ characters).' });
+  if (!L.tokenOk(req.get('authorization'))) return res.status(401).json({ error: 'Wrong token.' });
+  const beat = M.cleanBeat(req.body);
+  if (beat.error) return res.status(400).json({ error: beat.error });
+  const r = await M.processBeat(beat);
+  res.json({ ok: true, ...r });
 }, true));
 
 // ---------- admin: file import (browser file ko JSON bana kar bhejta hai) ----------
@@ -65,7 +76,20 @@ async function loadView(req) {
   const history = (await pool.query(
     'SELECT id, scanned_at, device_count, source FROM office_scans WHERE site = $1 ORDER BY scanned_at DESC, id DESC LIMIT 15', [data.scan.site])).rows;
   const cmp = await L.compareWithPrevious(data.scan, data.devices);
-  return { sites, data, history, cmp, counts: L.counts(data.devices) };
+  let H = { monitor: null, status: new Map(), unknown: [], stats: new Map(), issues: [] };
+  try { H = await M.healthData(data.scan.site); } catch (err) { if (err.code !== '42P01') throw err; } // migration_v59 na chali ho to baqi page chalta rahe
+  const health = new Map(data.devices.map((d) => [d.key, M.healthOf(d, H.status.get(d.key), H.monitor)]));
+  const risks = new Map(data.devices.map((d) => [d.key, M.risksFor(d)]));
+  const riskList = [];
+  data.devices.forEach((d) => (risks.get(d.key) || []).forEach((r) => riskList.push({ d, ...r })));
+  const rank = { high: 0, medium: 1, info: 2 };
+  riskList.sort((a, b) => rank[a.sev] - rank[b.sev]);
+  // pichle 24 ghante: kis ne kitni baar drop kiya
+  const report = data.devices
+    .filter((d) => d.final_type !== 'phone' && H.stats.get(d.key) && (H.stats.get(d.key).drops > 0 || (H.stats.get(d.key).uptime !== null && H.stats.get(d.key).uptime < 99)))
+    .map((d) => ({ d, s: H.stats.get(d.key) }))
+    .sort((a, b) => b.s.drops - a.s.drops || (a.s.uptime || 0) - (b.s.uptime || 0));
+  return { sites, data, history, cmp, counts: L.counts(data.devices), H, health, risks, riskList, report };
 }
 
 adminRouter.get('/admin/office', requireAdmin, safe(async (req, res) => {
@@ -77,7 +101,7 @@ adminRouter.get('/admin/office', requireAdmin, safe(async (req, res) => {
   if (q) shown = shown.filter((d) => [d.ip, d.mac, d.vendor, d.final_name, d.location, d.note, d.hostname].join(' ').toLowerCase().includes(q));
   res.render('admin-office', {
     title: 'Office devices', robots: 'noindex,nofollow', L, ...v, shown, typeFilter, q,
-    flash: req.query.ok || null, err: req.query.err || null, tokenSet: !!process.env.OFFICE_SCAN_TOKEN,
+    flash: req.query.ok || null, err: req.query.err || null, tokenSet: !!process.env.OFFICE_SCAN_TOKEN, alertsOn: M.alertsOn(),
   });
 }));
 
@@ -87,6 +111,22 @@ adminRouter.post('/admin/office/device', requireAdmin, safe(async (req, res) => 
   const back = `/admin/office?scan=${/^\d{1,9}$/.test(req.body.scan || '') ? req.body.scan : ''}`;
   const ok = site && await L.saveAsset(site, String(req.body.key || ''), req.body);
   res.redirect(back + (ok ? '&ok=' + encodeURIComponent('Saved.') : '&err=' + encodeURIComponent('Could not save that device.')));
+}));
+
+// "Ye device mera hai": anjaan devices ki list se hata do
+adminRouter.post('/admin/office/known', requireAdmin, safe(async (req, res) => {
+  const site = L.oneLine(req.body.site, 80);
+  const key = String(req.body.key || '');
+  if (site && /^(mac:([0-9a-f]{2}:){5}[0-9a-f]{2}|ip:\d{1,3}(\.\d{1,3}){3})$/.test(key)) {
+    await require('../db').query('UPDATE office_status SET marked_known = TRUE WHERE site = $1 AND dev_key = $2', [site, key]);
+  }
+  res.redirect('/admin/office?scan=' + (/^\d{1,9}$/.test(req.body.scan || '') ? req.body.scan : '') + '&ok=' + encodeURIComponent('Marked as known.'));
+}));
+
+adminRouter.post('/admin/office/test-alert', requireAdmin, safe(async (req, res) => {
+  if (!M.alertsOn()) return res.redirect('/admin/office?err=' + encodeURIComponent('Alerts are off: set OFFICE_TELEGRAM_CHAT_ID (a private chat, not the public channel) and TELEGRAM_BOT_TOKEN on the server.'));
+  const ok = await M.sendAlert('✅ Test message from the Khabzo office monitor. Alerts are working.');
+  res.redirect('/admin/office?' + (ok ? 'ok=' + encodeURIComponent('Test message sent.') : 'err=' + encodeURIComponent('Telegram did not accept the message. Check the bot token and that the bot is allowed to message that chat.')));
 }));
 
 adminRouter.post('/admin/office/scan/:id/delete', requireAdmin, safe(async (req, res) => {
