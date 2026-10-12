@@ -1,128 +1,1019 @@
-<%- include('partials/header') %>
+<%- include('partials/header', {
+  title: 'Ludo Royale — Play Ludo Online with Friends | Free Multiplayer Board Game',
+  description: 'Play Ludo online free with friends on different phones. Create a private room, share the code, or join an open table. Real-time multiplayer, bots fill empty seats, live leaderboard.',
+  keywords: 'ludo online, play ludo with friends, free ludo game, multiplayer ludo, ludo board game, online ludo room, ludo royale, ludo with bots',
+  ogType: 'website',
+  ogImage: '/img/ludo-og.jpg',
+  canonical: 'https://yourdomain.com/ludo'
+}) %>
+
+<!-- ================= SEO: STRUCTURED DATA ================= -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebPage",
+      "@id": "https://yourdomain.com/ludo#webpage",
+      "url": "https://yourdomain.com/ludo",
+      "name": "Ludo Royale — Play Ludo Online with Friends",
+      "description": "Play Ludo online free with friends. Real-time multiplayer, private rooms, bots, and leaderboard.",
+      "inLanguage": "en",
+      "isPartOf": { "@id": "https://yourdomain.com#website" }
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://yourdomain.com/" },
+        { "@type": "ListItem", "position": 2, "name": "Ludo", "item": "https://yourdomain.com/ludo" }
+      ]
+    },
+    {
+      "@type": "VideoGame",
+      "name": "Ludo Royale",
+      "description": "Online multiplayer Ludo with friends. Create private rooms or join open tables.",
+      "genre": ["Board Game", "Multiplayer", "Strategy"],
+      "gamePlatform": ["Web Browser", "Mobile Web"],
+      "playMode": ["MultiPlayer", "CoOp"],
+      "numberOfPlayers": { "@type": "QuantitativeValue", "minValue": 2, "maxValue": 4 },
+      "applicationCategory": "Game",
+      "operatingSystem": "Any",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I play Ludo online with friends?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Create a room, share the 5-letter code with your friends on WhatsApp, and start playing. Empty seats are filled with bots automatically."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How many players can play Ludo together?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Ludo Royale supports 2, 3, or 4 players in a single room. Bots can fill empty seats so you can start right away."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Is Ludo Royale free to play?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes, Ludo Royale is completely free to play online with friends on different phones."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "What happens if a player leaves the game?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "If a player misses 3 turns in a row, a bot automatically takes over their seat so the game continues smoothly."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+
 <style>
-  .ld { font-family: var(--kz-sans); }
-  .ld h1, .ld h2 { font-family: var(--kz-serif); letter-spacing: -.01em; }
-  .ld-hero { background: linear-gradient(135deg, #7f1d1d 0%, #c8102e 30%, #f4b400 62%, #2a9d4a 82%, #1d6fe0 100%); color: #fff; border-radius: 18px; padding: clamp(20px, 4vw, 36px); position: relative; overflow: hidden; }
-  .ld-hero::after { content: "🎲"; position: absolute; right: 18px; top: 2px; font-size: clamp(70px, 14vw, 130px); opacity: .22; transform: rotate(14deg); }
-  .ld-hero h1 { font-weight: 800; font-size: clamp(26px, 5vw, 40px); margin: 0 0 6px; text-shadow: 0 2px 10px rgba(0,0,0,.25); }
-  .ld-hero p { margin: 0; max-width: 60ch; text-shadow: 0 1px 6px rgba(0,0,0,.3); }
-  .ld-card { background: var(--kz-paper); border: 1px solid var(--kz-line); border-radius: 14px; padding: 16px; height: 100%; }
-  .ld-card h2 { font: 800 20px var(--kz-serif); margin: 0 0 12px; }
-  .ld-btn { display: inline-block; border: 0; border-radius: 10px; padding: 9px 16px; font: 700 14px var(--kz-sans); background: #c8102e; color: #fff; text-decoration: none; cursor: pointer; }
-  .ld-btn:hover { filter: brightness(1.08); color: #fff; }
-  .ld-btn.alt { background: var(--bs-secondary-bg); color: var(--bs-body-color); }
-  .ld-opts { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-  .ld-opts label { cursor: pointer; }
+  :root {
+    --ld-red: #e11d48;
+    --ld-red-dark: #7f1d1d;
+    --ld-rose: #fb7185;
+    --ld-gold: #fbbf24;
+    --ld-amber: #f59e0b;
+    --ld-green: #22c55e;
+    --ld-blue: #3b82f6;
+    --ld-purple: #8b5cf6;
+    --ld-cyan: #06b6d4;
+    --ld-ink: #0f0f1a;
+    --ld-ink-2: #1a1a2e;
+  }
+
+  /* Dark mode support */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ld-ink: #0a0a12;
+    }
+  }
+
+  /* ================= BASE ================= */
+  .ld {
+    font-family: var(--kz-sans);
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    min-height: 100vh;
+  }
+
+  /* Aurora blobs */
+  .ld-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .ld-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(100px);
+    opacity: .35;
+    will-change: transform;
+  }
+  .ld-blob.b1 {
+    width: 520px; height: 520px;
+    background: radial-gradient(circle, #e11d48, transparent 70%);
+    top: -160px; left: -160px;
+    animation: ldFloat 16s ease-in-out infinite;
+  }
+  .ld-blob.b2 {
+    width: 560px; height: 560px;
+    background: radial-gradient(circle, #3b82f6, transparent 70%);
+    top: 20%; right: -200px;
+    animation: ldFloat 20s ease-in-out infinite reverse;
+  }
+  .ld-blob.b3 {
+    width: 480px; height: 480px;
+    background: radial-gradient(circle, #fbbf24, transparent 70%);
+    bottom: -180px; left: 30%;
+    animation: ldFloat 24s ease-in-out infinite;
+    opacity: .22;
+  }
+
+  @keyframes ldFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%      { transform: translate(50px, 40px) scale(1.12); }
+    66%      { transform: translate(-40px, 30px) scale(.94); }
+  }
+
+  /* Grain overlay */
+  .ld-grain {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    opacity: .04;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .ld h1, .ld h2, .ld h3 { font-family: var(--kz-serif); letter-spacing: -.02em; }
+
+  /* ================= HERO ================= */
+  .ld-hero {
+    position: relative;
+    border-radius: 30px;
+    padding: clamp(30px, 5vw, 64px);
+    color: #fff;
+    overflow: hidden;
+    isolation: isolate;
+    background: linear-gradient(120deg,
+      #7f1d1d 0%, #e11d48 25%, #fbbf24 50%, #22c55e 72%, #3b82f6 100%);
+    background-size: 400% 400%;
+    animation: ldGradient 16s ease infinite;
+    box-shadow:
+      0 40px 80px -30px rgba(225,29,72,.65),
+      0 0 0 1px rgba(255,255,255,.08) inset,
+      0 0 120px -30px rgba(225,29,72,.6);
+  }
+  @keyframes ldGradient {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+  }
+
+  .ld-hero::before {
+    content: "";
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(circle at 85% 15%, rgba(255,255,255,.32), transparent 45%),
+      radial-gradient(circle at 15% 85%, rgba(255,255,255,.16), transparent 50%);
+    z-index: -1;
+  }
+
+  /* Rotating conic border glow */
+  .ld-hero::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: conic-gradient(from 0deg,
+      rgba(255,255,255,0) 0deg,
+      rgba(255,255,255,.5) 90deg,
+      rgba(255,255,255,0) 180deg,
+      rgba(255,255,255,.5) 270deg,
+      rgba(255,255,255,0) 360deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: ldRotate 8s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+  }
+  @keyframes ldRotate { to { transform: rotate(360deg); } }
+
+  /* Floating dice */
+  .ld-dice {
+    position: absolute;
+    pointer-events: none;
+    filter: drop-shadow(0 10px 30px rgba(0,0,0,.5));
+    will-change: transform;
+  }
+  .ld-dice svg { width: 100%; height: 100%; display: block; }
+  .ld-dice.d1 { width: clamp(70px, 12vw, 130px); top: -10px; right: 24px; animation: ldSpin1 18s linear infinite; }
+  .ld-dice.d2 { width: clamp(48px, 8vw, 84px); bottom: -20px; right: 42%; opacity: .5; animation: ldSpin2 22s linear infinite reverse; }
+  .ld-dice.d3 { width: clamp(34px, 6vw, 60px); top: 32%; right: 6%; opacity: .4; animation: ldSpin1 26s linear infinite; }
+  .ld-dice.d4 { width: clamp(38px, 7vw, 68px); bottom: 12%; right: 22%; opacity: .35; animation: ldSpin2 20s linear infinite; }
+
+  @keyframes ldSpin1 {
+    0%   { transform: rotate(0deg) translateY(0) scale(1); }
+    50%  { transform: rotate(180deg) translateY(-14px) scale(1.05); }
+    100% { transform: rotate(360deg) translateY(0) scale(1); }
+  }
+  @keyframes ldSpin2 {
+    0%   { transform: rotate(0deg) translateX(0); }
+    50%  { transform: rotate(-180deg) translateX(-16px); }
+    100% { transform: rotate(-360deg) translateX(0); }
+  }
+
+  /* Particles */
+  .ld-particles {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .ld-particles span {
+    position: absolute;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: rgba(255,255,255,.7);
+    box-shadow: 0 0 8px rgba(255,255,255,.9);
+    animation: ldRise linear infinite;
+  }
+  @keyframes ldRise {
+    from { transform: translateY(100%) scale(0); opacity: 0; }
+    20%  { opacity: 1; }
+    to   { transform: translateY(-120%) scale(1); opacity: 0; }
+  }
+
+  .ld-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,.16);
+    border: 1px solid rgba(255,255,255,.38);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    padding: 7px 15px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    margin-bottom: 18px;
+    box-shadow: 0 4px 24px -6px rgba(0,0,0,.4);
+    position: relative;
+    z-index: 2;
+  }
+  .ld-badge .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 12px #22c55e, 0 0 20px #22c55e;
+    animation: ldPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes ldPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%      { transform: scale(1.5); opacity: .65; }
+  }
+
+  .ld-hero h1 {
+    font-weight: 900;
+    font-size: clamp(36px, 6.5vw, 68px);
+    margin: 0 0 12px;
+    line-height: .98;
+    letter-spacing: -.035em;
+    text-shadow: 0 6px 32px rgba(0,0,0,.4);
+    position: relative;
+    z-index: 2;
+  }
+  .ld-hero h1 span {
+    background: linear-gradient(120deg, #fff 30%, #fef3c7 60%, #fff 90%);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: ldShimmer 4s ease-in-out infinite;
+  }
+  @keyframes ldShimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50%      { background-position: 100% 50%; }
+  }
+
+  .ld-hero p {
+    margin: 0;
+    max-width: 62ch;
+    font-size: clamp(15px, 1.8vw, 18px);
+    line-height: 1.55;
+    text-shadow: 0 2px 8px rgba(0,0,0,.4);
+    opacity: .97;
+    position: relative;
+    z-index: 2;
+  }
+  .ld-hero-cta {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-top: 26px;
+    position: relative;
+    z-index: 2;
+  }
+
+  /* ================= CARDS ================= */
+  .ld-card {
+    position: relative;
+    background: color-mix(in srgb, var(--kz-paper) 88%, transparent);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid var(--kz-line);
+    border-radius: 24px;
+    padding: 24px;
+    height: 100%;
+    overflow: hidden;
+    box-shadow:
+      0 16px 48px -28px rgba(0,0,0,.55),
+      0 1px 0 rgba(255,255,255,.6) inset;
+    transition: transform .35s cubic-bezier(.2,.9,.3,1.4),
+                box-shadow .35s ease,
+                border-color .35s ease;
+    animation: ldFadeUp .6s ease backwards;
+  }
+
+  /* Spotlight hover effect */
+  .ld-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(225,29,72,.45), rgba(251,191,36,.3), rgba(59,130,246,.4), rgba(139,92,246,.4));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity .3s ease;
+    pointer-events: none;
+  }
+  .ld-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(300px circle at var(--mx, 50%) var(--my, 50%),
+      rgba(225,29,72,.10), transparent 60%);
+    opacity: 0;
+    transition: opacity .3s ease;
+    pointer-events: none;
+  }
+  .ld-card:hover {
+    transform: translateY(-6px);
+    box-shadow:
+      0 32px 70px -30px rgba(225,29,72,.5),
+      0 1px 0 rgba(255,255,255,.6) inset;
+  }
+  .ld-card:hover::before,
+  .ld-card:hover::after { opacity: 1; }
+
+  .ld-card h2 {
+    font: 800 20px var(--kz-serif);
+    margin: 0 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    letter-spacing: -.015em;
+  }
+  .ld-ico {
+    display: inline-grid;
+    place-items: center;
+    width: 36px; height: 36px;
+    border-radius: 12px;
+    font-size: 17px;
+    background: linear-gradient(135deg, rgba(225,29,72,.18), rgba(251,191,36,.24));
+    box-shadow: 0 6px 16px -8px rgba(225,29,72,.6), 0 0 0 1px rgba(225,29,72,.14) inset;
+    flex-shrink: 0;
+  }
+
+  /* ================= BUTTONS ================= */
+  .ld-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 0;
+    border-radius: 14px;
+    padding: 12px 22px;
+    font: 800 14px var(--kz-sans);
+    letter-spacing: .02em;
+    background: linear-gradient(135deg, #e11d48 0%, #be123c 55%, #7f1d1d 100%);
+    color: #fff !important;
+    text-decoration: none;
+    cursor: pointer;
+    overflow: hidden;
+    box-shadow:
+      0 12px 28px -12px rgba(225,29,72,.95),
+      0 0 0 1px rgba(255,255,255,.1) inset;
+    transition: transform .22s cubic-bezier(.2,.9,.3,1.5),
+                box-shadow .22s ease,
+                filter .22s ease;
+    white-space: nowrap;
+  }
+  .ld-btn::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,.45) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform .8s ease;
+  }
+  .ld-btn:hover {
+    transform: translateY(-3px) scale(1.02);
+    color: #fff !important;
+    filter: brightness(1.08);
+    box-shadow:
+      0 20px 44px -14px rgba(225,29,72,1),
+      0 0 0 1px rgba(255,255,255,.15) inset,
+      0 0 40px -8px rgba(225,29,72,.6);
+  }
+  .ld-btn:hover::before { transform: translateX(120%); }
+  .ld-btn:active { transform: translateY(0) scale(.98); }
+  .ld-btn:focus-visible {
+    outline: 3px solid rgba(225,29,72,.5);
+    outline-offset: 3px;
+  }
+
+  .ld-btn.alt {
+    background: var(--bs-secondary-bg);
+    color: var(--bs-body-color) !important;
+    box-shadow: 0 0 0 1px var(--kz-line) inset;
+  }
+  .ld-btn.alt:hover {
+    color: var(--bs-body-color) !important;
+    box-shadow: 0 0 0 1px rgba(225,29,72,.45) inset, 0 8px 20px -12px rgba(0,0,0,.4);
+  }
+  .ld-btn.alt::before { display: none; }
+
+  .ld-btn.ghost {
+    background: rgba(255,255,255,.14);
+    color: #fff !important;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.35) inset;
+    backdrop-filter: blur(10px);
+  }
+  .ld-btn.ghost:hover {
+    background: rgba(255,255,255,.22);
+    box-shadow: 0 0 0 1px rgba(255,255,255,.55) inset, 0 12px 28px -14px rgba(0,0,0,.5);
+  }
+  .ld-btn.ghost::before { display: none; }
+
+  /* ================= PLAYER PICKER ================= */
+  .ld-opts {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+  .ld-opts label { cursor: pointer; flex: 1; position: relative; }
   .ld-opts input { position: absolute; opacity: 0; pointer-events: none; }
-  .ld-opts span { display: block; padding: 8px 16px; border-radius: 10px; border: 2px solid var(--kz-line); font-weight: 700; }
-  .ld-opts input:checked + span { border-color: #c8102e; background: rgba(200,16,46,.09); }
-  .ld-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--kz-line); }
+  .ld-opts span {
+    display: block;
+    text-align: center;
+    padding: 15px 0;
+    border-radius: 15px;
+    border: 2px solid var(--kz-line);
+    font-weight: 900;
+    font-size: 20px;
+    background: var(--kz-paper);
+    transition: all .25s cubic-bezier(.2,.9,.3,1.5);
+    position: relative;
+    overflow: hidden;
+  }
+  .ld-opts span::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(225,29,72,.18), rgba(251,191,36,.18));
+    opacity: 0;
+    transition: opacity .25s ease;
+  }
+  .ld-opts label:hover span {
+    border-color: rgba(225,29,72,.6);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px -14px rgba(225,29,72,.6);
+  }
+  .ld-opts input:checked + span {
+    border-color: #e11d48;
+    color: #7f1d1d;
+    transform: translateY(-3px) scale(1.03);
+    box-shadow:
+      0 14px 30px -12px rgba(225,29,72,.85),
+      0 0 0 4px rgba(225,29,72,.14);
+  }
+  .ld-opts input:checked + span::before { opacity: 1; }
+  .ld-opts input:focus-visible + span {
+    outline: 3px solid rgba(225,29,72,.45);
+    outline-offset: 3px;
+  }
+
+  /* ================= ROWS ================= */
+  .ld-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 0;
+    border-bottom: 1px dashed var(--kz-line);
+    transition: background .18s ease, padding .18s ease;
+    border-radius: 10px;
+  }
   .ld-row:last-child { border-bottom: 0; }
+  .ld-row:hover {
+    background: rgba(225,29,72,.05);
+    padding-left: 10px;
+    padding-right: 10px;
+  }
   .ld-row small { color: var(--kz-muted); }
-  .ld-code { font: 800 15px/1 monospace; letter-spacing: .12em; background: var(--bs-secondary-bg); padding: 5px 8px; border-radius: 8px; }
-  .ld-msg { border-radius: 10px; padding: 10px 14px; margin: 14px 0 0; background: #dcfce7; color: #166534; font-weight: 600; }
-  .ld-msg.err { background: #fee2e2; color: #991b1b; }
-  .ld input[type=text] { text-transform: uppercase; letter-spacing: .15em; font-weight: 700; }
+
+  .ld-code {
+    display: inline-block;
+    font: 900 15px/1 ui-monospace, "SF Mono", monospace;
+    letter-spacing: .18em;
+    background: linear-gradient(135deg, rgba(225,29,72,.16), rgba(251,191,36,.2));
+    color: #7f1d1d;
+    padding: 8px 13px;
+    border-radius: 11px;
+    border: 1px solid rgba(225,29,72,.3);
+    box-shadow: 0 6px 16px -8px rgba(225,29,72,.5);
+  }
+
+  /* ================= ALERTS ================= */
+  .ld-msg {
+    border-radius: 16px;
+    padding: 15px 20px;
+    margin-top: 18px;
+    background: linear-gradient(135deg, #dcfce7, #bbf7d0);
+    color: #14532d;
+    font-weight: 700;
+    border: 1px solid #86efac;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    box-shadow: 0 10px 30px -14px rgba(34,197,94,.7);
+    animation: ldSlideIn .4s cubic-bezier(.2,.9,.3,1.4);
+  }
+  .ld-msg.err {
+    background: linear-gradient(135deg, #fee2e2, #fecaca);
+    color: #7f1d1d;
+    border-color: #fca5a5;
+    box-shadow: 0 10px 30px -14px rgba(225,29,72,.7);
+  }
+  @keyframes ldSlideIn {
+    from { opacity: 0; transform: translateY(-10px) scale(.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+
+  /* ================= INPUT ================= */
+  .ld input[type=text] {
+    text-transform: uppercase;
+    letter-spacing: .22em;
+    font-weight: 900;
+    text-align: center;
+    font-family: ui-monospace, monospace;
+    font-size: 16px;
+    border-radius: 14px;
+    border: 2px solid var(--kz-line);
+    padding: 12px 18px;
+    background: var(--kz-paper);
+    transition: all .25s ease;
+  }
+  .ld input[type=text]::placeholder {
+    color: var(--kz-muted);
+    letter-spacing: .32em;
+    font-weight: 700;
+    opacity: .5;
+  }
+  .ld input[type=text]:focus {
+    border-color: #e11d48;
+    box-shadow:
+      0 0 0 5px rgba(225,29,72,.16),
+      0 12px 30px -14px rgba(225,29,72,.6);
+    outline: none;
+    transform: translateY(-2px);
+  }
+
+  /* ================= STEPS ================= */
+  .ld-steps {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 16px;
+  }
+  .ld-step {
+    position: relative;
+    display: flex;
+    gap: 14px;
+    padding: 18px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, var(--bs-secondary-bg), transparent);
+    border: 1px solid var(--kz-line);
+    overflow: hidden;
+    transition: transform .28s cubic-bezier(.2,.9,.3,1.4),
+                border-color .28s ease,
+                box-shadow .28s ease;
+  }
+  .ld-step::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 3px;
+    background: linear-gradient(90deg, #e11d48, #fbbf24, #22c55e, #3b82f6);
+    background-size: 300% 100%;
+    animation: ldGradient 6s ease infinite;
+    opacity: 0;
+    transition: opacity .3s ease;
+  }
+  .ld-step:hover {
+    transform: translateY(-4px);
+    border-color: rgba(225,29,72,.4);
+    box-shadow: 0 20px 40px -22px rgba(225,29,72,.55);
+  }
+  .ld-step:hover::before { opacity: 1; }
+  .ld-step-num {
+    flex: 0 0 40px;
+    height: 40px;
+    display: grid;
+    place-items: center;
+    border-radius: 13px;
+    background: linear-gradient(135deg, #e11d48, #7f1d1d);
+    color: #fff;
+    font-weight: 900;
+    font-size: 17px;
+    box-shadow: 0 10px 24px -10px rgba(225,29,72,.95);
+  }
+  .ld-step p { margin: 0; font-size: 14px; line-height: 1.55; }
+
+  /* ================= LEADERBOARD ================= */
+  .ld-rank {
+    display: grid;
+    place-items: center;
+    width: 40px; height: 40px;
+    border-radius: 13px;
+    font-weight: 900;
+    font-size: 15px;
+    background: var(--bs-secondary-bg);
+    border: 1px solid var(--kz-line);
+    flex-shrink: 0;
+    transition: transform .25s cubic-bezier(.2,.9,.3,1.5);
+  }
+  .ld-row:hover .ld-rank { transform: scale(1.1) rotate(-4deg); }
+  .ld-rank.gold {
+    background: linear-gradient(135deg, #fde68a, #f59e0b);
+    color: #7c2d12;
+    border-color: transparent;
+    box-shadow: 0 10px 26px -10px rgba(245,158,11,1), 0 0 30px -8px rgba(245,158,11,.7);
+  }
+  .ld-rank.silver {
+    background: linear-gradient(135deg, #e2e8f0, #94a3b8);
+    color: #1e293b;
+    border-color: transparent;
+    box-shadow: 0 10px 26px -10px rgba(148,163,184,1);
+  }
+  .ld-rank.bronze {
+    background: linear-gradient(135deg, #fdba74, #c2410c);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 10px 26px -10px rgba(194,65,12,1);
+  }
+  .ld-wins {
+    font: 900 19px var(--kz-sans);
+    background: linear-gradient(135deg, #e11d48, #f59e0b);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  /* ================= EMPTY ================= */
+  .ld-empty { text-align: center; padding: 34px 16px; }
+  .ld-empty .emoji {
+    font-size: 54px;
+    display: block;
+    margin-bottom: 10px;
+    filter: grayscale(.15);
+    animation: ldBob 3.2s ease-in-out infinite;
+  }
+  @keyframes ldBob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-8px); }
+  }
+
+  .ld-label {
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--kz-muted);
+    margin-bottom: 10px;
+  }
+
+  /* Entrance stagger */
+  .row > div:nth-child(1) .ld-card { animation-delay: .05s; }
+  .row > div:nth-child(2) .ld-card { animation-delay: .12s; }
+  .row > div:nth-child(3) .ld-card { animation-delay: .19s; }
+  .row > div:nth-child(4) .ld-card { animation-delay: .26s; }
+  .row > div:nth-child(5) .ld-card { animation-delay: .33s; }
+
+  @keyframes ldFadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .ld-hero, .ld-hero::after, .ld-dice, .ld-blob, .ld-badge .dot,
+    .ld-card, .ld-btn, .ld-opts span, .ld-step::before, .ld-empty .emoji,
+    .ld-hero h1 span { animation: none !important; transition: none !important; }
+    .ld-btn::before { display: none; }
+  }
 </style>
-<div class="ld">
-  <div class="ld-hero">
-    <h1>Ludo</h1>
-    <p>Play Ludo with friends on different phones. Make a room, send the code on WhatsApp, and start. Empty seats can be filled with bots.</p>
-  </div>
 
-  <% if (locals.err) { %><div class="ld-msg err"><%= err %></div><% } %>
-  <% if (locals.ok) { %><div class="ld-msg"><%= ok %></div><% } %>
+<!-- ================= BACKGROUND LAYERS ================= -->
+<div class="ld-bg" aria-hidden="true">
+  <div class="ld-blob b1"></div>
+  <div class="ld-blob b2"></div>
+  <div class="ld-blob b3"></div>
+</div>
+<div class="ld-grain" aria-hidden="true"></div>
 
-  <div class="row g-3 mt-1">
-    <div class="col-lg-6">
-      <div class="ld-card">
-        <h2>Create a room</h2>
-        <% if (user) { %>
-          <form method="post" action="/ludo/new">
-            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <div class="small fw-semibold mb-1">Players</div>
-            <div class="ld-opts">
-              <label><input type="radio" name="max" value="2"><span>2</span></label>
-              <label><input type="radio" name="max" value="3"><span>3</span></label>
-              <label><input type="radio" name="max" value="4" checked><span>4</span></label>
-            </div>
-            <div class="form-check mb-3">
-              <input class="form-check-input" type="checkbox" name="visibility" value="public" id="ldPub">
-              <label class="form-check-label" for="ldPub">Show this room in the open rooms list (anyone can join)</label>
-            </div>
-            <button class="ld-btn" type="submit">Create room</button>
-          </form>
-        <% } else { %>
-          <p class="mb-3">Log in to play.</p>
-          <a class="ld-btn" href="/login">Log in</a>
-        <% } %>
-      </div>
+<main class="ld container py-4 py-lg-5" itemscope itemtype="https://schema.org/WebPage">
+
+  <!-- ================= HERO ================= -->
+  <section class="ld-hero mb-4 mb-lg-5" aria-labelledby="ld-title">
+    <!-- Particles -->
+    <div class="ld-particles" aria-hidden="true">
+      <span style="left:8%;  animation-duration:9s;  animation-delay:0s;"></span>
+      <span style="left:22%; animation-duration:12s; animation-delay:2s;"></span>
+      <span style="left:38%; animation-duration:10s; animation-delay:4s;"></span>
+      <span style="left:55%; animation-duration:13s; animation-delay:1s;"></span>
+      <span style="left:72%; animation-duration:11s; animation-delay:3s;"></span>
+      <span style="left:88%; animation-duration:14s; animation-delay:5s;"></span>
     </div>
 
-    <div class="col-lg-6">
-      <div class="ld-card">
-        <h2>Join with a code</h2>
+    <!-- SVG Dice -->
+    <span class="ld-dice d1" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="4" width="56" height="56" rx="12" fill="#fff" stroke="#0f0f1a" stroke-width="3"/>
+        <circle cx="20" cy="20" r="5" fill="#0f0f1a"/>
+        <circle cx="44" cy="20" r="5" fill="#0f0f1a"/>
+        <circle cx="20" cy="44" r="5" fill="#0f0f1a"/>
+        <circle cx="44" cy="44" r="5" fill="#0f0f1a"/>
+      </svg>
+    </span>
+    <span class="ld-dice d2" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="4" width="56" height="56" rx="12" fill="#fbbf24" stroke="#0f0f1a" stroke-width="3"/>
+        <circle cx="20" cy="20" r="5" fill="#0f0f1a"/>
+        <circle cx="32" cy="32" r="5" fill="#0f0f1a"/>
+        <circle cx="44" cy="44" r="5" fill="#0f0f1a"/>
+      </svg>
+    </span>
+    <span class="ld-dice d3" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="4" width="56" height="56" rx="12" fill="#22c55e" stroke="#0f0f1a" stroke-width="3"/>
+        <circle cx="32" cy="32" r="5" fill="#0f0f1a"/>
+      </svg>
+    </span>
+    <span class="ld-dice d4" aria-hidden="true">
+      <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="4" y="4" width="56" height="56" rx="12" fill="#3b82f6" stroke="#0f0f1a" stroke-width="3"/>
+        <circle cx="20" cy="20" r="5" fill="#fff"/>
+        <circle cx="32" cy="32" r="5" fill="#fff"/>
+        <circle cx="44" cy="44" r="5" fill="#fff"/>
+      </svg>
+    </span>
+
+    <span class="ld-badge"><span class="dot" aria-hidden="true"></span> Live • Multiplayer</span>
+    <h1 id="ld-title"><span>Ludo Royale</span></h1>
+    <p itemprop="description">Play Ludo online with friends on different phones. Create a room, share the code, and roll the dice. Empty seats auto-fill with bots — so the game never waits.</p>
+
+    <div class="ld-hero-cta">
+      <% if (user) { %>
+        <a href="#create" class="ld-btn">🎲 Create a room</a>
+        <a href="#join" class="ld-btn ghost">🔑 Join with code</a>
+      <% } else { %>
+        <a href="/login" class="ld-btn">🚀 Log in to play</a>
+      <% } %>
+    </div>
+  </section>
+
+  <!-- ================= ALERTS ================= -->
+  <% if (locals.err) { %>
+    <div class="ld-msg err" role="alert" aria-live="assertive">⚠️ <span><%= err %></span></div>
+  <% } %>
+  <% if (locals.ok) { %>
+    <div class="ld-msg" role="status" aria-live="polite">✅ <span><%= ok %></span></div>
+  <% } %>
+
+  <div class="row g-4 mt-2">
+
+    <!-- ================= CREATE ROOM ================= -->
+    <div class="col-lg-6" id="create">
+      <article class="ld-card">
+        <h2><span class="ld-ico" aria-hidden="true">➕</span> Create a room</h2>
         <% if (user) { %>
-          <form method="post" action="/ludo/join" class="d-flex gap-2">
+          <form method="post" action="/ludo/new" novalidate>
             <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-            <input class="form-control" type="text" name="code" maxlength="8" placeholder="K7M2P" autocomplete="off" required>
+
+            <div class="ld-label" id="ldPlayersLabel">Players</div>
+            <div class="ld-opts" role="radiogroup" aria-labelledby="ldPlayersLabel">
+              <label><input type="radio" name="max" value="2" aria-label="2 players"><span>2</span></label>
+              <label><input type="radio" name="max" value="3" aria-label="3 players"><span>3</span></label>
+              <label><input type="radio" name="max" value="4" checked aria-label="4 players"><span>4</span></label>
+            </div>
+
+            <div class="form-check form-switch mb-4">
+              <input class="form-check-input" type="checkbox" name="visibility" value="public" id="ldPub" role="switch">
+              <label class="form-check-label ms-2 small fw-semibold" for="ldPub">
+                Show in open rooms list <span class="text-secondary">(anyone can join)</span>
+              </label>
+            </div>
+
+            <button class="ld-btn w-100" type="submit">🎲 Create room</button>
+          </form>
+        <% } else { %>
+          <p class="text-secondary mb-3">Log in to create a room and invite your friends.</p>
+          <a class="ld-btn" href="/login">Log in</a>
+        <% } %>
+      </article>
+    </div>
+
+    <!-- ================= JOIN + YOUR GAMES ================= -->
+    <div class="col-lg-6" id="join">
+      <article class="ld-card">
+        <h2><span class="ld-ico" aria-hidden="true">🔑</span> Join with a code</h2>
+        <% if (user) { %>
+          <form method="post" action="/ludo/join" class="d-flex gap-2" novalidate>
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <label class="visually-hidden" for="ldCode">Room code</label>
+            <input class="form-control" type="text" id="ldCode" name="code" maxlength="8" placeholder="K7M2P" autocomplete="off" required aria-required="true">
             <button class="ld-btn" type="submit">Join</button>
           </form>
         <% } else { %>
-          <p class="mb-0">Log in, then enter the 5-letter room code your friend sent you.</p>
+          <p class="text-secondary mb-0 small">Log in, then enter the 5-letter room code your friend sent you.</p>
         <% } %>
 
         <% if (mine.length) { %>
-          <h2 class="mt-4">Your games</h2>
-          <% mine.forEach(g => { %>
-            <div class="ld-row">
-              <div><span class="ld-code"><%= g.code %></span> <small class="ms-2"><%= g.status === 'playing' ? 'In progress' : 'Waiting (' + g.n + '/' + g.max_players + ')' %></small></div>
-              <a class="ld-btn" href="/ludo/<%= g.code %>"><%= g.status === 'playing' ? 'Continue' : 'Open' %></a>
-            </div>
-          <% }) %>
+          <h2 class="mt-4"><span class="ld-ico" aria-hidden="true">🎮</span> Your games</h2>
+          <ul class="list-unstyled mb-0">
+            <% mine.forEach(g => { %>
+              <li class="ld-row">
+                <div>
+                  <span class="ld-code"><%= g.code %></span>
+                  <small class="ms-2">
+                    <%= g.status === 'playing' ? 'In progress' : 'Waiting (' + g.n + '/' + g.max_players + ')' %>
+                  </small>
+                </div>
+                <a class="ld-btn" href="/ludo/<%= g.code %>" aria-label="Open room <%= g.code %>">
+                  <%= g.status === 'playing' ? '▶ Continue' : 'Open' %>
+                </a>
+              </li>
+            <% }) %>
+          </ul>
         <% } %>
-      </div>
+      </article>
     </div>
 
+    <!-- ================= OPEN ROOMS ================= -->
     <div class="col-lg-6">
-      <div class="ld-card">
-        <h2>Open rooms</h2>
+      <article class="ld-card">
+        <h2><span class="ld-ico" aria-hidden="true">🌐</span> Open rooms</h2>
         <% if (!open.length) { %>
-          <p class="mb-0 text-secondary">No open rooms right now. Create one and tick "open rooms list".</p>
-        <% } %>
-        <% open.forEach(g => { %>
-          <div class="ld-row">
-            <div><b><%= g.host %></b>'s room <small class="ms-1"><%= g.n %>/<%= g.max_players %> players</small></div>
-            <% if (user) { %><a class="ld-btn" href="/ludo/<%= g.code %>?join=1">Join</a><% } else { %><a class="ld-btn alt" href="/login">Log in</a><% } %>
+          <div class="ld-empty">
+            <span class="emoji" aria-hidden="true">📭</span>
+            <p class="mb-0 text-secondary small">No open rooms right now.<br>Create one and tick <b>"open rooms list"</b>.</p>
           </div>
-        <% }) %>
-      </div>
+        <% } %>
+        <ul class="list-unstyled mb-0">
+          <% open.forEach(g => { %>
+            <li class="ld-row">
+              <div>
+                <b><%= g.host %></b>'s room
+                <small class="ms-1"><%= g.n %>/<%= g.max_players %> players</small>
+              </div>
+              <% if (user) { %>
+                <a class="ld-btn" href="/ludo/<%= g.code %>?join=1">Join →</a>
+              <% } else { %>
+                <a class="ld-btn alt" href="/login">Log in</a>
+              <% } %>
+            </li>
+          <% }) %>
+        </ul>
+      </article>
     </div>
 
+    <!-- ================= TOP PLAYERS ================= -->
     <div class="col-lg-6">
-      <div class="ld-card">
-        <h2>Top players</h2>
+      <article class="ld-card">
+        <h2><span class="ld-ico" aria-hidden="true">🏆</span> Top players</h2>
         <% if (!top.length) { %>
-          <p class="mb-0 text-secondary">No finished games yet. Wins are counted in games with at least 2 real players.</p>
-        <% } %>
-        <% top.forEach((t, i) => { %>
-          <div class="ld-row">
-            <div><b><%= i + 1 %>.</b> <%= t.username %></div>
-            <div><b><%= t.won %></b> <small>wins / <%= t.played %> games</small></div>
+          <div class="ld-empty">
+            <span class="emoji" aria-hidden="true">🎖️</span>
+            <p class="mb-0 text-secondary small">No finished games yet.<br>Wins are counted in games with at least 2 real players.</p>
           </div>
-        <% }) %>
-      </div>
+        <% } %>
+        <ol class="list-unstyled mb-0">
+          <% top.forEach((t, i) => { %>
+            <li class="ld-row">
+              <div class="d-flex align-items-center gap-3">
+                <span class="ld-rank <%= i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '' %>" aria-hidden="true">
+                  <%= i + 1 %>
+                </span>
+                <b><%= t.username %></b>
+              </div>
+              <div class="text-end">
+                <span class="ld-wins"><%= t.won %></span>
+                <small class="d-block">wins / <%= t.played %> games</small>
+              </div>
+            </li>
+          <% }) %>
+        </ol>
+      </article>
     </div>
+
+    <!-- ================= HOW TO PLAY ================= -->
+    <div class="col-12">
+      <article class="ld-card">
+        <h2><span class="ld-ico" aria-hidden="true">📖</span> How to play Ludo</h2>
+        <div class="ld-steps">
+          <div class="ld-step">
+            <div class="ld-step-num" aria-hidden="true">1</div>
+            <p>Roll a <b>6</b> to bring a token out. A 6 (or a capture, or reaching home) gives you another roll. Three 6s in a row cancel your turn.</p>
+          </div>
+          <div class="ld-step">
+            <div class="ld-step-num" aria-hidden="true">2</div>
+            <p>Move clockwise. Land on an opponent's token to send it home — unless it's on a <b>safe cell</b> (coloured starts and ★ cells).</p>
+          </div>
+          <div class="ld-step">
+            <div class="ld-step-num" aria-hidden="true">3</div>
+            <p>You need the <b>exact number</b> to reach the centre. First to bring all 4 tokens home wins.</p>
+          </div>
+          <div class="ld-step">
+            <div class="ld-step-num" aria-hidden="true">4</div>
+            <p><b>30 seconds</b> per move. Skip 3 turns and a bot takes over your seat automatically.</p>
+          </div>
+        </div>
+      </article>
+    </div>
+
   </div>
 
-  <div class="ld-card mt-3">
-    <h2>How to play</h2>
-    <ul class="mb-0">
-      <li>Roll a <b>6</b> to bring a token out. A 6 (or a capture, or reaching home) gives you another roll. Three 6s in a row cancel your turn.</li>
-      <li>Move clockwise around the board. Land on an opponent's token to send it back to its yard, unless it stands on a <b>safe cell</b> (the coloured start cells and the ★ cells).</li>
-      <li>You need the exact number to reach the centre. The first player to bring all 4 tokens home wins.</li>
-      <li>You have 30 seconds per move. If you do not move, the game plays for you; after 3 missed turns a bot takes your seat.</li>
-    </ul>
-  </div>
-</div>
+  <!-- ================= SEO CONTENT (hidden from view, readable by crawlers) ================= -->
+  <section class="visually-hidden" aria-hidden="false">
+    <h2>Play Ludo Online with Friends — Free Multiplayer Board Game</h2>
+    <p>Ludo Royale is a free online Ludo game that lets you play with friends on different phones. Create a private room, share the 5-letter code over WhatsApp, and start playing instantly. You can also join an open room or let bots fill empty seats. Supports 2, 3, or 4 players with a real-time multiplayer engine, safe cells, capture rules, and a live leaderboard.</p>
+    <p>Our Ludo board game follows classic rules: roll a 6 to bring a token out, move clockwise, capture opponents on unsafe cells, and reach the centre with the exact number. Skip three turns and a bot takes over your seat so the game never stalls.</p>
+    <h3>Frequently asked questions</h3>
+    <dl>
+      <dt>How do I play Ludo online with friends?</dt>
+      <dd>Create a room, share the 5-letter code on WhatsApp, and start playing. Empty seats fill with bots automatically.</dd>
+      <dt>How many players can play Ludo together?</dt>
+      <dd>2, 3, or 4 players. Bots can fill empty seats so you can start right away.</dd>
+      <dt>Is Ludo Royale free?</dt>
+      <dd>Yes, Ludo Royale is completely free to play online with friends.</dd>
+      <dt>What happens if a player leaves?</dt>
+      <dd>After 3 missed turns, a bot automatically takes over their seat.</dd>
+    </dl>
+  </section>
+
+</main>
+
+<!-- ================= SPOTLIGHT HOVER SCRIPT ================= -->
+<script>
+  (function () {
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+
+    document.querySelectorAll('.ld-card').forEach(function (card) {
+      card.addEventListener('mousemove', function (e) {
+        var r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', ((e.clientX - r.left) / r.width * 100) + '%');
+        card.style.setProperty('--my', ((e.clientY - r.top) / r.height * 100) + '%');
+      });
+    });
+  })();
+</script>
+
 <%- include('partials/footer') %>
