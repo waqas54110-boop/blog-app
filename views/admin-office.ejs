@@ -1,0 +1,160 @@
+<%- include('partials/header') %>
+<% const fmt = (d) => new Date(d).toLocaleString('en-GB', { timeZone: siteTz, day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }); %>
+<div class="container py-4" style="max-width:1100px;">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+    <h2 class="fw-bold mb-0">Office devices</h2>
+    <% if (data) { %><a class="btn btn-outline-secondary btn-sm" href="/admin/office/export.csv?scan=<%= data.scan.id %>">Download list (Excel / CSV)</a><% } %>
+  </div>
+  <p class="text-body-secondary">Everything connected to your office network: how many computers, printers, cameras, phones and other devices. The list comes from the scanner script, which you run on a computer inside the office.</p>
+  <% if (flash) { %><div class="alert alert-success"><%= flash %></div><% } %>
+  <% if (err) { %><div class="alert alert-danger"><%= err %></div><% } %>
+
+  <% if (!data) { %>
+    <div class="card border-0 shadow-sm mb-4"><div class="card-body">
+      <h5 class="fw-bold">No scan yet</h5>
+      <p class="mb-2">Run this on any computer inside the office (Python 3.7+):</p>
+      <pre class="bg-body-tertiary p-2 rounded small mb-2">python3 scripts/office_scanner.py --site "Main Office"</pre>
+      <p class="mb-0 small text-body-secondary">Then use "Import a scan file" below, or upload automatically (see below). Want to see how the page looks first? Run it with <code>--demo</code>.</p>
+    </div></div>
+  <% } else { %>
+    <% const s = data.scan; %>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+      <% if (sites.length > 1) { %>
+        <form method="GET" action="/admin/office" class="d-flex gap-2">
+          <select name="site" class="form-select form-select-sm" onchange="this.form.submit()">
+            <% sites.forEach(function (x) { %><option value="<%= x.site %>" <%= x.site === s.site ? 'selected' : '' %>><%= x.site %></option><% }) %>
+          </select>
+        </form>
+      <% } %>
+      <span class="fw-semibold"><%= s.site %></span>
+      <span class="text-body-secondary small">Subnet <%= s.subnet || '-' %> · scanned <%= fmt(s.scanned_at) %> · from <%= s.scanner || 'unknown computer' %></span>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3"><a class="text-decoration-none" href="/admin/office?scan=<%= s.id %>"><div class="card border-0 shadow-sm h-100 <%= !typeFilter ? 'border border-primary' : '' %>"><div class="card-body py-3">
+        <div class="fs-3 fw-bold"><%= data.devices.length %></div><div class="small text-body-secondary">All devices</div></div></div></a></div>
+      <% L.TYPES.forEach(function (t) { if (!counts[t]) return; %>
+        <div class="col-6 col-md-3"><a class="text-decoration-none" href="/admin/office?scan=<%= s.id %>&type=<%= t %>"><div class="card border-0 shadow-sm h-100 <%= typeFilter === t ? 'border border-primary' : '' %>"><div class="card-body py-3">
+          <div class="fs-3 fw-bold"><span aria-hidden="true"><%= L.TYPE_ICON[t] %></span> <%= counts[t] %></div><div class="small text-body-secondary"><%= L.TYPE_LABEL[t] %></div></div></div></a></div>
+      <% }) %>
+    </div>
+
+    <% if (cmp) { %>
+      <div class="card border-0 shadow-sm mb-4"><div class="card-body">
+        <h6 class="fw-bold mb-2">Compared with the scan on <%= fmt(cmp.prevAt) %></h6>
+        <% if (!cmp.added.length && !cmp.missing.length) { %><p class="mb-0 small">No change: the same devices are on the network.</p><% } %>
+        <% if (cmp.added.length) { %>
+          <p class="mb-1 small"><strong class="text-success">New (<%= cmp.added.length %>):</strong>
+            <%= data.devices.filter(function (d) { return cmp.added.includes(d.key); }).map(function (d) { return d.final_name + ' (' + d.ip + ')'; }).join(', ') %></p>
+        <% } %>
+        <% if (cmp.missing.length) { %>
+          <p class="mb-0 small"><strong class="text-danger">Not seen this time (<%= cmp.missing.length %>):</strong>
+            <%= cmp.missing.map(function (d) { return d.name + ' (' + d.ip + ')'; }).join(', ') %>
+            <span class="text-body-secondary">&mdash; may simply be switched off.</span></p>
+        <% } %>
+      </div></div>
+    <% } %>
+
+    <form method="GET" action="/admin/office" class="row g-2 mb-3">
+      <input type="hidden" name="scan" value="<%= s.id %>">
+      <div class="col-12 col-sm-5"><input class="form-control form-control-sm" name="q" value="<%= q %>" placeholder="Search name, IP, MAC, maker, room..."></div>
+      <div class="col-8 col-sm-4"><select name="type" class="form-select form-select-sm">
+        <option value="">All types</option>
+        <% L.TYPES.forEach(function (t) { %><option value="<%= t %>" <%= typeFilter === t ? 'selected' : '' %>><%= L.TYPE_LABEL[t] %></option><% }) %>
+      </select></div>
+      <div class="col-4 col-sm-3"><button class="btn btn-primary btn-sm w-100">Show</button></div>
+    </form>
+
+    <div class="card border-0 shadow-sm mb-4"><div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Type</th><th>Name</th><th>IP</th><th class="d-none d-md-table-cell">MAC / maker</th><th class="d-none d-lg-table-cell">Room / note</th><th></th></tr></thead>
+        <tbody>
+        <% if (!shown.length) { %><tr><td colspan="6" class="text-center text-body-secondary py-4">Nothing matches.</td></tr><% } %>
+        <% shown.forEach(function (d, i) { %>
+          <tr>
+            <td class="text-nowrap"><span aria-hidden="true"><%= L.TYPE_ICON[d.final_type] %></span> <%= L.TYPE_ONE[d.final_type] %></td>
+            <td><%= d.final_name %>
+              <% if (d.is_gateway) { %><span class="badge text-bg-secondary">gateway</span><% } %>
+              <% if (d.is_self) { %><span class="badge text-bg-light border">scanner PC</span><% } %>
+              <% if (d.fixed) { %><span class="badge text-bg-success">edited</span><% } %>
+              <% if (d.ports && d.ports.length) { %><div class="small text-body-secondary">Ports: <%= d.ports.join(', ') %></div><% } %>
+              <% if (d.web_title) { %><div class="small text-body-secondary">Page: <%= d.web_title %></div><% } %></td>
+            <td class="text-nowrap"><%= d.ip %></td>
+            <td class="d-none d-md-table-cell small"><%= d.mac || '-' %><div class="text-body-secondary"><%= d.random_mac ? 'random MAC (phone privacy)' : (d.vendor || '') %></div></td>
+            <td class="d-none d-lg-table-cell small"><%= d.location || '' %><div class="text-body-secondary"><%= d.note || '' %></div></td>
+            <td class="text-end"><button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#e<%= i %>">Edit</button></td>
+          </tr>
+          <tr class="collapse" id="e<%= i %>"><td colspan="6" class="bg-body-tertiary">
+            <form action="/admin/office/device" method="POST" class="row g-2">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="hidden" name="site" value="<%= s.site %>">
+              <input type="hidden" name="scan" value="<%= s.id %>">
+              <input type="hidden" name="key" value="<%= d.key %>">
+              <div class="col-12 col-md-3"><label class="form-label small mb-1">Name</label><input class="form-control form-control-sm" name="name" maxlength="120" value="<%= d.asset && d.asset.name ? d.asset.name : '' %>" placeholder="<%= d.label || d.ip %>"></div>
+              <div class="col-12 col-md-3"><label class="form-label small mb-1">Type</label><select class="form-select form-select-sm" name="type">
+                <option value="">Automatic (<%= L.TYPE_ONE[d.dev_type] %>)</option>
+                <% L.TYPES.forEach(function (t) { %><option value="<%= t %>" <%= d.asset && d.asset.dev_type === t ? 'selected' : '' %>><%= L.TYPE_ONE[t] %></option><% }) %>
+              </select></div>
+              <div class="col-6 col-md-2"><label class="form-label small mb-1">Room</label><input class="form-control form-control-sm" name="location" maxlength="80" value="<%= d.location || '' %>"></div>
+              <div class="col-6 col-md-3"><label class="form-label small mb-1">Note</label><input class="form-control form-control-sm" name="note" maxlength="300" value="<%= d.note || '' %>"></div>
+              <div class="col-12 col-md-1 d-flex align-items-end"><button class="btn btn-primary btn-sm w-100">Save</button></div>
+            </form>
+          </td></tr>
+        <% }) %>
+        </tbody>
+      </table>
+    </div></div>
+    <p class="small text-body-secondary">The type is a careful guess from the MAC maker, open ports and names. Fix any wrong one with Edit; the fix is remembered for the next scan (matched by MAC address). Phones with a random MAC and devices that are switched off cannot be named.</p>
+
+    <div class="card border-0 shadow-sm mb-4"><div class="card-body">
+      <h6 class="fw-bold">Earlier scans</h6>
+      <ul class="list-unstyled mb-0 small">
+        <% history.forEach(function (h) { %>
+          <li class="d-flex flex-wrap justify-content-between align-items-center py-1 border-bottom">
+            <span><a href="/admin/office?scan=<%= h.id %>"><%= fmt(h.scanned_at) %></a> · <%= h.device_count %> devices · <%= h.source %><%= h.id === s.id ? ' · (shown)' : '' %></span>
+            <form action="/admin/office/scan/<%= h.id %>/delete" method="POST" onsubmit="return confirm('Delete this scan?');" class="d-inline">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-link btn-sm text-danger p-0">Delete</button></form>
+          </li>
+        <% }) %>
+      </ul>
+    </div></div>
+  <% } %>
+
+  <div class="card border-0 shadow-sm mb-4"><div class="card-body">
+    <h5 class="fw-bold">Import a scan file</h5>
+    <p class="small text-body-secondary mb-2">Choose the <code>office_scan.json</code> file the scanner saved.</p>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <input type="file" id="scanFile" accept=".json,application/json" class="form-control form-control-sm" style="max-width:320px;">
+      <button type="button" id="scanGo" class="btn btn-primary btn-sm">Import</button>
+      <span id="scanMsg" class="small"></span>
+    </div>
+    <hr>
+    <h6 class="fw-bold">Automatic upload</h6>
+    <% if (!tokenSet) { %>
+      <p class="small mb-1 text-warning-emphasis">Upload is off. Add <code>OFFICE_SCAN_TOKEN</code> (a long secret, 16+ characters) in your server settings, then restart.</p>
+    <% } else { %>
+      <p class="small mb-1 text-success">Upload is on.</p>
+    <% } %>
+    <pre class="bg-body-tertiary p-2 rounded small mb-0">python3 scripts/office_scanner.py --site "Main Office" --upload https://YOUR-SITE/office/ingest --token YOUR_TOKEN</pre>
+  </div></div>
+</div>
+<script>
+(function () {
+  var go = document.getElementById('scanGo'), msg = document.getElementById('scanMsg');
+  if (!go) return;
+  go.addEventListener('click', function () {
+    var f = document.getElementById('scanFile').files[0];
+    if (!f) { msg.textContent = 'Choose a file first.'; return; }
+    if (f.size > 2 * 1024 * 1024) { msg.textContent = 'File is too big (max 2 MB).'; return; }
+    msg.textContent = 'Importing...';
+    f.text().then(function (txt) {
+      return fetch('/admin/office/import', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-csrf-token': '<%= csrfToken %>' }, body: txt });
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (x) {
+        if (x.ok) { location.href = '/admin/office?scan=' + x.j.scan + '&ok=' + encodeURIComponent('Imported ' + x.j.devices + ' devices.'); }
+        else msg.textContent = (x.j && x.j.error) || 'Import failed.';
+      }).catch(function () { msg.textContent = 'Import failed (is it a valid scan file?).'; });
+  });
+})();
+</script>
+<%- include('partials/footer') %>

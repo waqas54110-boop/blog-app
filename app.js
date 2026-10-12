@@ -49,6 +49,8 @@ const cartLib = require('./lib/cart');
 const shopLib = require('./lib/shop');
 const ratesRouter = require('./routes/rates');
 const ipcheckRouter = require('./routes/ipcheck'); // V57 IP Checker (standalone)
+const { ingestRouter: officeIngest, adminRouter: officeAdmin } = require('./routes/office'); // V58 Office devices
+const officeLib = require('./lib/office');
 const { startRates } = require('./lib/rates');
 const earningsRouter = require('./routes/earnings');
 const earningsLib = require('./lib/earnings');
@@ -196,6 +198,7 @@ app.get('/trends', limiter(10, 30, 'Too many report requests. Please try again i
 app.get('/ip-check', limiter(10, 40, 'Too many IP checks. Please try again in a few minutes.')); // V57
 app.get('/ip-check/ping', limiter(1, 120, 'Too many requests.'));
 app.get('/ip-check/blob', limiter(1, 12, 'Too many speed tests. Please wait a minute.'));
+app.post('/office/ingest', limiter(15, 30, 'Too many uploads. Please try again later.')); // V58
 app.post('/trends/ai', limiter(60, 6, 'You can create up to 6 AI write-ups per hour. Please try again later.'));
 app.post('/report', limiter(10, 10, 'You are reporting too fast. Please wait a few minutes.'));
 app.post(['/u/:username/follow', '/u/:username/unfollow', '/u/:username/follow-email'], limiter(10, 30, 'Too many requests. Please wait a few minutes.'));
@@ -236,6 +239,11 @@ app.post('/cart/checkout', limiter(60, 12, 'You are placing orders too fast. Ple
 app.post('/track', limiter(60, 15, 'Too many lookups. Please try again in a little while.'));
 app.post('/seller/open', limiter(60, 5, 'Too many attempts. Please try again later.', { skipFailedRequests: true }));
 app.post('/seller/share/groups', limiter(60, 30, 'Too many requests. Please try again later.'));
+
+// V58 Office devices: scanner token se upload karta hai (CSRF nahi), admin ki file import JSON hai (CSRF token header mein). Dono csrf se pehle.
+app.use('/office/ingest', express.json({ limit: '2mb' }));
+app.use('/', officeIngest);
+app.use('/admin/office/import', express.json({ limit: '2mb' }));
 
 // Image upload: body seedhi image bytes hoti hai (CSRF token header x-csrf-token mein aata hai).
 // Ye csrf middleware se pehle hona chahiye.
@@ -499,6 +507,7 @@ app.use('/', cartRouter);
 app.use('/', sellerRouter);
 app.use('/', ratesRouter);
 app.use('/', ipcheckRouter); // V57 IP Checker
+app.use('/', officeAdmin); // V58 Office devices (/admin/office)
 app.use('/', earningsRouter);
 app.use('/', adsRouter);
 app.use('/', authRouter);
@@ -521,7 +530,7 @@ app.use((err, req, res, next) => {
 });
 
 // V46: shop tables (migration_v46.sql) pehle tayyar, phir server start (dobara chalna safe hai)
-shopLib.ensureSchema().finally(() => app.listen(PORT, (err) => {
+Promise.all([shopLib.ensureSchema(), officeLib.ensureSchema()]).finally(() => app.listen(PORT, (err) => {
   if (err) {
     console.error('Server start nahi hua:', err.message);
     process.exit(1);
