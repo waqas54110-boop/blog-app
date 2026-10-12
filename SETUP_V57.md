@@ -39,8 +39,8 @@ Ek input box mein IP likho, aur page batata hai:
 - "Real / fake" ek public database ke flags par hai. Bilkul naya VPN miss ho sakta hai, isliye page "Looks real (not known to be hidden)" likhta hai, "100% real" nahi.
 - Live test ka ping aap ki site ke server tak ka hai. Pakistan se Railway / Render tak 150-300 ms normal hai; Wi-Fi ki sehat jitter aur packet loss se samajh aati hai.
 - Result pages `noindex` hain (Google har checked IP ko index na kare).
-- Header / menu mein link nahi lagaya (purani file na chhedni thi). Chahein to header mein ek link `/ip-check` ka add kar lein.
+- Navbar mein "🔎 IP Checker" link `views/partials/header.ejs` mein add hai (Rates ke baad).
 
 ## Files
 New: `lib/ipcheck.js`, `routes/ipcheck.js`, `views/ip-check.ejs`, `SETUP_V57.md`
-Changed: `app.js` (sirf 5 lines add hui, kuch hata ya badla nahi)
+Changed: `app.js` (sirf 5 lines add hui), `views/partials/header.ejs` (navbar mein 1 line: "🔎 IP Checker")
