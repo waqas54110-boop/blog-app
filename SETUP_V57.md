@@ -35,6 +35,9 @@ Ek input box mein IP likho, aur page batata hai:
 - `IPCHECK_DAILY_MAX=400`: is tool ke live lookups ki din ki hadd (cached repeat count nahi hote; ek IP 1 ghante tak cache rehta hai).
 - `IPCHECK_PROVIDER=off`: internet lookup band; sirf private / Wi-Fi address wali checks chalti hain.
 
+## Lookup fail ho to
+Pehle `ipapi.is` try hota hai, fail ho to backup `ipwho.is` (is mein VPN / server / mobile ISP ke naam se andaza hota hai, aur page par likha aata hai). Dono fail hon to page par "Technical reason" dikhta hai aur server log mein `ip-check lookup failed` aata hai. `lib/ipinfo.js` (visitor analytics) bhi ipapi.is ka wohi free quota use karta hai, isliye `IPAPI_KEY` lagana behtar hai.
+
 ## Dhyan rakhein
 - "Real / fake" ek public database ke flags par hai. Bilkul naya VPN miss ho sakta hai, isliye page "Looks real (not known to be hidden)" likhta hai, "100% real" nahi.
 - Live test ka ping aap ki site ke server tak ka hai. Pakistan se Railway / Render tak 150-300 ms normal hai; Wi-Fi ki sehat jitter aur packet loss se samajh aati hai.

@@ -105,7 +105,7 @@
         <div class="alert alert-warning mt-3 mb-0">
           <% if (r.info && r.info.reason === 'limit') { %>The daily lookup limit of this tool is used up. Please try again tomorrow.
           <% } else if (r.info && r.info.reason === 'off') { %>Internet lookup is switched off on this site (IPCHECK_PROVIDER=off).
-          <% } else { %>The lookup service did not answer. Please try again in a minute.<% } %>
+          <% } else { %>The lookup service did not answer. Please try again in a minute.<% if (r.info && r.info.message) { %><div class="ipc-small mt-1">Technical reason: <%= r.info.message %></div><% } %><% } %>
         </div>
       <% } %>
     </div>
