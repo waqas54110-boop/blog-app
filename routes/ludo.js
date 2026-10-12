@@ -58,8 +58,9 @@ router.get('/ludo/:code', wrapPage(async (req, res, next) => {
   if (!row) return res.status(404).render('404', { title: 'Room not found', message: 'This Ludo room does not exist any more. Rooms are removed after a few hours.' });
   res.locals.robots = 'noindex,nofollow';
   const init = {
-    code, state: L.publicState(row, u.id), board: L.BOARD, colors: L.COLOR_NAMES,
+    code, state: await L.view(row, u.id), board: L.BOARD, colors: L.COLOR_NAMES,
     uid: u.id, autoJoin: req.query.join === '1', maxActive: L.MAX_ACTIVE,
+    emojis: L.CHAT_EMOJIS, chatMax: L.CHAT_MAX_LEN,
   };
   res.render('ludo-game', { title: `Ludo room ${code} | Khabzo`, metaDescription: 'Ludo room', code, init });
 }));

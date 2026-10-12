@@ -13,7 +13,9 @@
   .ld-btn.sm { padding: 6px 11px; font-size: 13px; }
   .ld-seat { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--kz-line); }
   .ld-seat:last-child { border-bottom: 0; }
-  .ld-av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: #94a3b8; flex: none; }
+  .ld-av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: #94a3b8; flex: none; position: relative; overflow: hidden; }
+  .ld-av img, .ld-mini img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
+  .ld-mini { width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; font: 800 11px var(--kz-sans); color: #fff; vertical-align: middle; margin-right: 6px; position: relative; overflow: hidden; background: var(--pc, #94a3b8); border: 2px solid var(--pc, #94a3b8); flex: none; }
   .ld-seat.empty { color: var(--kz-muted); }
   .ld-seat.empty .ld-av { background: transparent; border: 2px dashed var(--kz-line); color: var(--kz-muted); }
   .ld-tag { font: 700 10px/1 var(--kz-sans); text-transform: uppercase; letter-spacing: .05em; background: var(--bs-secondary-bg); border-radius: 99px; padding: 3px 7px; margin-left: 6px; }
@@ -53,6 +55,23 @@
   .ld-toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: #111; color: #fff; padding: 10px 16px; border-radius: 10px; font-weight: 600; z-index: 3000; max-width: 90vw; }
   .ld-over { text-align: center; }
   .ld-over h2 { font: 800 26px var(--kz-serif); }
+  /* chat + emojis */
+  .ld-chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .ld-chat-head b { font: 800 17px var(--kz-serif); }
+  .ld-chat-list { height: 190px; overflow-y: auto; border: 1px solid var(--kz-line); border-radius: 10px; padding: 8px; background: var(--bs-body-bg); display: flex; flex-direction: column; gap: 8px; }
+  .ld-msg { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; overflow-wrap: anywhere; }
+  .ld-msg .ld-mini { width: 26px; height: 26px; margin-right: 0; }
+  .ld-msg b { display: block; font-size: 12px; color: var(--kz-muted); line-height: 1.2; }
+  .ld-msg.me b { color: #c8102e; }
+  .ld-msg .big { font-size: 28px; line-height: 1.15; }
+  .ld-chat-empty { color: var(--kz-muted); font-size: 13px; margin: auto; text-align: center; }
+  .ld-emojis { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .ld-emo { border: 1px solid var(--kz-line); background: var(--kz-paper); border-radius: 10px; font-size: 22px; line-height: 1; padding: 6px 9px; cursor: pointer; }
+  .ld-emo:active { transform: scale(.9); }
+  .ld-chat-send { display: flex; gap: 8px; }
+  .ld-chat-send input { flex: 1; min-width: 0; border: 1px solid var(--kz-line); border-radius: 10px; padding: 9px 12px; font: 14px var(--kz-sans); background: var(--bs-body-bg); color: var(--bs-body-color); }
+  .ld-pop { position: fixed; z-index: 3100; pointer-events: none; font-size: 38px; line-height: 1; animation: ldpop 2s ease-out forwards; }
+  @keyframes ldpop { 0% { opacity: 0; transform: translate(-50%, 10px) scale(.5); } 15% { opacity: 1; transform: translate(-50%, -10px) scale(1.25); } 100% { opacity: 0; transform: translate(-50%, -70px) scale(1); } }
   [hidden] { display: none !important; }
 </style>
 
@@ -94,6 +113,22 @@
     <p class="text-secondary" id="ldOverText"></p>
     <div class="d-flex gap-2 justify-content-center flex-wrap" id="ldOverBtns"></div>
   </div>
+
+  <!-- Chat (only people sitting in this room see it) -->
+  <div id="ldChat" class="ld-card mt-3" hidden>
+    <div class="ld-chat-head">
+      <b>&#128172; Chat <span class="ld-tag" id="ldChatNew" hidden></span></b>
+      <button type="button" class="ld-btn alt sm" id="ldChatToggle">Hide</button>
+    </div>
+    <div id="ldChatBody">
+      <div class="ld-chat-list" id="ldChatList" aria-live="polite"></div>
+      <div class="ld-emojis" id="ldEmojis"></div>
+      <div class="ld-chat-send">
+        <input type="text" id="ldChatInput" maxlength="<%= init.chatMax %>" placeholder="Write a message..." autocomplete="off" enterkeyhint="send" aria-label="Chat message">
+        <button type="button" class="ld-btn sm" id="ldChatSend">Send</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <script id="ldInit" type="application/json"><%- safeJson(Object.assign({}, init, { csrf: csrfToken })) %></script>
@@ -114,6 +149,7 @@
   var anim = false, pending = null, animId = 0, busy = false, polling = false;
   var offset = 0, pollTimer = null, lastDiceId = 0, dieRolling = false, wasMyTurn = false, boardBuilt = false;
   var toastTimer = null;
+  var chatRenderedId = -1, chatPopId = null, chatReadId = 0, chatBusy = false, lastSend = 0, chatOpen = true;
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function clone(a) { return a.map(function (r) { return r.slice(); }); }
@@ -124,6 +160,9 @@
   }
   function inviteLink() { return location.origin + '/ludo/' + code + '?join=1'; }
   function playerName(i) { return S.players[i] ? S.players[i].name : '?'; }
+  // profile photo on top of the first letter (same idea as the site header); only asked for when the server says the player has one
+  function avInner(p) { return p.bot ? '\uD83E\uDD16' : esc((p.name || '?').charAt(0).toUpperCase()); }
+  function avImg(p) { return (p.av && !p.bot && p.name) ? '<img src="/a/' + encodeURIComponent(p.name) + '" alt="" onerror="this.remove()">' : ''; }
 
   // ---------- Board ----------
   function buildBoard() {
@@ -245,9 +284,9 @@
     var h = '';
     for (var i = 0; i < S.max; i++) {
       var p = S.players[i];
-      if (!p) { h += '<div class="ld-seat empty"><div class="ld-av">+</div><div>Empty seat</div></div>'; continue; }
+      if (!p) { h += '<div class="ld-seat empty" data-si="' + i + '"><div class="ld-av">+</div><div>Empty seat</div></div>'; continue; }
       var host = p.userId && p.userId === S.host;
-      h += '<div class="ld-seat"><div class="ld-av" style="background:' + (p.bot ? '#64748b' : '#0a6b4d') + '">' + (p.bot ? '\uD83E\uDD16' : esc(p.name.charAt(0).toUpperCase())) + '</div><div><b>' + esc(p.name) + '</b>' +
+      h += '<div class="ld-seat" data-si="' + i + '"><div class="ld-av" style="background:' + (p.bot ? '#64748b' : '#0a6b4d') + '">' + avInner(p) + avImg(p) + '</div><div><b>' + esc(p.name) + '</b>' +
         (p.i === S.me ? '<span class="ld-tag">You</span>' : '') + (p.bot ? '<span class="ld-tag">Bot</span>' : '') + (host ? '<span class="ld-tag">Host</span>' : '') + '</div></div>';
     }
     return h;
@@ -275,7 +314,7 @@
       var home = S.tokens ? S.tokens[p.i].filter(function (x) { return x === 56; }).length : 0;
       var turn = S.status === 'playing' && S.turn === p.i;
       h += '<div class="ld-pl' + (turn ? ' turn' : '') + (p.left ? ' out' : '') + '" style="--pc:' + COL[p.color] + '" data-i="' + p.i + '">' +
-        '<b><span class="dot" style="background:' + COL[p.color] + '"></span>' + esc(p.name) + '</b>' +
+        '<b><span class="ld-mini">' + avInner(p) + avImg(p) + '</span>' + esc(p.name) + '</b>' +
         '<small>' + (p.i === S.me ? 'You' : p.left ? 'Left (bot)' : p.bot ? 'Bot' : CN[p.color]) + ' \u00B7 ' + home + '/4 home</small>' +
         (turn && !p.bot ? '<span class="tm" data-tm></span>' : '') + '</div>';
     });
@@ -316,6 +355,7 @@
   }
   function renderUI() {
     if (!S) return;
+    renderChat();
     var waiting = S.status === 'waiting';
     $('ldLobby').hidden = !waiting;
     $('ldGame').hidden = waiting;
@@ -341,6 +381,83 @@
   }
   setInterval(tickTimer, 300);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) { document.title = 'Ludo room ' + code + ' | Khabzo'; poll(); } });
+
+  // ---------- Chat ----------
+  function chatLine(m) {
+    var idx = -1; S.players.forEach(function (p, i) { if (p.userId === m.u) idx = i; });
+    var p = idx >= 0 ? S.players[idx] : { name: m.n, av: false, bot: false };
+    var col = idx >= 0 && p.color !== null && p.color !== undefined ? COL[p.color] : '#64748b';
+    return '<div class="ld-msg' + (m.u === init.uid ? ' me' : '') + '"><span class="ld-mini" style="--pc:' + col + '">' + avInner(p) + avImg(p) + '</span>' +
+      '<div><b>' + esc(m.n) + '</b>' + (m.e ? '<div class="big">' + esc(m.e) + '</div>' : '<div>' + esc(m.t) + '</div>') + '</div></div>';
+  }
+  function popEmoji(uid, emoji) {
+    var idx = -1; S.players.forEach(function (p, i) { if (p.userId === uid) idx = i; });
+    if (idx < 0) return;
+    var cands = document.querySelectorAll('.ld-pl[data-i="' + idx + '"], .ld-seat[data-si="' + idx + '"]');
+    for (var k = 0; k < cands.length; k++) {
+      var r = cands[k].getBoundingClientRect();
+      if (!r.width) continue;                         // that one is hidden (waiting room vs game)
+      var el = document.createElement('div'); el.className = 'ld-pop'; el.textContent = emoji;
+      el.style.left = (r.left + r.width / 2) + 'px'; el.style.top = (r.top + 4) + 'px';
+      document.body.appendChild(el); setTimeout(function () { el.remove(); }, 2100);
+      return;
+    }
+  }
+  function renderChat() {
+    var box = $('ldChat'), list = S.chat || [];
+    box.hidden = S.me < 0;
+    if (S.me < 0) return;
+    var lastId = list.length ? list[list.length - 1].id : 0;
+    if (chatPopId === null) { chatPopId = lastId; chatReadId = lastId; }          // first load: nothing old pops up
+    list.forEach(function (m) {
+      if (m.id <= chatPopId) return;
+      if (m.e && chatOpen && (S.now - m.at) < 8000) popEmoji(m.u, m.e);
+    });
+    chatPopId = Math.max(chatPopId, lastId);
+    if (chatOpen) chatReadId = lastId;
+    var unread = list.filter(function (m) { return m.id > chatReadId && m.u !== init.uid; }).length;
+    var nw = $('ldChatNew'); nw.hidden = !unread; nw.textContent = unread + ' new';
+    if (lastId === chatRenderedId) return;
+    chatRenderedId = lastId;
+    var el = $('ldChatList'), near = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    el.innerHTML = list.length ? list.map(chatLine).join('') : '<div class="ld-chat-empty">No messages yet. Say hi, or tap an emoji!</div>';
+    if (near || !el.dataset.sc) { el.scrollTop = el.scrollHeight; el.dataset.sc = '1'; }
+  }
+  function sendChat(body, restore) {
+    if (chatBusy || !S || S.me < 0) return;
+    var now = Date.now(); if (now - lastSend < 700) return;
+    chatBusy = true; lastSend = now;
+    fetch('/ludo/' + code + '/act', {
+      method: 'POST', credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', 'x-csrf-token': csrf, 'Accept': 'application/json' },
+      body: JSON.stringify(body),
+    }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); }).then(function (x) {
+      chatBusy = false;
+      if (!x.ok) { toast(x.d.error || 'Message not sent.'); if (restore && !$('ldChatInput').value) $('ldChatInput').value = restore; return; }
+      if (x.d.state) applyState(x.d.state);
+    }).catch(function () { chatBusy = false; toast('Message not sent. Check your connection.'); if (restore && !$('ldChatInput').value) $('ldChatInput').value = restore; });
+  }
+  function sendText() {
+    var inp = $('ldChatInput'), t = inp.value.replace(/\s+/g, ' ').trim();
+    if (!t) return;
+    inp.value = '';
+    sendChat({ type: 'chat', text: t }, t);
+  }
+  $('ldEmojis').innerHTML = init.emojis.map(function (e) { return '<button type="button" class="ld-emo" data-e="' + esc(e) + '" aria-label="Send ' + esc(e) + '">' + esc(e) + '</button>'; }).join('');
+  $('ldEmojis').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('[data-e]') : null;
+    if (b) sendChat({ type: 'chat', emoji: b.getAttribute('data-e') });
+  });
+  $('ldChatSend').addEventListener('click', sendText);
+  $('ldChatInput').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); sendText(); } });
+  try { chatOpen = localStorage.getItem('ldChatHidden') !== '1'; } catch (e) {}
+  function applyChatOpen() { $('ldChatBody').hidden = !chatOpen; $('ldChatToggle').textContent = chatOpen ? 'Hide' : 'Show'; }
+  $('ldChatToggle').addEventListener('click', function () {
+    chatOpen = !chatOpen; try { localStorage.setItem('ldChatHidden', chatOpen ? '0' : '1'); } catch (e) {}
+    applyChatOpen(); if (S) renderChat();
+    if (chatOpen) { var l = $('ldChatList'); l.scrollTop = l.scrollHeight; }
+  });
+  applyChatOpen();
 
   // ---------- State ----------
   function applyState(ns) {
