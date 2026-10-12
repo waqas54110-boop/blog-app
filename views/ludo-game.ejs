@@ -27,7 +27,7 @@
     letter-spacing: -.02em;
   }
 
-  /* Ambient background blobs behind everything */
+  /* Ambient background blobs */
   .ld::before,
   .ld::after {
     content: "";
@@ -341,23 +341,25 @@
     margin-bottom: 16px;
   }
   .ld-pl {
-    position: relative;
-    border: 2px solid var(--kz-line);
-    border-radius: 16px;
+    border: 1.5px solid var(--kz-line);
+    border-radius: 14px;
     padding: 10px 12px;
     background: var(--ld-panel);
-    backdrop-filter: blur(12px);
-    transition: box-shadow .3s ease, border-color .3s ease, transform .3s cubic-bezier(.2,.9,.3,1.4);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: box-shadow .28s ease, border-color .28s ease, transform .28s ease;
     min-width: 0;
     overflow: hidden;
+    position: relative;
   }
   .ld-pl::before {
     content: "";
     position: absolute;
     top: 0; left: 0;
-    width: 100%; height: 3px;
-    background: linear-gradient(90deg, var(--pc), transparent);
-    opacity: .7;
+    width: 4px; height: 100%;
+    background: var(--pc);
+    opacity: .9;
+    border-radius: 4px 0 0 4px;
   }
   .ld-pl b {
     display: flex;
@@ -375,34 +377,30 @@
     margin-top: 3px;
   }
   .ld-pl.turn {
-    box-shadow:
-      0 0 0 3px var(--pc),
-      0 12px 32px -14px var(--pc),
-      0 0 40px -10px var(--pc);
     border-color: var(--pc);
-    transform: translateY(-3px);
-    animation: ldTurnPulse 2s ease-in-out infinite;
+    box-shadow:
+      0 0 0 2px color-mix(in srgb, var(--pc) 30%, transparent),
+      0 10px 26px -12px var(--pc);
+    transform: translateY(-2px);
   }
-  @keyframes ldTurnPulse {
-    0%, 100% { box-shadow: 0 0 0 3px var(--pc), 0 12px 32px -14px var(--pc), 0 0 40px -10px var(--pc); }
-    50%      { box-shadow: 0 0 0 4px var(--pc), 0 16px 40px -14px var(--pc), 0 0 60px -8px var(--pc); }
-  }
+  .ld-pl.turn::before { width: 6px; }
   .ld-pl.turn::after {
-    content: "▶";
+    content: "●";
     position: absolute;
-    right: 10px;
-    top: 10px;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
     color: var(--pc);
-    font-size: 12px;
-    animation: ldArrow 1.2s ease-in-out infinite;
+    font-size: 10px;
+    animation: ldTurnDot 1.2s ease-in-out infinite;
   }
-  @keyframes ldArrow {
-    0%, 100% { transform: translateX(0); opacity: 1; }
-    50%      { transform: translateX(3px); opacity: .6; }
+  @keyframes ldTurnDot {
+    0%, 100% { opacity: 1; transform: translateY(-50%) scale(1); }
+    50%      { opacity: .4; transform: translateY(-50%) scale(1.4); }
   }
   .ld-pl .tm {
     position: absolute;
-    right: 10px;
+    right: 12px;
     bottom: 10px;
     font: 900 14px var(--kz-sans);
     color: var(--pc);
@@ -411,79 +409,75 @@
   }
   .ld-pl.out { opacity: .5; filter: grayscale(.5); }
 
-  /* ================= BOARD ================= */
+  /* ================= MODERN ZAMAN-STYLE BOARD ================= */
   .ld-boardwrap {
     position: relative;
     width: min(100%, 580px);
-    margin: 8px auto 0;
+    margin: 12px auto 0;
     aspect-ratio: 1;
-    border-radius: 24px;
-    padding: 14px;
-    background: linear-gradient(135deg, #1a1a2e, #0f0f1a);
+    border-radius: 28px;
+    padding: 16px;
+    background: linear-gradient(145deg, #f8fafc, #e2e8f0);
     box-shadow:
-      0 30px 70px -30px rgba(0,0,0,.85),
-      0 0 0 1px rgba(255,255,255,.08) inset,
-      0 0 80px -20px rgba(255,45,85,.35);
-    transform: perspective(1200px) rotateX(2deg);
-    transition: transform .5s cubic-bezier(.2,.9,.3,1.4);
+      0 1px 0 rgba(255,255,255,.9) inset,
+      0 -1px 0 rgba(0,0,0,.06) inset,
+      0 20px 45px -22px rgba(0,0,0,.35),
+      0 8px 16px -10px rgba(0,0,0,.15);
+    transition: box-shadow .3s ease;
   }
   .ld-boardwrap:hover {
-    transform: perspective(1200px) rotateX(0deg) translateY(-4px);
+    box-shadow:
+      0 1px 0 rgba(255,255,255,.9) inset,
+      0 -1px 0 rgba(0,0,0,.06) inset,
+      0 28px 60px -22px rgba(0,0,0,.4),
+      0 12px 22px -12px rgba(0,0,0,.2);
   }
-  /* Ambient glow under board */
-  .ld-boardwrap::after {
-    content: "";
-    position: absolute;
-    inset: 20% 15% -8% 15%;
-    border-radius: 50%;
-    background: radial-gradient(ellipse, rgba(255,45,85,.5), transparent 70%);
-    filter: blur(40px);
-    z-index: -1;
-    pointer-events: none;
-  }
+  .ld-boardwrap::after { display: none; }
+
   .ld-boardwrap svg {
     display: block;
     width: 100%;
     height: 100%;
-    border-radius: 14px;
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
+    border-radius: 18px;
     background: #fff;
     box-shadow:
-      0 0 0 1px rgba(0,0,0,.15) inset,
-      0 8px 20px -8px rgba(0,0,0,.5);
+      0 0 0 1px rgba(0,0,0,.05),
+      0 6px 14px -8px rgba(0,0,0,.15) inset;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  /* Token styling */
+  /* ================= PREMIUM TOKENS (GOOTIYA) ================= */
   .tk {
-    transition: transform .18s cubic-bezier(.2,.9,.3,1.4);
+    transition: transform .22s cubic-bezier(.2,.9,.3,1.5);
     cursor: default;
-    filter: drop-shadow(0 3px 4px rgba(0,0,0,.35));
+    filter: drop-shadow(0 2px 3px rgba(0,0,0,.28));
   }
   .tk .ring {
     fill: none;
-    stroke: #111;
-    stroke-width: .09;
+    stroke: #fff;
+    stroke-width: .1;
     opacity: 0;
+    filter: drop-shadow(0 0 3px rgba(255,255,255,.9));
   }
   .tk.can {
     cursor: pointer;
-    filter: drop-shadow(0 4px 10px rgba(0,0,0,.5)) drop-shadow(0 0 6px rgba(255,255,255,.6));
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,.4)) drop-shadow(0 0 8px rgba(255,215,0,.85));
   }
   .tk.can .ring {
     opacity: 1;
-    animation: ldring 1s ease-in-out infinite;
+    animation: ldRingPulse 1.1s ease-in-out infinite;
   }
   .tk.can .body {
-    animation: ldhop 1s ease-in-out infinite;
+    animation: ldTokenHop 1.1s ease-in-out infinite;
   }
-  @keyframes ldring {
-    0%, 100% { stroke-width: .09; opacity: 1; stroke: #fff; }
-    50%      { stroke-width: .24; opacity: .55; stroke: #ffd60a; }
+  @keyframes ldRingPulse {
+    0%, 100% { stroke-width: .1; stroke: #fff; opacity: 1; }
+    50%      { stroke-width: .28; stroke: #ffd60a; opacity: .5; }
   }
-  @keyframes ldhop {
+  @keyframes ldTokenHop {
     0%, 100% { transform: translateY(0) scale(1); }
-    50%      { transform: translateY(-.1px) scale(1.1); }
+    50%      { transform: translateY(-.12px) scale(1.12); }
   }
   .tk .body {
     transform-box: fill-box;
@@ -779,10 +773,20 @@
   /* ================= UTIL ================= */
   [hidden] { display: none !important; }
 
-  /* Reduced motion */
+  /* Mobile: heavy effects off for performance */
+  @media (max-width: 767px) {
+    .ld::before, .ld::after { display: none; }
+    .ld-card, .ld-top, .ld-stat, .ld-pl {
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+      background: var(--kz-paper) !important;
+    }
+    .ld-die.ready, .ld-die.rolling { animation-duration: 1.4s; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .ld::before, .ld::after, .ld-card, .ld-btn, .ld-die, .ld-tk,
-    .ld-pl.turn, .ld-hero h1, .ld-pop, .ld-top .ld-code::after,
+    .ld::before, .ld::after, .ld-card, .ld-btn, .ld-die, .tk,
+    .ld-pl.turn, .ld-pop, .ld-top .ld-code::after,
     .ld-msg, .ld-seat { animation: none !important; transition: none !important; }
     .ld-btn::before, .ld-top .ld-code::after { display: none; }
   }
@@ -883,82 +887,126 @@
   function avInner(p) { return p.bot ? '🤖' : esc((p.name || '?').charAt(0).toUpperCase()); }
   function avImg(p) { return (p.av && !p.bot && p.name) ? '<img src="/a/' + encodeURIComponent(p.name) + '" alt="" onerror="this.remove()">' : ''; }
 
-  // ---------- Board ----------
+  // ================= BOARD (MODERN ZAMAN-STYLE) =================
   function buildBoard() {
     var h = '<defs>' +
-      '<radialGradient id="gGlow" cx="50%" cy="50%" r="50%">' +
-      '<stop offset="0%" stop-color="rgba(255,255,255,.25)"/>' +
-      '<stop offset="100%" stop-color="rgba(255,255,255,0)"/>' +
+      // Token shine — radial highlight for glassy 3D token look
+      '<radialGradient id="tk-shine" cx="35%" cy="30%" r="65%">' +
+        '<stop offset="0%" stop-color="rgba(255,255,255,.95)"/>' +
+        '<stop offset="45%" stop-color="rgba(255,255,255,.15)"/>' +
+        '<stop offset="100%" stop-color="rgba(0,0,0,.15)"/>' +
       '</radialGradient>' +
+      // Cell subtle shadow
+      '<filter id="cellShadow" x="-20%" y="-20%" width="140%" height="140%">' +
+        '<feDropShadow dx="0" dy="0.02" stdDeviation="0.02" flood-color="#000" flood-opacity="0.15"/>' +
+      '</filter>' +
       '</defs>';
-    h += '<rect width="15" height="15" fill="#fefefe"/>';
-    h += '<rect width="15" height="15" fill="url(#gGlow)"/>';
 
+    // Board background — crisp white
+    h += '<rect width="15" height="15" fill="#ffffff"/>';
+
+    // ---------- YARDS (4 corners) ----------
     var yo = [[0, 0], [9, 0], [9, 9], [0, 9]];
     for (var c = 0; c < 4; c++) {
       var x0 = yo[c][0], y0 = yo[c][1];
-      // Outer colored square with soft inner white
-      h += '<rect x="' + x0 + '" y="' + y0 + '" width="6" height="6" rx=".4" fill="' + COL[c] + '"/>';
-      h += '<rect x="' + (x0 + 1) + '" y="' + (y0 + 1) + '" width="4" height="4" rx=".6" fill="#fff" stroke="rgba(0,0,0,.08)" stroke-width=".05"/>';
+      // Soft colored outer square with rounded corners
+      h += '<rect x="' + x0 + '" y="' + y0 + '" width="6" height="6" rx=".8" fill="' + COL[c] + '"/>';
+      // Inner white circle grid
+      h += '<rect x="' + (x0 + 1) + '" y="' + (y0 + 1) + '" width="4" height="4" rx=".6" fill="#ffffff"/>';
+      // 4 token slots — clean circles with soft ring
       for (var k = 0; k < 4; k++) {
-        h += '<circle cx="' + B.yards[c][k][0] + '" cy="' + B.yards[c][k][1] + '" r=".62" fill="' + TINT[c] + '" stroke="' + COL[c] + '" stroke-width=".09"/>';
+        h += '<circle cx="' + B.yards[c][k][0] + '" cy="' + B.yards[c][k][1] + '" r=".62" fill="' + TINT[c] + '" stroke="' + COL[c] + '" stroke-width=".1" opacity=".9"/>';
+        h += '<circle cx="' + B.yards[c][k][0] + '" cy="' + B.yards[c][k][1] + '" r=".4" fill="none" stroke="rgba(255,255,255,.6)" stroke-width=".04"/>';
       }
     }
 
-    // Track cells with subtle shadow
+    // ---------- TRACK (52 cells) ----------
     for (var i = 0; i < 52; i++) {
-      var p = B.track[i], fill = '#fff', star = '';
+      var p = B.track[i];
+      var fill = '#ffffff';
+      var extra = '';
       var sc = B.start.indexOf(i);
-      if (sc >= 0) fill = COL[sc];
-      else if (B.safe.indexOf(i) >= 0) star = '<text x="' + p[0] + '" y="' + (p[1] + .26) + '" text-anchor="middle" font-size=".78" fill="#8a8a8a" style="font-family:sans-serif">★</text>';
-      h += '<rect x="' + (p[0] - .5) + '" y="' + (p[1] - .5) + '" width="1" height="1" fill="' + fill + '" stroke="rgba(0,0,0,.25)" stroke-width=".045"/>' + star;
+
+      if (sc >= 0) {
+        // Colored start cell with soft gradient shine
+        fill = COL[sc];
+        extra = '<rect x="' + (p[0] - .5) + '" y="' + (p[1] - .5) + '" width="1" height="1" fill="url(#tk-shine)" opacity=".3"/>';
+      } else if (B.safe.indexOf(i) >= 0) {
+        // Safe cell with a subtle star
+        extra = '<text x="' + p[0] + '" y="' + (p[1] + .28) + '" text-anchor="middle" font-size=".72" fill="#94a3b8" font-weight="600">★</text>';
+      }
+
+      h += '<rect x="' + (p[0] - .5) + '" y="' + (p[1] - .5) + '" width="1" height="1" fill="' + fill + '" stroke="#e2e8f0" stroke-width=".035"/>' + extra;
     }
 
-    // Home columns
-    for (var c2 = 0; c2 < 4; c2++) for (var j = 0; j < 5; j++) {
-      var q = B.home[c2][j];
-      h += '<rect x="' + (q[0] - .5) + '" y="' + (q[1] - .5) + '" width="1" height="1" fill="' + COL[c2] + '" stroke="rgba(0,0,0,.25)" stroke-width=".045"/>';
+    // ---------- HOME PATH (colored columns to center) ----------
+    for (var c2 = 0; c2 < 4; c2++) {
+      for (var j = 0; j < 5; j++) {
+        var q = B.home[c2][j];
+        h += '<rect x="' + (q[0] - .5) + '" y="' + (q[1] - .5) + '" width="1" height="1" fill="' + COL[c2] + '" stroke="#e2e8f0" stroke-width=".035"/>';
+        h += '<rect x="' + (q[0] - .5) + '" y="' + (q[1] - .5) + '" width="1" height="1" fill="url(#tk-shine)" opacity=".2"/>';
+      }
     }
 
-    // Center triangles
-    h += '<polygon points="6,6 9,6 7.5,7.5" fill="' + COL[1] + '"/>' +
-         '<polygon points="9,6 9,9 7.5,7.5" fill="' + COL[2] + '"/>' +
-         '<polygon points="6,9 9,9 7.5,7.5" fill="' + COL[3] + '"/>' +
-         '<polygon points="6,6 6,9 7.5,7.5" fill="' + COL[0] + '"/>' +
-         '<rect x="6" y="6" width="3" height="3" fill="none" stroke="rgba(0,0,0,.3)" stroke-width=".05"/>';
+    // ---------- CENTER (modern minimal: 4 triangles + trophy circle) ----------
+    h += '<polygon points="6,6 9,6 7.5,7.5" fill="' + COL[1] + '" stroke="#fff" stroke-width=".06"/>';
+    h += '<polygon points="9,6 9,9 7.5,7.5" fill="' + COL[2] + '" stroke="#fff" stroke-width=".06"/>';
+    h += '<polygon points="6,9 9,9 7.5,7.5" fill="' + COL[3] + '" stroke="#fff" stroke-width=".06"/>';
+    h += '<polygon points="6,6 6,9 7.5,7.5" fill="' + COL[0] + '" stroke="#fff" stroke-width=".06"/>';
 
-    // Center trophy emoji
-    h += '<text x="7.5" y="7.85" text-anchor="middle" font-size=".65" style="pointer-events:none">🏆</text>';
+    // White center circle with trophy
+    h += '<circle cx="7.5" cy="7.5" r=".55" fill="#fff" stroke="rgba(0,0,0,.08)" stroke-width=".05"/>';
+    h += '<text x="7.5" y="7.78" text-anchor="middle" font-size=".6" style="pointer-events:none">🏆</text>';
 
+    // Token layer on top
     h += '<g id="ldTokens"></g>';
+
     $('ldBoard').innerHTML = h;
     $('ldBoard').addEventListener('click', onBoardClick);
     boardBuilt = true;
   }
 
+  // ================= PREMIUM TOKEN (GOOTIYA) =================
   function tokEl(pi, t) {
-    var id = 'tk-' + pi + '-' + t, el = $(id);
+    var id = 'tk-' + pi + '-' + t;
+    var el = $(id);
     if (el) return el;
+
     var col = COL[S.players[pi].color];
+
     el = document.createElementNS(NS, 'g');
     el.setAttribute('id', id);
     el.setAttribute('class', 'tk');
     el.setAttribute('data-p', pi);
     el.setAttribute('data-t', t);
-    // Enhanced token: outer ring, shadow, gradient body, highlight, inner ring
+
     el.innerHTML =
-      '<circle class="ring" r=".52"/>' +
-      '<ellipse cx="0" cy=".18" rx=".38" ry=".12" fill="rgba(0,0,0,.25)"/>' +
+      // Outer glow ring (shown when token can move)
+      '<circle class="ring" r=".54"/>' +
+      // Soft drop shadow under the token
+      '<ellipse cx="0" cy=".2" rx=".36" ry=".1" fill="rgba(0,0,0,.22)"/>' +
       '<g class="body">' +
-        '<circle r=".4" fill="' + col + '" stroke="#fff" stroke-width=".09"/>' +
-        '<circle r=".4" fill="none" stroke="rgba(0,0,0,.2)" stroke-width=".04"/>' +
-        '<circle r=".24" fill="none" stroke="rgba(255,255,255,.7)" stroke-width=".06"/>' +
-        '<circle r=".09" cx="-.13" cy="-.13" fill="rgba(255,255,255,.85)"/>' +
+        // Base body
+        '<circle r=".4" fill="' + col + '"/>' +
+        // Radial shine overlay (glassy 3D effect)
+        '<circle r=".4" fill="url(#tk-shine)"/>' +
+        // Crisp white outline
+        '<circle r=".4" fill="none" stroke="#ffffff" stroke-width=".08"/>' +
+        // Thin inner ring for detail
+        '<circle r=".24" fill="none" stroke="rgba(255,255,255,.75)" stroke-width=".055"/>' +
+        // Center dot
+        '<circle r=".07" fill="rgba(255,255,255,.9)"/>' +
+        // Top-left specular highlight
+        '<circle r=".09" cx="-.14" cy="-.14" fill="rgba(255,255,255,.95)"/>' +
+        // Bottom-right shadow crease for depth
+        '<path d="M .28 .12 Q .3 .28 .1 .34 Q .25 .25 .28 .12 Z" fill="rgba(0,0,0,.18)"/>' +
       '</g>';
+
     $('ldTokens').appendChild(el);
     return el;
   }
 
+  // ================= POSITION / DRAW =================
   function posXY(pi, t, rel) {
     var color = S.players[pi].color;
     if (rel < 0) return B.yards[color][t];
