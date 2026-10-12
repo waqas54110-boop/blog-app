@@ -1,2 +1,6 @@
 .env
 node_modules
+
+office_scan.json
+scripts/oui.txt
+scripts/__pycache__/
