@@ -1,0 +1,270 @@
+<%- include('partials/header') %>
+<style>
+  .ipc { max-width: 980px; margin: 0 auto; padding: 18px 12px 28px; }
+  .ipc-hero { border-radius: 18px; padding: 26px 24px; color: #fff; background: linear-gradient(120deg, #0369a1, #4338ca 70%, #1e1b4b); }
+  .ipc-hero h1 { font-size: clamp(1.4rem, 3.6vw, 2.1rem); font-weight: 800; margin: 0 0 6px; }
+  .ipc-hero p { margin: 0 0 16px; opacity: .9; }
+  .ipc-form { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ipc-form input[type=text] { flex: 1 1 240px; min-width: 0; border: 0; border-radius: 12px; padding: 12px 14px; font-size: 1.05rem; }
+  .ipc-form .btn { border-radius: 12px; font-weight: 700; padding: 12px 18px; }
+  .ipc-card { border: 1px solid var(--bs-border-color); border-radius: 14px; padding: 16px; background: var(--bs-body-bg); margin-top: 16px; }
+  .ipc-card h2 { font-size: 1.1rem; font-weight: 800; margin: 0 0 10px; }
+  .ipc-ip { font-size: 1.6rem; font-weight: 800; word-break: break-all; }
+  .ipc-pill { display: inline-block; font-size: .8rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--bs-secondary-bg); vertical-align: middle; }
+  .ipc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin-top: 12px; }
+  .ipc-fact { border: 1px solid var(--bs-border-color); border-radius: 12px; padding: 10px 12px; }
+  .ipc-k { font-size: .75rem; text-transform: uppercase; letter-spacing: .04em; opacity: .65; font-weight: 700; }
+  .ipc-v { font-size: 1.05rem; font-weight: 700; word-break: break-word; }
+  .ipc-ok { border-left: 5px solid #16a34a; }
+  .ipc-warn { border-left: 5px solid #f59e0b; }
+  .ipc-bad { border-left: 5px solid #dc2626; }
+  .ipc-info { border-left: 5px solid #0369a1; }
+  .ipc-box { border: 1px solid var(--bs-border-color); border-left-width: 5px; border-radius: 12px; padding: 12px 14px; margin-top: 12px; }
+  .ipc-box h3 { font-size: 1rem; font-weight: 800; margin: 0 0 6px; }
+  .ipc ul, .ipc ol { margin: 6px 0 0; padding-left: 1.2rem; }
+  .ipc li { margin-bottom: 4px; }
+  .ipc-small { font-size: .88rem; opacity: .8; }
+  .ipc-meter { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 12px; }
+  .ipc-meter .ipc-fact { text-align: center; }
+  .ipc-meter .ipc-v { font-size: 1.35rem; }
+  #ipcRun[disabled] { opacity: .7; }
+</style>
+
+<div class="ipc">
+  <div class="ipc-hero">
+    <h1>🔎 IP Address Checker</h1>
+    <p>Type an IP address to see its country, ISP, whether it is a mobile, home or server connection, and whether it is hidden behind a VPN or proxy. Wi-Fi addresses (192.168.x.x) get a problem check with fixes.</p>
+    <form class="ipc-form" method="get" action="/ip-check">
+      <input type="text" name="ip" value="<%= q %>" placeholder="e.g. 8.8.8.8 or 192.168.1.10" autocomplete="off" inputmode="text" spellcheck="false" aria-label="IP address">
+      <button class="btn btn-warning" type="submit">Check</button>
+      <a class="btn btn-light" href="/ip-check?ip=<%= encodeURIComponent(me.ip) %>">Use my IP</a>
+    </form>
+  </div>
+
+  <% if (error) { %>
+    <div class="alert alert-danger mt-3 mb-0"><%= error %></div>
+  <% } %>
+
+  <% if (result) { %>
+    <% const r = result; %>
+    <div class="ipc-card">
+      <div class="ipc-ip"><%= r.ip %> <span class="ipc-pill"><%= r.kindLabel %></span> <span class="ipc-pill">IPv<%= r.version %></span></div>
+      <% if (r.own) { %><div class="ipc-small mt-1">✅ This is <b>your own</b> current IP address (the one this website sees).</div><% } %>
+
+      <% if (r.local) { %>
+        <% const a = r.local; %>
+        <div class="ipc-box ipc-info">
+          <h3><%= a.headline %></h3>
+          <div><%= a.what %></div>
+        </div>
+
+        <div class="ipc-box <%= a.status === 'bad' ? 'ipc-bad' : a.status === 'warn' ? 'ipc-warn' : 'ipc-ok' %>">
+          <h3>📶 Wi-Fi / network check: <%= a.status === 'bad' ? 'Problem found' : a.status === 'warn' ? 'Limitation' : 'No problem with this address' %></h3>
+          <div><%= a.statusText %></div>
+          <% if (a.issues.length) { %><b class="d-block mt-2">What is going on</b><ul><% a.issues.forEach((t) => { %><li><%= t %></li><% }) %></ul><% } %>
+          <% if (a.fixes.length) { %><b class="d-block mt-2">How to solve it</b><ol><% a.fixes.forEach((t) => { %><li><%= t %></li><% }) %></ol><% } %>
+        </div>
+
+        <% if (a.findName.length) { %>
+          <div class="ipc-box ipc-info">
+            <h3>💻 Which device is it? How to get its name</h3>
+            <div class="ipc-small mb-1">A website cannot see devices inside your home network. Use one of these:</div>
+            <ol><% a.findName.forEach((t) => { %><li><%= t %></li><% }) %></ol>
+          </div>
+        <% } %>
+
+      <% } else if (r.info && r.info.ok) { %>
+        <% const i = r.info; const v = r.verdict; %>
+        <div class="ipc-grid">
+          <div class="ipc-fact"><div class="ipc-k">Country</div><div class="ipc-v"><%= i.flag %> <%= i.country || 'Unknown' %></div></div>
+          <div class="ipc-fact"><div class="ipc-k">Region / City</div><div class="ipc-v"><%= [i.city, i.region].filter(Boolean).join(', ') || 'Unknown' %></div></div>
+          <div class="ipc-fact"><div class="ipc-k">ISP / Organization</div><div class="ipc-v"><%= i.isp || 'Unknown' %></div></div>
+          <div class="ipc-fact"><div class="ipc-k">ASN</div><div class="ipc-v"><%= i.asn || '-' %></div></div>
+          <div class="ipc-fact"><div class="ipc-k">Connection type</div><div class="ipc-v"><%= v.connection.icon %> <%= v.connection.label %></div></div>
+          <div class="ipc-fact"><div class="ipc-k">Time zone</div><div class="ipc-v"><%= i.timezone || '-' %></div></div>
+          <% if (r.rdns) { %><div class="ipc-fact"><div class="ipc-k">Reverse DNS</div><div class="ipc-v" style="font-size:.9rem"><%= r.rdns %></div></div><% } %>
+        </div>
+
+        <div class="ipc-box <%= v.real.status === 'real' ? 'ipc-ok' : v.real.status === 'server' ? 'ipc-warn' : 'ipc-bad' %>">
+          <h3>🕵️ Real or fake? <%= v.real.label %></h3>
+          <ul><% v.reasons.forEach((t) => { %><li><%= t %></li><% }) %></ul>
+          <div class="ipc-small mt-2">"Looks real" means it is not listed as a VPN, proxy or server in public databases. A brand-new VPN can be missed, so this is a strong hint, not a guarantee.</div>
+        </div>
+
+        <div class="ipc-box ipc-info">
+          <h3>💻 What kind of device? <%= v.device.headline %></h3>
+          <ul><% v.device.lines.forEach((t) => { %><li><%= t %></li><% }) %></ul>
+          <% v.notes.forEach((t) => { %><div class="ipc-small mt-1"><%= t %></div><% }) %>
+        </div>
+
+        <div class="ipc-box ipc-info">
+          <h3>📶 Wi-Fi problems?</h3>
+          <div>A public IP cannot be tested for Wi-Fi faults from outside, because routers block this kind of test. If this is <b>your</b> connection, run the live test below. If it is your <b>local</b> Wi-Fi address (starts with 192.168 / 10. / 172.16), type that address here instead for a full problem check.</div>
+        </div>
+      <% } else { %>
+        <div class="alert alert-warning mt-3 mb-0">
+          <% if (r.info && r.info.reason === 'limit') { %>The daily lookup limit of this tool is used up. Please try again tomorrow.
+          <% } else if (r.info && r.info.reason === 'off') { %>Internet lookup is switched off on this site (IPCHECK_PROVIDER=off).
+          <% } else { %>The lookup service did not answer. Please try again in a minute.<% } %>
+        </div>
+      <% } %>
+    </div>
+  <% } %>
+
+  <div class="ipc-card" id="ipcTest">
+    <h2>📡 Test your own Wi-Fi / internet connection</h2>
+    <div class="ipc-small">This device: <b><%= me.device.kind %></b>, <%= me.device.os %>, <%= me.device.browser %><% if (me.device.model) { %>, model code <b><%= me.device.model %></b><% } %>. Your public IP: <b><%= me.ip %></b>.
+      A website can only see this much; it cannot read the exact laptop name.</div>
+    <div class="mt-3"><button class="btn btn-primary fw-bold" type="button" id="ipcRun">▶ Start test (about 10 seconds)</button></div>
+    <div id="ipcOut" style="display:none">
+      <div class="ipc-meter">
+        <div class="ipc-fact"><div class="ipc-k">Ping (average)</div><div class="ipc-v" id="mPing">-</div></div>
+        <div class="ipc-fact"><div class="ipc-k">Jitter (ping swing)</div><div class="ipc-v" id="mJit">-</div></div>
+        <div class="ipc-fact"><div class="ipc-k">Packet loss</div><div class="ipc-v" id="mLoss">-</div></div>
+        <div class="ipc-fact"><div class="ipc-k">Download</div><div class="ipc-v" id="mSpeed">-</div></div>
+      </div>
+      <div class="ipc-box ipc-info" id="ipcVerdict" style="display:none"></div>
+    </div>
+    <div class="ipc-small mt-2">Tip: run it once on Wi-Fi and once with a LAN cable (or standing next to the router). If the cable is fine and Wi-Fi is bad, the problem is your Wi-Fi, not the ISP. Ping includes the distance to this website's server, so a normal ping from Pakistan can be 150 to 300 ms; jitter and loss tell more about Wi-Fi health.</div>
+  </div>
+
+  <div class="ipc-card">
+    <h2>🏷️ Find the maker from a MAC address</h2>
+    <div class="ipc-small mb-2">Found a MAC address in your router's device list? Paste it to see the brand (Dell, Apple, Intel, Samsung, TP-Link...).</div>
+    <form class="ipc-form" method="get" action="/ip-check">
+      <% if (q) { %><input type="hidden" name="ip" value="<%= q %>"><% } %>
+      <input type="text" name="mac" value="<%= mac %>" placeholder="e.g. 3C:52:82:AA:BB:CC" autocomplete="off" spellcheck="false" aria-label="MAC address" style="border:1px solid var(--bs-border-color); background: var(--bs-body-bg); color: var(--bs-body-color)">
+      <button class="btn btn-outline-primary" type="submit">Find maker</button>
+    </form>
+    <% if (macInfo) { %>
+      <% if (macInfo.error) { %><div class="alert alert-danger mt-3 mb-0"><%= macInfo.error %></div>
+      <% } else { %>
+        <div class="ipc-box <%= macInfo.vendor ? 'ipc-ok' : 'ipc-warn' %>">
+          <h3><%= macInfo.mac %>: <%= macInfo.vendor || (macInfo.random ? 'Random (private) MAC' : 'Maker not found') %></h3>
+          <% if (macInfo.note) { %><div><%= macInfo.note %></div><% } %>
+          <% if (macInfo.vendor) { %><div class="ipc-small">This is the company that made the network chip. A laptop's chip is often Intel, Realtek or Qualcomm, so the brand of the laptop itself (Dell, HP, Lenovo) is not always shown.</div><% } %>
+        </div>
+      <% } %>
+    <% } %>
+  </div>
+
+  <div class="ipc-card">
+    <h2>What an IP address can and cannot tell you</h2>
+    <ul>
+      <li><b>Can:</b> country, usually the city area, the ISP, mobile / home / server connection, and whether it is a known VPN, proxy or Tor address.</li>
+      <li><b>Cannot:</b> the exact house, the person, or the name / model of a laptop or phone. A public IP belongs to the router, SIM or VPN server, and many devices (and on mobile data, many customers) share it.</li>
+      <li><b>Wi-Fi addresses</b> (192.168.x.x, 10.x.x.x, 172.16-31.x.x) only exist inside one network, so they are explained here without any internet lookup.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  var btn = document.getElementById('ipcRun');
+  if (!btn) return;
+  var $ = function (id) { return document.getElementById(id); };
+  var sleep = function (ms) { return new Promise(function (r) { setTimeout(r, ms); }); };
+
+  async function pingOnce(i) {
+    var t0 = performance.now();
+    var ctl = new AbortController();
+    var to = setTimeout(function () { ctl.abort(); }, 4000);
+    try {
+      var r = await fetch('/ip-check/ping?x=' + i + '-' + Date.now(), { cache: 'no-store', signal: ctl.signal });
+      clearTimeout(to);
+      if (!r.ok && r.status !== 204) return null;
+      return performance.now() - t0;
+    } catch (e) { clearTimeout(to); return null; }
+  }
+
+  async function speedTest() {
+    var total = 0, t0 = performance.now(), got = 0;
+    for (var i = 0; i < 2; i++) {
+      try {
+        var r = await fetch('/ip-check/blob?kb=600&x=' + i + '-' + Date.now(), { cache: 'no-store' });
+        if (!r.ok) continue;
+        var b = await r.arrayBuffer();
+        total += b.byteLength; got++;
+      } catch (e) {}
+    }
+    var secs = (performance.now() - t0) / 1000;
+    if (!got || secs <= 0) return null;
+    return (total * 8) / secs / 1e6;
+  }
+
+  function add(box, title, items, ordered) {
+    if (!items.length) return;
+    var h = document.createElement('b'); h.className = 'd-block mt-2'; h.textContent = title; box.appendChild(h);
+    var l = document.createElement(ordered ? 'ol' : 'ul');
+    items.forEach(function (t) { var li = document.createElement('li'); li.textContent = t; l.appendChild(li); });
+    box.appendChild(l);
+  }
+
+  btn.addEventListener('click', async function () {
+    btn.disabled = true; btn.textContent = 'Testing...';
+    $('ipcOut').style.display = 'block'; $('ipcVerdict').style.display = 'none';
+    ['mPing', 'mJit', 'mLoss', 'mSpeed'].forEach(function (id) { $(id).textContent = '...'; });
+
+    var N = 12, times = [], lost = 0;
+    for (var i = 0; i < N; i++) {
+      var t = await pingOnce(i);
+      if (t === null) lost++; else times.push(t);
+      await sleep(150);
+    }
+    var avg = times.length ? times.reduce(function (a, b) { return a + b; }, 0) / times.length : null;
+    var jit = 0;
+    if (times.length > 1) { var s = 0; for (var k = 1; k < times.length; k++) s += Math.abs(times[k] - times[k - 1]); jit = s / (times.length - 1); }
+    var loss = (lost / N) * 100;
+    $('mPing').textContent = avg === null ? 'No reply' : Math.round(avg) + ' ms';
+    $('mJit').textContent = avg === null ? '-' : Math.round(jit) + ' ms';
+    $('mLoss').textContent = Math.round(loss) + '%';
+
+    var mbps = avg === null ? null : await speedTest();
+    $('mSpeed').textContent = mbps === null ? '-' : (mbps < 10 ? mbps.toFixed(1) : Math.round(mbps)) + ' Mbps';
+
+    var issues = [], fixes = [], status = 'ok', head;
+    var conn = navigator.connection || null;
+    if (conn && conn.type === 'cellular') issues.push('Your browser says you are on mobile data (SIM), not Wi-Fi.');
+    if (avg === null) {
+      status = 'bad'; head = 'No connection to the server';
+      issues.push('Not one test request got a reply. The internet is down, or this site could not be reached.');
+      fixes.push('Check that other websites open. If none do, restart the router (unplug 30 seconds) and wait 2 minutes.', 'If the Wi-Fi shows connected but nothing opens, forget the network and join again, or try a LAN cable.', 'Still nothing on cable: call your ISP, the fault is on their line.');
+    } else {
+      if (loss >= 20) { status = 'bad'; issues.push('Packet loss is ' + Math.round(loss) + '%. A healthy connection loses almost nothing. This is a very unstable link.'); }
+      else if (loss >= 5) { if (status !== 'bad') status = 'warn'; issues.push('Packet loss is ' + Math.round(loss) + '%. Some requests are getting lost.'); }
+      if (jit >= 80) { status = 'bad'; issues.push('Jitter is ' + Math.round(jit) + ' ms. The delay jumps up and down, which causes video call freezes and game lag.'); }
+      else if (jit >= 30) { if (status !== 'bad') status = 'warn'; issues.push('Jitter is ' + Math.round(jit) + ' ms, a bit unstable.'); }
+      if (avg >= 600) { if (status !== 'bad') status = 'warn'; issues.push('Ping is very high (' + Math.round(avg) + ' ms).'); }
+      if (mbps !== null && mbps < 1) { status = 'bad'; issues.push('Download speed is under 1 Mbps. Pages and videos will crawl.'); }
+      else if (mbps !== null && mbps < 3) { if (status !== 'bad') status = 'warn'; issues.push('Download speed is low (' + mbps.toFixed(1) + ' Mbps).'); }
+      if (status === 'ok') {
+        head = 'Your connection looks healthy';
+        issues.push('Loss, jitter and speed are all in a good range right now.');
+      } else {
+        head = status === 'bad' ? 'Problem found with your connection' : 'Your connection is a bit unstable';
+        if (loss >= 5 || jit >= 30) {
+          fixes.push('Move closer to the router or remove walls / metal objects between you and it.',
+            'Switch to the 5 GHz Wi-Fi name (faster, less crowded) if your router has two bands. Use 2.4 GHz only when you are far away.',
+            'In the router settings change the Wi-Fi channel (on 2.4 GHz use 1, 6 or 11) to avoid your neighbours\' Wi-Fi.',
+            'Disconnect devices that are downloading or streaming, they use up the bandwidth.',
+            'Keep the router away from microwaves, cordless phones and Bluetooth speakers.');
+        }
+        if (mbps !== null && mbps < 3) fixes.push('Check that no download, update or cloud backup is running in the background.', 'Compare with your package speed. If it is much lower on cable too, ask your ISP.');
+        fixes.push('Restart the router (unplug 30 seconds, wait 2 minutes), then test again.',
+          'Test again with a LAN cable. If the cable is fine, the problem is the Wi-Fi; if the cable is also bad, it is your ISP or line, so call them.',
+          'Update the router firmware and try DNS 8.8.8.8 / 1.1.1.1 on the device.');
+      }
+    }
+    var box = $('ipcVerdict');
+    box.className = 'ipc-box ' + (status === 'bad' ? 'ipc-bad' : status === 'warn' ? 'ipc-warn' : 'ipc-ok');
+    box.textContent = '';
+    var h = document.createElement('h3'); h.textContent = (status === 'ok' ? '✅ ' : status === 'warn' ? '⚠️ ' : '❌ ') + head; box.appendChild(h);
+    add(box, 'What we found', issues, false);
+    add(box, 'How to solve it', fixes, true);
+    box.style.display = 'block';
+    btn.disabled = false; btn.textContent = '↻ Test again';
+  });
+})();
+</script>
+
+<%- include('partials/footer') %>

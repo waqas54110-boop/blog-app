@@ -48,6 +48,7 @@ const cartRouter = require('./routes/cart');
 const cartLib = require('./lib/cart');
 const shopLib = require('./lib/shop');
 const ratesRouter = require('./routes/rates');
+const ipcheckRouter = require('./routes/ipcheck'); // V57 IP Checker (standalone)
 const { startRates } = require('./lib/rates');
 const earningsRouter = require('./routes/earnings');
 const earningsLib = require('./lib/earnings');
@@ -192,6 +193,9 @@ app.post('/creators/:id/vote', limiter(10, 20, 'Too many requests. Please wait a
 app.get('/creators/:id/go', limiter(5, 60, 'Too many requests. Please try again in a few minutes.'));
 app.post(['/creators/:id/delete', '/creators/comments/:cid/delete'], limiter(10, 30, 'Too many requests. Please wait a few minutes.'));
 app.get('/trends', limiter(10, 30, 'Too many report requests. Please try again in a few minutes.'));
+app.get('/ip-check', limiter(10, 40, 'Too many IP checks. Please try again in a few minutes.')); // V57
+app.get('/ip-check/ping', limiter(1, 120, 'Too many requests.'));
+app.get('/ip-check/blob', limiter(1, 12, 'Too many speed tests. Please wait a minute.'));
 app.post('/trends/ai', limiter(60, 6, 'You can create up to 6 AI write-ups per hour. Please try again later.'));
 app.post('/report', limiter(10, 10, 'You are reporting too fast. Please wait a few minutes.'));
 app.post(['/u/:username/follow', '/u/:username/unfollow', '/u/:username/follow-email'], limiter(10, 30, 'Too many requests. Please wait a few minutes.'));
@@ -494,6 +498,7 @@ app.use('/', shopRouter);
 app.use('/', cartRouter);
 app.use('/', sellerRouter);
 app.use('/', ratesRouter);
+app.use('/', ipcheckRouter); // V57 IP Checker
 app.use('/', earningsRouter);
 app.use('/', adsRouter);
 app.use('/', authRouter);
