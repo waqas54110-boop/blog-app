@@ -61,8 +61,16 @@ router.get('/ludo/:code', wrapPage(async (req, res, next) => {
     code, state: await L.view(row, u.id), board: L.BOARD, colors: L.COLOR_NAMES,
     uid: u.id, autoJoin: req.query.join === '1', maxActive: L.MAX_ACTIVE,
     emojis: L.CHAT_EMOJIS, chatMax: L.CHAT_MAX_LEN,
+    prefs: await L.getPrefs(u.id),
   };
   res.render('ludo-game', { title: `Ludo room ${code} | Khabzo`, metaDescription: 'Ludo room', code, init });
+}));
+
+// Look & sound preferences (theme, dice skin, token skin, sound). JSON + x-csrf-token header.
+router.post('/ludo/prefs', wrapJson(async (req, res) => {
+  const u = req.session.user;
+  if (!u) return res.status(401).json({ error: 'Please log in again.' });
+  res.json({ prefs: await L.savePrefs(u.id, req.body) });
 }));
 
 router.post('/ludo/:code/act', wrapJson(async (req, res) => {

@@ -184,6 +184,7 @@ app.post(['/cricket/t/:id/teams', '/cricket/t/:id/fixtures', '/cricket/t/:id/fix
 // V60: Ludo. The board polls state.json every 1-2 seconds, so that limit is high (many players can share one mobile-network IP)
 app.get('/ludo/:code/state.json', limiter(1, 300, 'Too many requests.'));
 app.post('/ludo/:code/act', limiter(1, 120, 'You are playing too fast. Please wait a moment.'));
+app.post('/ludo/prefs', limiter(10, 60, 'Too many style changes. Please wait a moment.'));
 app.post(['/ludo/new', '/ludo/join'], limiter(10, 30, 'Too many Ludo rooms. Please wait a few minutes.'));
 // V34: People's Court + petitions
 app.post('/court/:id/argue', limiter(60, 10, 'Too many attempts. Please try again later.', { skipFailedRequests: true }));
